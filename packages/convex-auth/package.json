@@ -1,0 +1,65 @@
+{
+  "name": "convex-zen",
+  "version": "0.0.1",
+  "description": "Production-grade auth component for Convex",
+  "type": "module",
+  "main": "./src/client/index.ts",
+  "types": "./src/client/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/client/index.ts",
+      "import": "./src/client/index.ts"
+    },
+    "./plugins/admin": {
+      "types": "./src/client/plugins/admin.ts",
+      "import": "./src/client/plugins/admin.ts"
+    },
+    "./convex.config": {
+      "types": "./src/component/convex.config.ts",
+      "import": "./src/component/convex.config.ts"
+    }
+  },
+  "publishConfig": {
+    "main": "./dist/client/index.js",
+    "types": "./dist/client/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/client/index.d.ts",
+        "import": "./dist/client/index.js"
+      },
+      "./plugins/admin": {
+        "types": "./dist/client/plugins/admin.d.ts",
+        "import": "./dist/client/plugins/admin.js"
+      },
+      "./convex.config": {
+        "types": "./dist/component/convex.config.d.ts",
+        "import": "./dist/component/convex.config.js"
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "convex": "^1.17.0",
+    "hash-wasm": "^4.11.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@vitest/coverage-v8": "^2.0.0",
+    "convex-test": "^0.0.33",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  },
+  "peerDependencies": {
+    "convex": "^1.17.0"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "license": "Apache-2.0"
+}
