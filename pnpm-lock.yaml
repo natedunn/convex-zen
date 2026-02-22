@@ -10,9 +10,6 @@ importers:
 
   apps/web:
     dependencies:
-      '@convex-zen/auth':
-        specifier: workspace:*
-        version: link:../../packages/convex-auth-compat
       '@tanstack/react-router':
         specifier: ^1.162.1
         version: 1.162.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -27,7 +24,7 @@ importers:
         version: 1.32.0(react@19.2.4)
       convex-zen:
         specifier: workspace:*
-        version: link:../../packages/convex-auth
+        version: link:../../packages/convex-zen
       react:
         specifier: ^19.0.0
         version: 19.2.4
@@ -57,7 +54,7 @@ importers:
         specifier: ^5.1.4
         version: 5.1.4(typescript@5.9.3)(vite@7.3.1(@types/node@22.19.11)(tsx@4.21.0))
 
-  packages/convex-auth:
+  packages/convex-zen:
     dependencies:
       convex:
         specifier: ^1.17.0
@@ -81,12 +78,6 @@ importers:
       vitest:
         specifier: ^2.0.0
         version: 2.1.9(@types/node@22.19.11)
-
-  packages/convex-auth-compat:
-    dependencies:
-      convex-zen:
-        specifier: workspace:*
-        version: link:../convex-auth
 
 packages:
 

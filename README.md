@@ -10,7 +10,7 @@ npm install convex-zen
 
 ## Workspace
 
-- Library package: `packages/convex-auth`
+- Library package: `packages/convex-zen`
 - Demo app: `apps/web`
 - Project architecture and design notes: `PROJECT.md`
 
@@ -25,8 +25,8 @@ pnpm -C apps/web dev
 ## Testing and build
 
 ```bash
-pnpm -C packages/convex-auth test
-pnpm -C packages/convex-auth build
+pnpm -C packages/convex-zen test
+pnpm -C packages/convex-zen build
 pnpm -C apps/web build
 ```
 

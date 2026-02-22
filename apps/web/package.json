@@ -9,7 +9,6 @@
     "convex:dev": "convex dev"
   },
   "dependencies": {
-    "@convex-zen/auth": "workspace:*",
     "convex-zen": "workspace:*",
     "@tanstack/react-router": "^1.162.1",
     "@tanstack/react-router-devtools": "^1.162.1",

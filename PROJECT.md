@@ -84,7 +84,7 @@ convex-zen/
 ├── pnpm-workspace.yaml         # packages/* and apps/*
 ├── PROJECT.md                  # this file
 ├── packages/
-│   └── convex-auth/            # convex-zen — the component
+│   └── convex-zen/             # convex-zen — the component
 └── apps/
     └── web/                    # demo / test application
 ```
@@ -107,7 +107,7 @@ convex-zen/
 
 ---
 
-## packages/convex-auth
+## packages/convex-zen
 
 ### Overview
 
@@ -116,7 +116,7 @@ A Convex component (`defineComponent("convexAuth")`) that the host app installs 
 ### File structure
 
 ```
-packages/convex-auth/
+packages/convex-zen/
 ├── package.json
 ├── tsconfig.json
 ├── vitest.config.ts
@@ -415,8 +415,8 @@ pnpm exec convex dev
 # Run frontend dev server (separate terminal)
 pnpm dev
 
-# Run tests (from packages/convex-auth)
-cd packages/convex-auth
+# Run tests (from packages/convex-zen)
+cd packages/convex-zen
 pnpm test
 
 # Run tests with coverage
@@ -443,7 +443,7 @@ These are platform constraints, not bugs:
 Framework: Vitest + `convex-test`
 
 ```
-packages/convex-auth/tests/
+packages/convex-zen/tests/
 ├── sessions.test.ts       # create, validate, extend, expiry, invalidate
 ├── emailPassword.test.ts  # signUp, signIn, verify, reset, rate limiting
 ├── oauth.test.ts          # state/PKCE generation, callback (valid/invalid)

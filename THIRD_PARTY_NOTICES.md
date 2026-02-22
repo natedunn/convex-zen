@@ -35,7 +35,7 @@ Use this template for each third-party source:
 - Commit/tag reviewed: N/A
 - License: MIT
 - What was reused: No direct code copy intended; implementation is original unless explicitly noted in future entries
-- Local file(s): packages/convex-auth/\*
+- Local file(s): packages/convex-zen/\*
 - Notes: If any future PR ports code from Better Auth, add a detailed entry with exact source paths and commit.
 
 ### Convex Auth (Official)
@@ -45,5 +45,5 @@ Use this template for each third-party source:
 - Commit/tag reviewed: N/A
 - License: Apache-2.0
 - What was reused: No direct code copy intended; implementation is original unless explicitly noted in future entries
-- Local file(s): packages/convex-auth/\*
+- Local file(s): packages/convex-zen/\*
 - Notes: If any future PR ports code from Convex Auth, add a detailed entry with exact source paths and commit.

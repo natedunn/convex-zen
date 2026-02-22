@@ -11,9 +11,13 @@
 		"types": ["vite/client"],
 		"paths": {
 			"~/*": ["./src/*"],
-			"@convex-zen/auth": ["../../packages/convex-auth/src/client/index.ts"],
-			"@convex-zen/auth/plugins/admin": ["../../packages/convex-auth/src/client/plugins/admin.ts"],
-			"@convex-zen/auth/convex.config": ["../../packages/convex-auth/src/component/convex.config.ts"]
+			"convex-zen": ["../../packages/convex-zen/src/client/index.ts"],
+			"convex-zen/plugins/admin": [
+				"../../packages/convex-zen/src/client/plugins/admin.ts"
+			],
+			"convex-zen/convex.config": [
+				"../../packages/convex-zen/src/component/convex.config.ts"
+			]
 		}
 	},
 	"include": ["src", "convex"],
