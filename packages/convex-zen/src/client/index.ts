@@ -374,8 +374,19 @@ export class ConvexAuth {
 // Named exports for convenience
 export { googleProvider, githubProvider } from "./providers";
 export { adminPlugin } from "./plugins/admin";
+export {
+  SessionPrimitives,
+  createSessionPrimitives,
+} from "./primitives";
 export type {
   EmailProvider,
   OAuthProviderConfig,
   AdminPluginConfig,
 } from "../types";
+export type {
+  SessionInfo,
+  SignInInput,
+  SignInOutput,
+  SessionTransport,
+  EstablishedSession,
+} from "./primitives";

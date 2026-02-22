@@ -8,7 +8,7 @@ importers:
 
   .: {}
 
-  apps/web:
+  apps/tanstack:
     dependencies:
       '@tanstack/react-router':
         specifier: ^1.162.1
@@ -63,15 +63,24 @@ importers:
         specifier: ^4.11.0
         version: 4.12.0
     devDependencies:
+      '@tanstack/react-start':
+        specifier: ^1.162.1
+        version: 1.162.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(vite@5.4.21(@types/node@22.19.11))
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.11
+      '@types/react':
+        specifier: ^19.0.8
+        version: 19.2.14
       '@vitest/coverage-v8':
         specifier: ^2.0.0
         version: 2.1.9(vitest@2.1.9(@types/node@22.19.11))
       convex-test:
         specifier: ^0.0.33
         version: 0.0.33(convex@1.32.0(react@19.2.4))
+      react:
+        specifier: ^19.0.0
+        version: 19.2.4
       typescript:
         specifier: ^5.5.0
         version: 5.9.3
@@ -2383,6 +2392,26 @@ snapshots:
     transitivePeerDependencies:
       - crossws
 
+  '@tanstack/react-start@1.162.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(vite@5.4.21(@types/node@22.19.11))':
+    dependencies:
+      '@tanstack/react-router': 1.162.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@tanstack/react-start-client': 1.162.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@tanstack/react-start-server': 1.162.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@tanstack/router-utils': 1.161.4
+      '@tanstack/start-client-core': 1.162.1
+      '@tanstack/start-plugin-core': 1.162.1(@tanstack/react-router@1.162.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(vite@5.4.21(@types/node@22.19.11))
+      '@tanstack/start-server-core': 1.162.1
+      pathe: 2.0.3
+      react: 19.2.4
+      react-dom: 19.2.4(react@19.2.4)
+      vite: 5.4.21(@types/node@22.19.11)
+    transitivePeerDependencies:
+      - '@rsbuild/core'
+      - crossws
+      - supports-color
+      - vite-plugin-solid
+      - webpack
+
   '@tanstack/react-start@1.162.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(vite@7.3.1(@types/node@22.19.11)(tsx@4.21.0))':
     dependencies:
       '@tanstack/react-router': 1.162.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -2442,6 +2471,27 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  '@tanstack/router-plugin@1.162.1(@tanstack/react-router@1.162.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(vite@5.4.21(@types/node@22.19.11))':
+    dependencies:
+      '@babel/core': 7.29.0
+      '@babel/plugin-syntax-jsx': 7.28.6(@babel/core@7.29.0)
+      '@babel/plugin-syntax-typescript': 7.28.6(@babel/core@7.29.0)
+      '@babel/template': 7.28.6
+      '@babel/traverse': 7.29.0
+      '@babel/types': 7.29.0
+      '@tanstack/router-core': 1.162.1
+      '@tanstack/router-generator': 1.162.1
+      '@tanstack/router-utils': 1.161.4
+      '@tanstack/virtual-file-routes': 1.161.4
+      chokidar: 3.6.0
+      unplugin: 2.3.11
+      zod: 3.25.76
+    optionalDependencies:
+      '@tanstack/react-router': 1.162.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      vite: 5.4.21(@types/node@22.19.11)
+    transitivePeerDependencies:
+      - supports-color
+
   '@tanstack/router-plugin@1.162.1(@tanstack/react-router@1.162.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(vite@7.3.1(@types/node@22.19.11)(tsx@4.21.0))':
     dependencies:
       '@babel/core': 7.29.0
@@ -2487,6 +2537,38 @@ snapshots:
       tiny-warning: 1.0.3
 
   '@tanstack/start-fn-stubs@1.161.4': {}
+
+  '@tanstack/start-plugin-core@1.162.1(@tanstack/react-router@1.162.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(vite@5.4.21(@types/node@22.19.11))':
+    dependencies:
+      '@babel/code-frame': 7.27.1
+      '@babel/core': 7.29.0
+      '@babel/types': 7.29.0
+      '@rolldown/pluginutils': 1.0.0-beta.40
+      '@tanstack/router-core': 1.162.1
+      '@tanstack/router-generator': 1.162.1
+      '@tanstack/router-plugin': 1.162.1(@tanstack/react-router@1.162.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(vite@5.4.21(@types/node@22.19.11))
+      '@tanstack/router-utils': 1.161.4
+      '@tanstack/start-client-core': 1.162.1
+      '@tanstack/start-server-core': 1.162.1
+      cheerio: 1.2.0
+      exsolve: 1.0.8
+      pathe: 2.0.3
+      picomatch: 4.0.3
+      source-map: 0.7.6
+      srvx: 0.11.7
+      tinyglobby: 0.2.15
+      ufo: 1.6.3
+      vite: 5.4.21(@types/node@22.19.11)
+      vitefu: 1.1.1(vite@5.4.21(@types/node@22.19.11))
+      xmlbuilder2: 4.0.3
+      zod: 3.25.76
+    transitivePeerDependencies:
+      - '@rsbuild/core'
+      - '@tanstack/react-router'
+      - crossws
+      - supports-color
+      - vite-plugin-solid
+      - webpack
 
   '@tanstack/start-plugin-core@1.162.1(@tanstack/react-router@1.162.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(vite@7.3.1(@types/node@22.19.11)(tsx@4.21.0))':
     dependencies:
@@ -3375,6 +3457,10 @@ snapshots:
       '@types/node': 22.19.11
       fsevents: 2.3.3
       tsx: 4.21.0
+
+  vitefu@1.1.1(vite@5.4.21(@types/node@22.19.11)):
+    optionalDependencies:
+      vite: 5.4.21(@types/node@22.19.11)
 
   vitefu@1.1.1(vite@7.3.1(@types/node@22.19.11)(tsx@4.21.0)):
     optionalDependencies:
