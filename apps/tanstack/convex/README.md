@@ -1,5 +1,16 @@
 # Welcome to your Convex functions directory!
 
+## Project context for this repo
+
+This app is the `convex-zen` TanStack demo.
+
+Import distinction baseline:
+
+- https://github.com/get-convex/better-auth
+- https://labs.convex.dev/better-auth
+
+In this repo we keep auth runtime inside Convex components (`packages/convex-zen`) and use framework-specific package exports rather than importing Better Auth runtime into this app.
+
 Write your Convex functions here.
 See https://docs.convex.dev/functions for more.
 

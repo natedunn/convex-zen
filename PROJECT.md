@@ -9,13 +9,19 @@ A production-grade authentication component built natively for [Convex](https://
 [Better Auth](https://www.better-auth.com) is a capable auth library, but it brings significant baggage when used with Convex:
 
 - It was designed for traditional server environments — it expects a database adapter layer, a Node.js HTTP server, and its own session/user management that duplicates what Convex already does well
-- The `better-auth/convex` adapter is a shim on top of a shim — it translates Better Auth's data model into Convex queries, which is both fragile and wasteful
+- The Convex integration baseline ([get-convex/better-auth](https://github.com/get-convex/better-auth), docs: https://labs.convex.dev/better-auth) is still an adapter approach — it translates Better Auth's data model into Convex queries, which is both fragile and wasteful for this use case
 - It carries abstractions designed for many databases and frameworks, most of which don't apply in a Convex app
 - Configuration is complex and its security decisions are buried in adapters and middleware
 
 `convex-zen` is built the other way around: **start with Convex, add auth on top**. It treats Convex's reactivity, components, and function types as first-class features rather than things to work around.
 
 The goal is to cover ~90% of what Better Auth offers, but designed specifically for how Convex apps are actually built.
+
+### Import distinction
+
+- Baseline reference project: https://github.com/get-convex/better-auth
+- Baseline reference docs: https://labs.convex.dev/better-auth
+- `convex-zen` direction: native auth implementation inside Convex components, with framework-specific surfaces exposed from `convex-zen/<framework>` exports.
 
 ---
 
@@ -72,7 +78,7 @@ No magic. Every public method has a JSDoc comment. Every security decision has a
 - **Rate limiting** — brute-force protection on auth endpoints
 - **Strong cryptography** — Argon2id passwords, SHA-256 session token storage, 256-bit random tokens
 
-The repo also contains `apps/web`, a TanStack Start + React demo app that exercises all auth flows.
+The repo also contains `apps/tanstack`, a TanStack Start + React demo app that exercises all auth flows.
 
 ---
 
@@ -86,7 +92,7 @@ convex-zen/
 ├── packages/
 │   └── convex-zen/             # convex-zen — the component
 └── apps/
-    └── web/                    # demo / test application
+    └── tanstack/               # demo / test application
 ```
 
 **Package manager:** pnpm 10. Use `pnpm install` at the root.
@@ -359,7 +365,7 @@ generateState()           // 32-byte random → hex string
 
 ---
 
-## apps/web (demo application)
+## apps/tanstack (demo application)
 
 TanStack Start (SSR) + TanStack Router (file-based) + Convex React client. Demonstrates all auth flows.
 
@@ -378,7 +384,7 @@ TanStack Start (SSR) + TanStack Router (file-based) + Convex React client. Demon
 ### Convex setup
 
 ```
-apps/web/convex/
+apps/tanstack/convex/
 ├── auth.ts           # ConvexAuth instance (email codes → console.log in dev)
 ├── convex.config.ts  # app.use(convexAuth)
 ├── schema.ts         # Host app schema (empty — all data in component)
@@ -396,7 +402,7 @@ apps/web/convex/
 ### Environment variables
 
 ```
-# apps/web/.env.local
+# apps/tanstack/.env.local
 VITE_CONVEX_URL=https://your-project.convex.cloud
 ```
 
@@ -408,8 +414,8 @@ VITE_CONVEX_URL=https://your-project.convex.cloud
 # Install dependencies
 pnpm install
 
-# Run Convex backend (from apps/web)
-cd apps/web
+# Run Convex backend (from apps/tanstack)
+cd apps/tanstack
 pnpm exec convex dev
 
 # Run frontend dev server (separate terminal)
