@@ -1,5 +1,5 @@
 {
-  "name": "@convex-zen/web",
+  "name": "@convex-zen/tanstack",
   "private": true,
   "type": "module",
   "scripts": {
