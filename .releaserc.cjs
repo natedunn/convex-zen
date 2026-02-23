@@ -16,7 +16,13 @@ module.exports = {
         pkgRoot: "packages/convex-zen",
       },
     ],
-    "@semantic-release/github",
+    [
+      "@semantic-release/github",
+      {
+        labels: false,
+        failComment: false,
+      },
+    ],
     [
       "@semantic-release/git",
       {
