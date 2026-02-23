@@ -22,3 +22,4 @@ Read in order:
 3. `apps/docs/03-tanstack-start.md`
 4. `apps/docs/04-convex-function-auth-data.md`
 5. `apps/docs/05-react-context.md`
+6. `apps/docs/06-convex-generate-plan.md`

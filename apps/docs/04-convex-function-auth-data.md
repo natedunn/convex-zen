@@ -19,11 +19,58 @@ So the host app must pass identity/session context explicitly, usually by:
 
 This is already consistent with `convex-zen` gateway behavior.
 
+In the TanStack demo, this now happens in server functions:
+
+- shared auth setup and helpers in `apps/tanstack/src/lib/auth-server.ts`
+  - `handler` for `/api/auth/session`, `/api/auth/sign-in-with-email`, `/api/auth/sign-out`
+  - `getSession/getToken` for server-side auth state
+  - `fetchAuthQuery/fetchAuthMutation/fetchAuthAction` for token/session-aware Convex calls
+  - plugin routes can be mounted with `plugins: [...]` (example: `adminApiPlugin(...)`)
+- `getSession` server function wrapper + browser `authClient` in `apps/tanstack/src/lib/auth-client.ts`
+- dynamic auth transport in `apps/tanstack/src/routes/api.auth.$.tsx` via `apps/tanstack/src/lib/auth-server.ts`
+- root route consumes `getSession` + `authClient` in `apps/tanstack/src/routes/__root.tsx`
+- protected Convex calls use `api.functions.*` directly in routes; backend resolution happens via `auth` helpers
+
+Important contract detail:
+
+- admin gateway functions expect `adminToken` (not `token`) on component calls
+- if component contracts change, regenerate bindings (`convex codegen`) so host app validators and runtime stay in sync
+
+## `components.convexAuth.gateway` means
+
+`components.convexAuth` is the installed Convex component instance.
+
+`gateway` is the public bridge module exported by the component (`packages/convex-zen/src/component/gateway.ts`).
+
+The host app can call only these exposed gateway functions through `ctx.runAction`/`ctx.runQuery`.
+Internal component modules (`core/*`, `providers/*`, `plugins/*`) stay private.
+
+## App-side helper surface
+
+The demo now centralizes app-side auth system helpers in:
+
+- `apps/tanstack/convex/auth.ts`
+
+The `auth` object itself exposes organized chains:
+
+- `auth.session.validate/require`
+- `auth.user.safeGet/require`
+- `auth.admin.listUsers/banUser/setRole`
+
+This keeps `functions.ts` thin and lets app functions resolve current user through `auth.user.safeGet(ctx)` instead of direct gateway calls in each function handler.
+
+Example:
+
+```ts
+const authUser = await auth.safeGetAuthUser(ctx);
+if (!authUser) throw new Error("Unauthorized");
+```
+
 ## Recommended function pattern
 
 Use explicit helper functions in your host app (or package adapters) so every protected action follows the same flow:
 
-1. read token
+1. resolve auth from `ctx` (or token when provided)
 2. validate token
 3. throw `Unauthorized` when absent/invalid
 4. continue with `session.userId`
@@ -32,9 +79,9 @@ Use explicit helper functions in your host app (or package adapters) so every pr
 
 ```ts
 export const myProtectedAction = action({
-  args: { token: v.string() },
+  args: { token: v.optional(v.string()) },
   handler: async (ctx, args) => {
-    const session = await auth.validateSession(ctx, args.token);
+    const session = await auth.session.validate(ctx, args.token);
     if (!session) throw new Error("Unauthorized");
 
     // session.userId available here

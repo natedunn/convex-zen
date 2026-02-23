@@ -22,13 +22,23 @@ Exports:
 
 Provide a consistent client-side session state/hook layer that works with any React runtime, while keeping storage transport outside the component.
 
+Current demo integration:
+
+- Shared TanStack auth setup is centralized in `apps/tanstack/src/lib/auth-server.ts`
+- `getSession` server function wrapper and `authClient` are centralized in `apps/tanstack/src/lib/auth-client.ts`
+- sign-in/sign-out transport is handled by dynamic API route `apps/tanstack/src/routes/api.auth.$.tsx`
+- Provider is mounted in `apps/tanstack/src/routes/__root.tsx`
+- `initialSession` is sourced from root route SSR `beforeLoad`
+- `authClient` includes `getSession`, `signInWithEmail` (`signIn.email` alias), and `signOut`
+- `authClient` can be extended with plugin methods via `plugins: [...]` (for example `authClient.admin.*`)
+- client boilerplate can be generated with `createTanStackStartAuthApiClient(...)` from `convex-zen/tanstack-start-client`
+- TanStack Query + Convex client providers are wired at the router level in `apps/tanstack/src/router.tsx`
+
 The provider expects a small client interface:
 
 ```ts
 {
   getSession: () => Promise<SessionInfo | null>;
-  signIn: (input) => Promise<SessionInfo>;
-  signOut: () => Promise<void>;
 }
 ```
 
@@ -52,14 +62,14 @@ function AppRoot() {
 }
 
 function Profile() {
-  const { status, session, signOut } = useAuth();
+  const { status, session, refresh } = useAuth();
   if (status === "loading") return <p>Loading...</p>;
   if (!session) return <p>Signed out</p>;
 
   return (
     <div>
       <p>{session.userId}</p>
-      <button onClick={() => void signOut()}>Sign out</button>
+      <button onClick={() => void refresh()}>Refresh session</button>
     </div>
   );
 }
