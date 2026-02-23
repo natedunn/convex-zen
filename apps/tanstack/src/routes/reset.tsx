@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useAction } from "convex/react";
+import { useConvexMutation } from "@convex-dev/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 
@@ -10,8 +11,12 @@ export const Route = createFileRoute("/reset")({
 type Phase = "request" | "reset" | "done";
 
 function ResetPage() {
-  const requestPasswordReset = useAction(api.functions.requestPasswordReset);
-  const resetPassword = useAction(api.functions.resetPassword);
+  const requestPasswordResetMutation = useMutation({
+    mutationFn: useConvexMutation(api.functions.requestPasswordReset),
+  });
+  const resetPasswordMutation = useMutation({
+    mutationFn: useConvexMutation(api.functions.resetPassword),
+  });
   const navigate = useNavigate();
 
   const [email, setEmail] = useState("");
@@ -26,7 +31,7 @@ function ResetPage() {
     setError("");
     setStatus("loading");
     try {
-      await requestPasswordReset({ email });
+      await requestPasswordResetMutation.mutateAsync({ email });
       setPhase("reset");
     } catch (err) {
       setError((err as Error).message);
@@ -40,7 +45,7 @@ function ResetPage() {
     setError("");
     setStatus("loading");
     try {
-      await resetPassword({ email, code, newPassword });
+      await resetPasswordMutation.mutateAsync({ email, code, newPassword });
       setPhase("done");
     } catch (err) {
       setError((err as Error).message);

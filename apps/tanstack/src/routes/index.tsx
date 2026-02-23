@@ -1,39 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useAction } from "convex/react";
-import { useState } from "react";
-import { api } from "../../convex/_generated/api";
+import { useAuth } from "convex-zen/react";
 
 export const Route = createFileRoute("/")({
   component: HomePage,
 });
 
 function HomePage() {
-  const validateSession = useAction(api.functions.validateSession);
-  const [session, setSession] = useState<{
-    userId: string;
-    sessionId: string;
-  } | null | "loading">("loading");
-
-  const token =
-    typeof window !== "undefined" ? localStorage.getItem("sessionToken") : null;
-
-  const checkSession = async () => {
-    if (!token) {
-      setSession(null);
-      return;
-    }
-    try {
-      const result = await validateSession({ token });
-      setSession(result as { userId: string; sessionId: string } | null);
-    } catch {
-      setSession(null);
-    }
-  };
-
-  // Check on first render
-  useState(() => {
-    checkSession();
-  });
+  const { status, session, refresh } = useAuth();
 
   return (
     <div>
@@ -44,7 +17,7 @@ function HomePage() {
 
       <div className="card">
         <h2>Session Status</h2>
-        {session === "loading" ? (
+        {status === "loading" ? (
           <p>Checking…</p>
         ) : session ? (
           <>
@@ -63,7 +36,7 @@ function HomePage() {
         <button
           className="btn-secondary"
           style={{ marginTop: "0.75rem" }}
-          onClick={checkSession}
+          onClick={() => void refresh()}
         >
           Refresh
         </button>

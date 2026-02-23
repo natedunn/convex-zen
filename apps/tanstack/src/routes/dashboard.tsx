@@ -1,50 +1,28 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useAction } from "convex/react";
-import { useEffect, useState } from "react";
-import { api } from "../../convex/_generated/api";
+import { createFileRoute, redirect, useNavigate, useRouter } from "@tanstack/react-router";
+import { useAuth } from "convex-zen/react";
+import { authClient } from "../lib/auth-client";
 
 export const Route = createFileRoute("/dashboard")({
+  beforeLoad: ({ context }) => {
+    if (!context.isAuthenticated) {
+      throw redirect({ to: "/signin" });
+    }
+  },
   component: DashboardPage,
 });
 
 function DashboardPage() {
-  const validateSession = useAction(api.functions.validateSession);
-  const signOut = useAction(api.functions.signOut);
+  const { status, session } = useAuth();
   const navigate = useNavigate();
-
-  const [session, setSession] = useState<{
-    userId: string;
-    sessionId: string;
-  } | null | "loading">("loading");
-
-  const token =
-    typeof window !== "undefined" ? localStorage.getItem("sessionToken") : null;
-
-  useEffect(() => {
-    if (!token) {
-      setSession(null);
-      return;
-    }
-    validateSession({ token })
-      .then((result) =>
-        setSession(result as { userId: string; sessionId: string } | null)
-      )
-      .catch(() => setSession(null));
-  }, [token]);
+  const router = useRouter();
 
   const handleSignOut = async () => {
-    if (token) {
-      try {
-        await signOut({ token });
-      } catch {
-        // ignore
-      }
-      localStorage.removeItem("sessionToken");
-    }
+    await authClient.signOut();
+    await router.invalidate();
     void navigate({ to: "/" });
   };
 
-  if (session === "loading") {
+  if (status === "loading") {
     return (
       <div>
         <h1>Dashboard</h1>
@@ -58,20 +36,13 @@ function DashboardPage() {
       <div>
         <h1>Dashboard</h1>
         <p style={{ color: "#64748b" }}>You are not signed in.</p>
-        <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem" }}>
-          <button
-            className="btn-primary"
-            onClick={() => void navigate({ to: "/signin" })}
-          >
-            Sign In
-          </button>
-          <button
-            className="btn-secondary"
-            onClick={() => void navigate({ to: "/signup" })}
-          >
-            Sign Up
-          </button>
-        </div>
+        <button
+          className="btn-primary"
+          style={{ marginTop: "1rem" }}
+          onClick={() => void navigate({ to: "/signin" })}
+        >
+          Sign In
+        </button>
       </div>
     );
   }
@@ -93,19 +64,9 @@ function DashboardPage() {
         </p>
       </div>
 
-      <div className="card">
-        <h2>Session Token</h2>
-        <p
-          style={{
-            fontSize: "0.75rem",
-            color: "#64748b",
-            fontFamily: "monospace",
-            wordBreak: "break-all",
-          }}
-        >
-          {token}
-        </p>
-      </div>
+      <p style={{ color: "#64748b", fontSize: "0.875rem", marginBottom: "1rem" }}>
+        Session tokens are stored in an HttpOnly cookie and never exposed to client code.
+      </p>
 
       <button className="btn-danger" onClick={() => void handleSignOut()}>
         Sign Out

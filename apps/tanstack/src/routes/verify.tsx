@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useAction } from "convex/react";
+import { useConvexMutation } from "@convex-dev/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 
@@ -11,7 +12,9 @@ export const Route = createFileRoute("/verify")({
 });
 
 function VerifyPage() {
-  const verifyEmail = useAction(api.functions.verifyEmail);
+  const verifyEmailMutation = useMutation({
+    mutationFn: useConvexMutation(api.functions.verifyEmail),
+  });
   const navigate = useNavigate();
   const { email } = Route.useSearch();
 
@@ -28,7 +31,7 @@ function VerifyPage() {
     setError("");
     setStatus("loading");
     try {
-      await verifyEmail({ email, code });
+      await verifyEmailMutation.mutateAsync({ email, code });
       setStatus("done");
     } catch (err) {
       setError((err as Error).message);

@@ -1,89 +1,120 @@
 import {
-  createRootRoute,
-  HeadContent,
-  Link,
-  Outlet,
-  Scripts,
+	createRootRouteWithContext,
+	HeadContent,
+	Link,
+	Outlet,
+	Scripts,
+	useRouteContext,
 } from "@tanstack/react-router";
-import { ConvexProvider, ConvexReactClient } from "convex/react";
+import { ConvexProvider } from "convex/react";
+import { ConvexZenAuthProvider } from "convex-zen/react";
 import type { ReactNode } from "react";
+import { authClient, getSession } from "../lib/auth-client";
+import type { RouterContext } from "../router";
 
-const convex = new ConvexReactClient(import.meta.env["VITE_CONVEX_URL"] as string);
-
-export const Route = createRootRoute({
-  head: () => ({
-    meta: [
-      { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "convex-zen auth — test app" },
-    ],
-    links: [{ rel: "stylesheet", href: "/styles.css" }],
-  }),
-  component: RootComponent,
+export const Route = createRootRouteWithContext<RouterContext>()({
+	head: () => ({
+		meta: [
+			{ charSet: "utf-8" },
+			{ name: "viewport", content: "width=device-width, initial-scale=1" },
+			{ title: "convex-zen auth — test app" },
+		],
+		links: [{ rel: "stylesheet", href: "/styles.css" }],
+	}),
+	beforeLoad: async () => {
+		const session = await getSession();
+		return {
+			isAuthenticated: session !== null,
+			session,
+		};
+	},
+	component: RootComponent,
+	notFoundComponent: NotFoundComponent,
 });
 
 function RootComponent() {
-  return (
-    <RootDocument>
-      <ConvexProvider client={convex}>
-        <nav style={navStyle}>
-          <Link to="/" style={linkStyle}>
-            Home
-          </Link>
-          <Link to="/signup" style={linkStyle}>
-            Sign Up
-          </Link>
-          <Link to="/signin" style={linkStyle}>
-            Sign In
-          </Link>
-          <Link to="/dashboard" style={linkStyle}>
-            Dashboard
-          </Link>
-          <Link to="/admin" style={linkStyle}>
-            Admin
-          </Link>
-        </nav>
-        <main style={mainStyle}>
-          <Outlet />
-        </main>
-      </ConvexProvider>
-    </RootDocument>
-  );
+	const context = useRouteContext({ from: Route.id });
+
+	return (
+		<RootDocument>
+			<ConvexZenAuthProvider
+				client={authClient}
+				initialSession={context.session}
+			>
+				<ConvexProvider client={context.convex}>
+					<nav style={navStyle}>
+						<Link to="/" style={linkStyle}>
+							Home
+						</Link>
+						<Link to="/signup" style={linkStyle}>
+							Sign Up
+						</Link>
+						<Link to="/signin" style={linkStyle}>
+							Sign In
+						</Link>
+						<Link to="/dashboard" style={linkStyle}>
+							Dashboard
+						</Link>
+						<Link to="/admin" style={linkStyle}>
+							Admin
+						</Link>
+					</nav>
+					<main style={mainStyle}>
+						<Outlet />
+					</main>
+				</ConvexProvider>
+			</ConvexZenAuthProvider>
+		</RootDocument>
+	);
 }
 
 function RootDocument({ children }: { children: ReactNode }) {
-  return (
-    <html lang="en">
-      <head>
-        <HeadContent />
-        <style>{css}</style>
-      </head>
-      <body>
-        {children}
-        <Scripts />
-      </body>
-    </html>
-  );
+	return (
+		<html lang="en">
+			<head>
+				<HeadContent />
+				<style>{css}</style>
+			</head>
+			<body>
+				{children}
+				<Scripts />
+			</body>
+		</html>
+	);
+}
+
+function NotFoundComponent() {
+	return (
+		<section className="card">
+			<h1>Page not found</h1>
+			<p style={{ marginBottom: "1rem" }}>
+				The page you requested does not exist.
+			</p>
+			<Link to="/" style={linkStyle}>
+				Return home
+			</Link>
+		</section>
+	);
 }
 
 const navStyle: React.CSSProperties = {
-  display: "flex",
-  gap: "1rem",
-  padding: "1rem 2rem",
-  borderBottom: "1px solid #e2e8f0",
-  background: "#f8fafc",
+	display: "flex",
+	gap: "1rem",
+	padding: "1rem 2rem",
+	borderBottom: "1px solid #e2e8f0",
+	background: "#f8fafc",
 };
 
 const linkStyle: React.CSSProperties = {
-  textDecoration: "none",
-  color: "#4f46e5",
-  fontWeight: 500,
+	textDecoration: "none",
+	color: "#4f46e5",
+	fontWeight: 500,
 };
 
 const mainStyle: React.CSSProperties = {
-  maxWidth: "480px",
-  margin: "2rem auto",
-  padding: "0 1rem",
+	maxWidth: "480px",
+	margin: "2rem auto",
+	padding: "0 1rem",
 };
 
 const css = `
