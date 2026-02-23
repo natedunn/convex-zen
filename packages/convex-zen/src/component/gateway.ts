@@ -79,6 +79,59 @@ export const validateSession = action({
     ctx.runAction(internal.core.sessions.validate, args),
 });
 
+export const getCurrentUser = action({
+  args: {
+    token: v.string(),
+    checkBanned: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { token, checkBanned }) => {
+    const session = await ctx.runAction(internal.core.sessions.validate, {
+      token,
+      checkBanned,
+    });
+    if (!session) {
+      return null;
+    }
+    return ctx.runQuery(internal.core.users.getById, {
+      userId: session.userId,
+    });
+  },
+});
+
+export const getUserById = action({
+  args: {
+    userId: v.string(),
+    checkBanned: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { userId, checkBanned }) => {
+    const user = await ctx.runQuery(internal.core.users.getById, {
+      userId: userId as Id<"users">,
+    });
+    if (!user) {
+      return null;
+    }
+    if (!checkBanned || !user.banned) {
+      return user;
+    }
+
+    const now = Date.now();
+    const banExpires = user.banExpires;
+    if (banExpires === undefined || banExpires > now) {
+      return null;
+    }
+
+    // Temp ban expired — unban automatically.
+    await ctx.runMutation(internal.core.users.update, {
+      userId: userId as Id<"users">,
+      banned: false,
+    });
+
+    return ctx.runQuery(internal.core.users.getById, {
+      userId: userId as Id<"users">,
+    });
+  },
+});
+
 export const invalidateSession = action({
   args: { token: v.string() },
   handler: (ctx, args) =>

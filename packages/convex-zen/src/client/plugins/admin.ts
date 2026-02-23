@@ -67,15 +67,82 @@ export class AdminPlugin {
     return resolved;
   }
 
+  private getAdminToken(args: { adminToken?: string; token?: string }): string {
+    const token = args.adminToken ?? args.token;
+    if (!token) {
+      throw new Error("adminToken is required");
+    }
+    return token;
+  }
+
+  private stringifyError(error: unknown): string {
+    const errorObj = error as { message?: unknown; data?: unknown } | null;
+    return [
+      error instanceof Error ? error.message : "",
+      typeof errorObj?.message === "string" ? errorObj.message : "",
+      typeof errorObj?.data === "string"
+        ? errorObj.data
+        : errorObj?.data
+          ? JSON.stringify(errorObj.data)
+          : "",
+      String(error),
+    ]
+      .filter(Boolean)
+      .join(" | ");
+  }
+
+  private isRetryableGatewayShapeError(error: unknown): boolean {
+    const details = this.stringifyError(error);
+    return (
+      details.includes("Object contains extra field") ||
+      details.includes("ArgumentValidationError") ||
+      details.includes("Server Error")
+    );
+  }
+
+  private async runAdminGatewayAction(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ctx: { runAction: (fn: any, args: any) => Promise<any> },
+    path: string,
+    args: Record<string, unknown> & { adminToken?: string; token?: string }
+  ) {
+    const adminToken = this.getAdminToken(args);
+    const payload = { ...args };
+    delete payload.adminToken;
+    delete payload.token;
+
+    const attempts = [
+      { ...payload, adminToken },
+      payload,
+      { ...payload, token: adminToken },
+    ];
+
+    let lastError: unknown = null;
+    for (let i = 0; i < attempts.length; i += 1) {
+      const attempt = attempts[i];
+      try {
+        return await ctx.runAction(this.fn(path), attempt);
+      } catch (error) {
+        const isLastAttempt = i === attempts.length - 1;
+        if (isLastAttempt || !this.isRetryableGatewayShapeError(error)) {
+          throw error;
+        }
+        lastError = error;
+      }
+    }
+
+    throw lastError ?? new Error(`Failed to call admin action: ${path}`);
+  }
+
   /**
    * List users with pagination.
    */
   async listUsers(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ctx: { runAction: (fn: any, args: any) => Promise<any> },
-    args: { adminToken: string; limit?: number; cursor?: string }
+    args: { adminToken?: string; token?: string; limit?: number; cursor?: string }
   ) {
-    return ctx.runAction(this.fn("gateway:adminListUsers"), args);
+    return this.runAdminGatewayAction(ctx, "gateway:adminListUsers", args);
   }
 
   /**
@@ -85,13 +152,14 @@ export class AdminPlugin {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ctx: { runAction: (fn: any, args: any) => Promise<any> },
     args: {
-      adminToken: string;
+      adminToken?: string;
+      token?: string;
       userId: string;
       reason?: string;
       expiresAt?: number;
     }
   ) {
-    return ctx.runAction(this.fn("gateway:adminBanUser"), args);
+    return this.runAdminGatewayAction(ctx, "gateway:adminBanUser", args);
   }
 
   /**
@@ -100,9 +168,9 @@ export class AdminPlugin {
   async unbanUser(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ctx: { runAction: (fn: any, args: any) => Promise<any> },
-    args: { adminToken: string; userId: string }
+    args: { adminToken?: string; token?: string; userId: string }
   ) {
-    return ctx.runAction(this.fn("gateway:adminUnbanUser"), args);
+    return this.runAdminGatewayAction(ctx, "gateway:adminUnbanUser", args);
   }
 
   /**
@@ -111,9 +179,9 @@ export class AdminPlugin {
   async setRole(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ctx: { runAction: (fn: any, args: any) => Promise<any> },
-    args: { adminToken: string; userId: string; role: string }
+    args: { adminToken?: string; token?: string; userId: string; role: string }
   ) {
-    return ctx.runAction(this.fn("gateway:adminSetRole"), args);
+    return this.runAdminGatewayAction(ctx, "gateway:adminSetRole", args);
   }
 
   /**
@@ -122,9 +190,9 @@ export class AdminPlugin {
   async deleteUser(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ctx: { runAction: (fn: any, args: any) => Promise<any> },
-    args: { adminToken: string; userId: string }
+    args: { adminToken?: string; token?: string; userId: string }
   ) {
-    return ctx.runAction(this.fn("gateway:adminDeleteUser"), args);
+    return this.runAdminGatewayAction(ctx, "gateway:adminDeleteUser", args);
   }
 
   get defaultRole() {

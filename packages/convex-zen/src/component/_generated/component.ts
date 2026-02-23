@@ -27,42 +27,72 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       adminBanUser: FunctionReference<
         "action",
         "internal",
-        { expiresAt?: number; reason?: string; userId: string },
+        {
+          adminToken: string;
+          expiresAt?: number;
+          reason?: string;
+          userId: string;
+        },
         any,
         Name
       >;
       adminDeleteUser: FunctionReference<
         "action",
         "internal",
-        { userId: string },
+        { adminToken: string; userId: string },
         any,
         Name
       >;
       adminListUsers: FunctionReference<
         "action",
         "internal",
-        { cursor?: string; limit?: number },
+        { adminToken: string; cursor?: string; limit?: number },
         any,
         Name
       >;
       adminSetRole: FunctionReference<
         "action",
         "internal",
-        { role: string; userId: string },
+        { adminToken: string; role: string; userId: string },
         any,
         Name
       >;
       adminUnbanUser: FunctionReference<
         "action",
         "internal",
-        { userId: string },
+        { adminToken: string; userId: string },
         any,
         Name
       >;
       getAuthorizationUrl: FunctionReference<
         "action",
         "internal",
-        { provider: any; redirectUrl?: string },
+        {
+          provider: {
+            authorizationUrl: string;
+            clientId: string;
+            clientSecret: string;
+            id: string;
+            scopes: Array<string>;
+            tokenUrl: string;
+            userInfoUrl: string;
+          };
+          redirectUrl?: string;
+        },
+        any,
+        Name
+      >;
+      getCurrentUser: FunctionReference<
+        "action",
+        "internal",
+        { checkBanned?: boolean; token: string },
+        any,
+        Name
+      >;
+      getUserById: FunctionReference<
+        "action",
+        "internal",
+        { checkBanned?: boolean; userId: string },
         any,
         Name
       >;
@@ -72,7 +102,15 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         {
           code: string;
           ipAddress?: string;
-          provider: any;
+          provider: {
+            authorizationUrl: string;
+            clientId: string;
+            clientSecret: string;
+            id: string;
+            scopes: Array<string>;
+            tokenUrl: string;
+            userInfoUrl: string;
+          };
           redirectUrl?: string;
           state: string;
           userAgent?: string;

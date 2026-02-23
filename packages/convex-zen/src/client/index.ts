@@ -1,5 +1,6 @@
 import type {
   EmailProvider,
+  ConvexAuthPlugin,
   OAuthProviderConfig,
   AdminPluginConfig,
 } from "../types";
@@ -23,15 +24,75 @@ interface RunsActions {
   runAction: (fn: any, args: any) => Promise<any>;
 }
 type ConvexCtx = RunsQueries & RunsMutations & RunsActions;
+type PluginList = readonly ConvexAuthPlugin[];
+type AdminPluginFor<TPlugins extends PluginList> =
+  Extract<TPlugins[number], { id: "admin" }> extends never
+    ? null
+    : AdminPlugin;
+type MaybePromise<T> = T | Promise<T>;
+type AuthIdentity = {
+  subject?: string | null;
+  [key: string]: unknown;
+};
 
+interface AdminFacade {
+  listUsers: (
+    ctx: RunsActions,
+    args?: { token?: string; limit?: number; cursor?: string }
+  ) => Promise<unknown>;
+  banUser: (
+    ctx: RunsActions,
+    args: { userId: string; reason?: string; expiresAt?: number; token?: string }
+  ) => Promise<unknown>;
+  unbanUser: (
+    ctx: RunsActions,
+    args: { userId: string; token?: string }
+  ) => Promise<unknown>;
+  setRole: (
+    ctx: RunsActions,
+    args: { userId: string; role: string; token?: string }
+  ) => Promise<unknown>;
+  deleteUser: (
+    ctx: RunsActions,
+    args: { userId: string; token?: string }
+  ) => Promise<unknown>;
+}
+type AdminFacadeFor<TPlugins extends PluginList> =
+  Extract<TPlugins[number], { id: "admin" }> extends never
+    ? null
+    : AdminFacade;
+
+export interface AuthUser {
+  _id: string;
+  email: string;
+  emailVerified: boolean;
+  name?: string;
+  image?: string;
+  role?: string;
+  banned?: boolean;
+  banReason?: string;
+  banExpires?: number;
+  createdAt?: number;
+  updatedAt?: number;
+}
 
 /** ConvexAuth constructor options. */
-export interface ConvexAuthOptions {
+export interface ConvexAuthOptions<TPlugins extends PluginList = PluginList> {
   providers?: OAuthProviderConfig[];
   emailProvider?: EmailProvider;
-  plugins?: AdminPluginConfig[];
+  plugins?: TPlugins;
   /** Require email verification before sign-in. Default: true. */
   requireEmailVerified?: boolean;
+  /**
+   * Optional global token resolver so callers can do auth APIs with only `ctx`.
+   * Commonly reads from framework/identity context.
+   */
+  resolveSessionToken?: (ctx: unknown) => MaybePromise<string | null>;
+  /**
+   * Optional global userId resolver when using identity-based auth.
+   * Defaults to `ctx.auth.getUserIdentity()?.subject` when available.
+   */
+  resolveUserId?: (ctx: unknown) => MaybePromise<string | null>;
 }
 
 /**
@@ -57,16 +118,16 @@ export interface ConvexAuthOptions {
  * });
  * ```
  */
-export class ConvexAuth {
+export class ConvexAuth<TPlugins extends PluginList = PluginList> {
   private readonly component: Record<string, unknown>;
-  private readonly options: ConvexAuthOptions;
+  private readonly options: ConvexAuthOptions<TPlugins>;
   private readonly _adminPlugin: AdminPlugin | null;
   private readonly providerMap: Map<string, OAuthProviderConfig>;
   private readonly adminConfig: AdminPluginConfig | null;
 
   constructor(
     component: Record<string, unknown>,
-    options: ConvexAuthOptions = {}
+    options: ConvexAuthOptions<TPlugins> = {}
   ) {
     this.component = component;
     this.options = options;
@@ -88,7 +149,101 @@ export class ConvexAuth {
   /** Access plugin instances after initialization. */
   get plugins() {
     return {
-      admin: this._adminPlugin,
+      admin: this._adminPlugin as AdminPluginFor<TPlugins>,
+    };
+  }
+
+  /** Alias for plugins to support auth.plugin.admin style access. */
+  get plugin() {
+    return this.plugins;
+  }
+
+  /** Admin facade on the auth object (no separate authSystem object required). */
+  get admin(): AdminFacadeFor<TPlugins> {
+    if (!this._adminPlugin) {
+      return null as AdminFacadeFor<TPlugins>;
+    }
+    return {
+      listUsers: async (ctx, args = {}) => {
+        const adminToken = await this.requireResolvedToken(ctx, args.token);
+        const payload: {
+          adminToken: string;
+          limit?: number;
+          cursor?: string;
+        } = { adminToken };
+        if (args.limit !== undefined) {
+          payload.limit = args.limit;
+        }
+        if (args.cursor !== undefined) {
+          payload.cursor = args.cursor;
+        }
+        return this._adminPlugin!.listUsers(ctx, payload);
+      },
+      banUser: async (ctx, args) => {
+        const adminToken = await this.requireResolvedToken(ctx, args.token);
+        const payload: {
+          adminToken: string;
+          userId: string;
+          reason?: string;
+          expiresAt?: number;
+        } = {
+          adminToken,
+          userId: args.userId,
+        };
+        if (args.reason !== undefined) {
+          payload.reason = args.reason;
+        }
+        if (args.expiresAt !== undefined) {
+          payload.expiresAt = args.expiresAt;
+        }
+        return this._adminPlugin!.banUser(ctx, payload);
+      },
+      unbanUser: async (ctx, args) => {
+        const adminToken = await this.requireResolvedToken(ctx, args.token);
+        return this._adminPlugin!.unbanUser(ctx, {
+          adminToken,
+          userId: args.userId,
+        });
+      },
+      setRole: async (ctx, args) => {
+        const adminToken = await this.requireResolvedToken(ctx, args.token);
+        return this._adminPlugin!.setRole(ctx, {
+          adminToken,
+          userId: args.userId,
+          role: args.role,
+        });
+      },
+      deleteUser: async (ctx, args) => {
+        const adminToken = await this.requireResolvedToken(ctx, args.token);
+        return this._adminPlugin!.deleteUser(ctx, {
+          adminToken,
+          userId: args.userId,
+        });
+      },
+    } as AdminFacadeFor<TPlugins>;
+  }
+
+  /** Session helpers available directly on auth object. */
+  get session() {
+    return {
+      validate: async (ctx: ConvexCtx, token?: string) => {
+        return this.safeValidateSession(ctx, token);
+      },
+      require: async (ctx: ConvexCtx, token?: string) => {
+        return this.requireAuthSession(ctx, token);
+      },
+    };
+  }
+
+  /** Authenticated user helpers available directly on auth object. */
+  get user() {
+    return {
+      safeGet: async (ctx: ConvexCtx, token?: string) => {
+        return this.safeGetAuthUser(ctx, token);
+      },
+      require: async (ctx: ConvexCtx, token?: string) => {
+        return this.requireAuthUser(ctx, token);
+      },
     };
   }
 
@@ -326,6 +481,91 @@ export class ConvexAuth {
   }
 
   /**
+   * Validate session, resolving token from context when one is not provided.
+   */
+  async safeValidateSession(
+    ctx: ConvexCtx,
+    token?: string
+  ): Promise<{ userId: string; sessionId: string } | null> {
+    const resolvedToken = await this.resolveToken(ctx, token);
+    if (!resolvedToken) {
+      return null;
+    }
+    return this.validateSession(ctx, resolvedToken);
+  }
+
+  /**
+   * Validate session and throw when missing/invalid.
+   */
+  async requireAuthSession(
+    ctx: ConvexCtx,
+    token?: string
+  ): Promise<{ userId: string; sessionId: string }> {
+    const session = await this.safeValidateSession(ctx, token);
+    if (!session) {
+      throw new Error("Unauthorized");
+    }
+    return session;
+  }
+
+  /**
+   * Resolve the current signed-in user from a session token.
+   * Returns null when token is invalid/expired/banned.
+   */
+  async getAuthUserFromToken(
+    ctx: ConvexCtx,
+    token: string
+  ): Promise<AuthUser | null> {
+    return ctx.runAction(this.fn("gateway:getCurrentUser"), {
+      token,
+      checkBanned: this.adminConfig !== null,
+    }) as Promise<AuthUser | null>;
+  }
+
+  /**
+   * Resolve authenticated user from `ctx` if possible.
+   * Resolution order:
+   * 1. explicit token argument
+   * 2. resolveSessionToken option
+   * 3. identity claims (session token-like fields)
+   * 4. resolveUserId option
+   * 5. `ctx.auth.getUserIdentity()?.subject`
+   */
+  async safeGetAuthUser(
+    ctx: ConvexCtx,
+    token?: string
+  ): Promise<AuthUser | null> {
+    const resolvedToken = await this.resolveToken(ctx, token);
+    if (resolvedToken) {
+      return this.getAuthUserFromToken(ctx, resolvedToken);
+    }
+
+    const userId = await this.resolveUserId(ctx);
+    if (!userId) {
+      return null;
+    }
+
+    return ctx.runAction(this.fn("gateway:getUserById"), {
+      userId,
+      checkBanned: this.adminConfig !== null,
+    }) as Promise<AuthUser | null>;
+  }
+
+  /**
+   * Resolve current user and throw if unauthenticated.
+   */
+  async requireAuthUser(
+    ctx: ConvexCtx,
+    token?: string
+  ): Promise<AuthUser> {
+    const user = await this.safeGetAuthUser(ctx, token);
+    if (!user) {
+      throw new Error("Unauthorized");
+    }
+    return user;
+  }
+
+  /**
    * Sign out by invalidating a session token.
    * Can be called from a mutation or action context.
    */
@@ -338,6 +578,80 @@ export class ConvexAuth {
    */
   async signOutAll(ctx: RunsActions, userId: string): Promise<void> {
     await ctx.runAction(this.fn("gateway:invalidateAllSessions"), { userId });
+  }
+
+  private async getIdentity(ctx: unknown): Promise<AuthIdentity | null> {
+    const auth = (ctx as { auth?: { getUserIdentity?: () => Promise<unknown> } })
+      .auth;
+    if (!auth?.getUserIdentity) {
+      return null;
+    }
+    const identity = await auth.getUserIdentity();
+    if (!identity || typeof identity !== "object") {
+      return null;
+    }
+    return identity as AuthIdentity;
+  }
+
+  private getStringClaim(
+    identity: AuthIdentity | null,
+    claim: string
+  ): string | null {
+    if (!identity) {
+      return null;
+    }
+    const value = identity[claim];
+    return typeof value === "string" && value.length > 0 ? value : null;
+  }
+
+  private async resolveToken(
+    ctx: unknown,
+    explicitToken?: string
+  ): Promise<string | null> {
+    if (explicitToken) {
+      return explicitToken;
+    }
+
+    const tokenFromResolver = await this.options.resolveSessionToken?.(ctx);
+    if (tokenFromResolver) {
+      return tokenFromResolver;
+    }
+
+    const identity = await this.getIdentity(ctx);
+    return (
+      this.getStringClaim(identity, "sessionToken") ??
+      this.getStringClaim(identity, "token") ??
+      this.getStringClaim(identity, "https://convex-zen.dev/sessionToken") ??
+      null
+    );
+  }
+
+  private async requireResolvedToken(
+    ctx: unknown,
+    explicitToken?: string
+  ): Promise<string> {
+    const token = await this.resolveToken(ctx, explicitToken);
+    if (!token) {
+      throw new Error("Unauthorized");
+    }
+    return token;
+  }
+
+  private async resolveUserId(ctx: unknown): Promise<string | null> {
+    const userIdFromResolver = await this.options.resolveUserId?.(ctx);
+    if (userIdFromResolver) {
+      return userIdFromResolver;
+    }
+
+    const identity = await this.getIdentity(ctx);
+    if (!identity) {
+      return null;
+    }
+
+    if (typeof identity.subject === "string" && identity.subject.length > 0) {
+      return identity.subject;
+    }
+    return this.getStringClaim(identity, "userId");
   }
 
   /**
@@ -379,6 +693,7 @@ export {
   createSessionPrimitives,
 } from "./primitives";
 export type {
+  ConvexAuthPlugin,
   EmailProvider,
   OAuthProviderConfig,
   AdminPluginConfig,

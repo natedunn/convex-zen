@@ -18,7 +18,8 @@
   "include": [
     "src/types.ts",
     "src/client/**/*",
-    "src/component/convex.config.ts"
+    "src/component/convex.config.ts",
+    "src/cli/**/*"
   ],
   "exclude": ["node_modules", "dist", "tests"]
 }

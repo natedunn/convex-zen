@@ -3,6 +3,9 @@
   "version": "0.0.1",
   "description": "Production-grade auth component for Convex",
   "type": "module",
+  "bin": {
+    "convex-zen": "./dist/cli/index.js"
+  },
   "main": "./src/client/index.ts",
   "types": "./src/client/index.ts",
   "exports": {
@@ -13,6 +16,18 @@
     "./tanstack-start": {
       "types": "./src/client/tanstack-start.ts",
       "import": "./src/client/tanstack-start.ts"
+    },
+    "./tanstack-start/plugins": {
+      "types": "./src/client/tanstack-start-plugins.ts",
+      "import": "./src/client/tanstack-start-plugins.ts"
+    },
+    "./tanstack-start-client": {
+      "types": "./src/client/tanstack-start-client.ts",
+      "import": "./src/client/tanstack-start-client.ts"
+    },
+    "./tanstack-start-client/plugins": {
+      "types": "./src/client/tanstack-start-client-plugins.ts",
+      "import": "./src/client/tanstack-start-client-plugins.ts"
     },
     "./react": {
       "types": "./src/client/react.ts",
@@ -38,6 +53,18 @@
       "./tanstack-start": {
         "types": "./dist/client/tanstack-start.d.ts",
         "import": "./dist/client/tanstack-start.js"
+      },
+      "./tanstack-start/plugins": {
+        "types": "./dist/client/tanstack-start-plugins.d.ts",
+        "import": "./dist/client/tanstack-start-plugins.js"
+      },
+      "./tanstack-start-client": {
+        "types": "./dist/client/tanstack-start-client.d.ts",
+        "import": "./dist/client/tanstack-start-client.js"
+      },
+      "./tanstack-start-client/plugins": {
+        "types": "./dist/client/tanstack-start-client-plugins.d.ts",
+        "import": "./dist/client/tanstack-start-client-plugins.js"
       },
       "./react": {
         "types": "./dist/client/react.d.ts",

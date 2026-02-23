@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { SessionInfo, SignInInput } from "./primitives";
+import type { SessionInfo } from "./primitives";
 
 export type AuthStatus = "loading" | "authenticated" | "unauthenticated";
 
@@ -16,8 +16,6 @@ export type AuthSession = SessionInfo;
 
 export interface ReactAuthClient {
   getSession: () => Promise<AuthSession | null>;
-  signIn: (input: SignInInput) => Promise<AuthSession>;
-  signOut: () => Promise<void>;
 }
 
 export interface ConvexZenAuthContextValue {
@@ -25,8 +23,6 @@ export interface ConvexZenAuthContextValue {
   session: AuthSession | null;
   isAuthenticated: boolean;
   refresh: () => Promise<AuthSession | null>;
-  signIn: (input: SignInInput) => Promise<AuthSession>;
-  signOut: () => Promise<void>;
 }
 
 export interface ConvexZenAuthProviderProps {
@@ -60,25 +56,6 @@ export function ConvexZenAuthProvider({
     return next;
   }, [client]);
 
-  const signIn = useCallback(
-    async (input: SignInInput) => {
-      const next = await client.signIn(input);
-      setSession(next);
-      setStatus("authenticated");
-      return next;
-    },
-    [client]
-  );
-
-  const signOut = useCallback(async () => {
-    try {
-      await client.signOut();
-    } finally {
-      setSession(null);
-      setStatus("unauthenticated");
-    }
-  }, [client]);
-
   useEffect(() => {
     if (initialSession !== undefined) {
       setSession(initialSession);
@@ -98,10 +75,8 @@ export function ConvexZenAuthProvider({
       session,
       isAuthenticated: session !== null,
       refresh,
-      signIn,
-      signOut,
     }),
-    [status, session, refresh, signIn, signOut]
+    [status, session, refresh]
   );
 
   return createElement(AuthContext.Provider, { value }, children);
