@@ -117,7 +117,7 @@ convex-zen/
 
 ### Overview
 
-A Convex component (`defineComponent("convexAuth")`) that the host app installs via `convex.config.ts`. All auth logic is isolated inside the component. The host app interacts through a client wrapper class (`ConvexAuth`) which calls the component's public gateway actions.
+A Convex component (`defineComponent("convexAuth")`) that the host app installs via `convex.config.ts`. All auth logic is isolated inside the component. The host app interacts through a client wrapper class (`ConvexZen`) which calls the component's public gateway actions.
 
 ### File structure
 
@@ -129,7 +129,7 @@ packages/convex-zen/
 └── src/
     ├── types.ts                       # Shared TypeScript interfaces
     ├── client/                        # Host-app-facing API
-    │   ├── index.ts                   # ConvexAuth class
+    │   ├── index.ts                   # ConvexZen class
     │   ├── providers.ts               # googleProvider(), githubProvider()
     │   └── plugins/
     │       └── admin.ts               # adminPlugin() factory + AdminPlugin class
@@ -231,7 +231,7 @@ Index: `by_key`
 
 Convex component functions are `internalAction`/`internalMutation`/`internalQuery` — they are **not callable from the host app**. Only public `action`/`mutation`/`query` are reachable via `ctx.runAction(components.convexAuth.xxx, ...)`.
 
-`src/component/gateway.ts` is a thin public `action` layer that wraps every internal function. The host app only ever calls gateway functions. The `ConvexAuth` client wrapper resolves gateway paths via the `fn("gateway:functionName")` helper.
+`src/component/gateway.ts` is a thin public `action` layer that wraps every internal function. The host app only ever calls gateway functions. The `ConvexZen` client wrapper resolves gateway paths via the `fn("gateway:functionName")` helper.
 
 ```
 Host app ctx.runAction()
@@ -249,12 +249,12 @@ All gateway functions are `action` type because actions can call queries, mutati
 
 ```ts
 // convex/auth.ts
-import { ConvexAuth } from "convex-zen";
+import { ConvexZen } from "convex-zen";
 import { googleProvider, githubProvider } from "convex-zen";
 import { adminPlugin } from "convex-zen/plugins/admin";
 import { components } from "./_generated/api";
 
-export const auth = new ConvexAuth(components.convexAuth, {
+export const auth = new ConvexZen(components.convexAuth, {
   providers: [
     googleProvider({ clientId: "...", clientSecret: "..." }),
     githubProvider({ clientId: "...", clientSecret: "..." }),
@@ -273,7 +273,7 @@ auth.registerRoutes(http);   // mounts GET /auth/callback/google, /auth/callback
 export default http;
 ```
 
-### ConvexAuth methods
+### ConvexZen methods
 
 | Method | Ctx type | Description |
 |--------|----------|-------------|
@@ -385,7 +385,7 @@ TanStack Start (SSR) + TanStack Router (file-based) + Convex React client. Demon
 
 ```
 apps/tanstack/convex/
-├── auth.ts           # ConvexAuth instance (email codes → console.log in dev)
+├── auth.ts           # ConvexZen instance (email codes → console.log in dev)
 ├── convex.config.ts  # app.use(convexAuth)
 ├── schema.ts         # Host app schema (empty — all data in component)
 ├── http.ts           # auth.registerRoutes(http)

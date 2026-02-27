@@ -30,8 +30,8 @@ Current demo integration:
 - Provider is mounted in `apps/tanstack/src/routes/__root.tsx`
 - `initialSession` is sourced from root route SSR `beforeLoad`
 - `authClient` includes `getSession`, `signInWithEmail` (`signIn.email` alias), and `signOut`
-- `authClient` can be extended with plugin methods via `plugins: [...]` (for example `authClient.admin.*`)
-- client boilerplate can be generated with `createTanStackStartAuthApiClient(...)` from `convex-zen/tanstack-start-client`
+- `authClient` can expose plugin methods via auto mode (for example `authClient.plugin.admin.*`)
+- client boilerplate can be generated with `createTanStackAuthClient(...)` from `convex-zen/tanstack-start-client`
 - TanStack Query + Convex client providers are wired at the router level in `apps/tanstack/src/router.tsx`
 
 The provider expects a small client interface:
