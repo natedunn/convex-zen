@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.0.0...convex-zen-v1.0.1) (2026-02-27)
+
+
+### Bug Fixes
+
+* **ci:** upgrade npm for trusted publishing ([28aba0a](https://github.com/natedunn/convex-zen/commit/28aba0a4d3872ce0f586611082aa49d66f438cd9))
+
 # 1.0.0 (2026-02-27)
 
 
