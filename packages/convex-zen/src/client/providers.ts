@@ -4,9 +4,10 @@ import type { OAuthProviderConfig } from "../types";
 export function googleProvider(config: {
   clientId: string;
   clientSecret: string;
+  tokenEncryptionSecret?: string;
   scopes?: string[];
 }): OAuthProviderConfig {
-  return {
+  const provider: OAuthProviderConfig = {
     id: "google",
     clientId: config.clientId,
     clientSecret: config.clientSecret,
@@ -15,15 +16,20 @@ export function googleProvider(config: {
     userInfoUrl: "https://www.googleapis.com/oauth2/v3/userinfo",
     scopes: config.scopes ?? ["openid", "email", "profile"],
   };
+  if (config.tokenEncryptionSecret !== undefined) {
+    provider.tokenEncryptionSecret = config.tokenEncryptionSecret;
+  }
+  return provider;
 }
 
 /** Create a GitHub OAuth provider configuration. */
 export function githubProvider(config: {
   clientId: string;
   clientSecret: string;
+  tokenEncryptionSecret?: string;
   scopes?: string[];
 }): OAuthProviderConfig {
-  return {
+  const provider: OAuthProviderConfig = {
     id: "github",
     clientId: config.clientId,
     clientSecret: config.clientSecret,
@@ -32,4 +38,8 @@ export function githubProvider(config: {
     userInfoUrl: "https://api.github.com/user",
     scopes: config.scopes ?? ["read:user", "user:email"],
   };
+  if (config.tokenEncryptionSecret !== undefined) {
+    provider.tokenEncryptionSecret = config.tokenEncryptionSecret;
+  }
+  return provider;
 }

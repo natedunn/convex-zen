@@ -39,7 +39,7 @@ describe("sessions", () => {
     expect(token.length).toBe(64); // 32 bytes = 64 hex chars
 
     // Validate session
-    const result = await t.action(internal.core.sessions.validate, {
+    const result = await t.mutation(internal.core.sessions.validate, {
       token,
     });
 
@@ -51,7 +51,7 @@ describe("sessions", () => {
   it("invalid token returns null", async () => {
     const t = convexTest(schema, modules);
 
-    const result = await t.action(internal.core.sessions.validate, {
+    const result = await t.mutation(internal.core.sessions.validate, {
       token: "invalid-token-that-does-not-exist",
     });
 
@@ -72,10 +72,10 @@ describe("sessions", () => {
 
     const token = await t.mutation(internal.core.sessions.create, { userId });
 
-    // Advance time past session expiry (1 hour + 1 ms)
-    vi.advanceTimersByTime(60 * 60 * 1000 + 1);
+    // Advance time past session expiry (24 hours + 1 ms)
+    vi.advanceTimersByTime(24 * 60 * 60 * 1000 + 1);
 
-    const result = await t.action(internal.core.sessions.validate, { token });
+    const result = await t.mutation(internal.core.sessions.validate, { token });
     expect(result).toBeNull();
   });
 
@@ -94,7 +94,7 @@ describe("sessions", () => {
     const token = await t.mutation(internal.core.sessions.create, { userId });
 
     // Initial validate
-    const initialResult = await t.action(internal.core.sessions.validate, { token });
+    const initialResult = await t.mutation(internal.core.sessions.validate, { token });
     const sessionId = initialResult!.sessionId;
 
     // Get initial expiresAt
@@ -105,7 +105,7 @@ describe("sessions", () => {
     vi.advanceTimersByTime(35 * 60 * 1000);
 
     // Validate again — should trigger extension
-    await t.action(internal.core.sessions.validate, { token });
+    await t.mutation(internal.core.sessions.validate, { token });
 
     // Check that expiresAt increased
     const extendedSession = await t.run((ctx) => ctx.db.get(sessionId));
@@ -161,14 +161,14 @@ describe("sessions", () => {
     const token = await t.mutation(internal.core.sessions.create, { userId });
 
     // Confirm valid
-    const before = await t.action(internal.core.sessions.validate, { token });
+    const before = await t.mutation(internal.core.sessions.validate, { token });
     expect(before).not.toBeNull();
 
     // Invalidate by token
     await t.mutation(internal.core.sessions.invalidateByToken, { token });
 
     // Should be gone
-    const after = await t.action(internal.core.sessions.validate, { token });
+    const after = await t.mutation(internal.core.sessions.validate, { token });
     expect(after).toBeNull();
   });
 
@@ -192,9 +192,9 @@ describe("sessions", () => {
     await t.mutation(internal.core.sessions.invalidateAll, { userId });
 
     const [r1, r2, r3] = await Promise.all([
-      t.action(internal.core.sessions.validate, { token: token1 }),
-      t.action(internal.core.sessions.validate, { token: token2 }),
-      t.action(internal.core.sessions.validate, { token: token3 }),
+      t.mutation(internal.core.sessions.validate, { token: token1 }),
+      t.mutation(internal.core.sessions.validate, { token: token2 }),
+      t.mutation(internal.core.sessions.validate, { token: token3 }),
     ]);
 
     expect(r1).toBeNull();
@@ -218,7 +218,7 @@ describe("sessions", () => {
 
     const token = await t.mutation(internal.core.sessions.create, { userId });
 
-    const result = await t.action(internal.core.sessions.validate, {
+    const result = await t.mutation(internal.core.sessions.validate, {
       token,
       checkBanned: true,
     });
@@ -244,7 +244,7 @@ describe("sessions", () => {
 
     const token = await t.mutation(internal.core.sessions.create, { userId });
 
-    const result = await t.action(internal.core.sessions.validate, {
+    const result = await t.mutation(internal.core.sessions.validate, {
       token,
       checkBanned: true,
     });

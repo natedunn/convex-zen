@@ -1,5 +1,12 @@
 import type { SessionInfo, SignInInput } from "./primitives";
 import type { ReactAuthClient } from "./react";
+import type {
+  FunctionArgs,
+  FunctionReference,
+  FunctionReturnType,
+} from "convex/server";
+import type { TanStackAuthPluginMeta } from "./tanstack-start-plugin-meta";
+import { toKebabCase } from "./tanstack-start-plugin-meta";
 
 export interface TanStackStartAuthServerFns {
   getSession: () => Promise<SessionInfo | null>;
@@ -33,6 +40,37 @@ type PluginExtensions<
   ? {}
   : Simplify<UnionToIntersection<PluginExtension<TPlugins[number]>>>;
 
+type PluginClientExtensionsFromConvexFunctions<TConvexFunctions> =
+  TConvexFunctions extends { plugin: infer TPlugin }
+    ? {
+        plugin: {
+          [TPluginName in keyof TPlugin & string]: TPlugin[TPluginName] extends Record<
+            string,
+            unknown
+          >
+            ? {
+                [TFunctionName in keyof TPlugin[TPluginName] &
+                  string as TPlugin[TPluginName][TFunctionName] extends FunctionReference<
+                  "query" | "mutation" | "action",
+                  "public"
+                >
+                  ? TFunctionName
+                  : never]: TPlugin[TPluginName][TFunctionName] extends FunctionReference<
+                  "query" | "mutation" | "action",
+                  "public"
+                >
+                  ? (
+                      input?: FunctionArgs<TPlugin[TPluginName][TFunctionName]>
+                    ) => Promise<
+                      FunctionReturnType<TPlugin[TPluginName][TFunctionName]>
+                    >
+                  : never;
+              }
+            : never;
+        };
+      }
+    : {};
+
 interface RequestFailureContext {
   fallback: string;
 }
@@ -58,12 +96,15 @@ export interface TanStackStartAuthApiClientPlugin<TExtension extends object> {
 }
 
 export interface TanStackStartAuthApiClientOptions<
-  TPlugins extends readonly TanStackStartAuthApiClientPlugin<object>[] = readonly TanStackStartAuthApiClientPlugin<object>[],
+  TPlugins extends readonly TanStackStartAuthApiClientPlugin<object>[] = [],
+  TConvexFunctions extends Record<string, unknown> | undefined = undefined,
 > {
   basePath?: string;
   credentials?: RequestCredentials;
   fetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
-  plugins?: TPlugins;
+  convexFunctions?: TConvexFunctions;
+  pluginMeta?: TanStackAuthPluginMeta;
+  plugins?: "auto" | TPlugins;
 }
 
 export interface TanStackStartAuthApiClient extends ReactAuthClient {
@@ -78,6 +119,12 @@ export type TanStackStartAuthApiClientWithPlugins<
   TPlugins extends readonly TanStackStartAuthApiClientPlugin<object>[],
 > = TanStackStartAuthApiClient & PluginExtensions<TPlugins>;
 
+export type TanStackStartAuthApiClientAuto<
+  TPlugins extends readonly TanStackStartAuthApiClientPlugin<object>[],
+  TConvexFunctions extends Record<string, unknown> | undefined,
+> = TanStackStartAuthApiClientWithPlugins<TPlugins> &
+  PluginClientExtensionsFromConvexFunctions<TConvexFunctions>;
+
 function normalizeBasePath(path: string): string {
   const normalized = path.trim();
   if (normalized === "") {
@@ -90,6 +137,26 @@ function normalizeBasePath(path: string): string {
     return withLeadingSlash.slice(0, -1);
   }
   return withLeadingSlash;
+}
+
+function isAbsoluteHttpUrl(value: string): boolean {
+  return value.startsWith("http://") || value.startsWith("https://");
+}
+
+function hasFunctionRefCandidate(
+  value: unknown
+): value is FunctionReference<"query" | "mutation" | "action", "public"> {
+  return value !== null && (typeof value === "object" || typeof value === "function");
+}
+
+function readMember(source: unknown, key: string): unknown {
+  if (
+    source === null ||
+    (typeof source !== "object" && typeof source !== "function")
+  ) {
+    return undefined;
+  }
+  return (source as Record<string, unknown>)[key];
 }
 
 async function readJson(response: Response): Promise<unknown> {
@@ -121,9 +188,6 @@ function toSignInBody(input: SignInInput): Record<string, string> {
     email: input.email,
     password: input.password,
   };
-  if (input.ipAddress) {
-    body.ipAddress = input.ipAddress;
-  }
   if (input.userAgent) {
     body.userAgent = input.userAgent;
   }
@@ -150,22 +214,67 @@ export function createTanStackStartReactAuthClient(
  * - basePath: `/api/auth`
  * - credentials: `same-origin`
  */
-export function createTanStackStartAuthApiClient<
+export function createTanStackAuthClient<
   TPlugins extends readonly TanStackStartAuthApiClientPlugin<object>[] = [],
+  TConvexFunctions extends Record<string, unknown> | undefined = undefined,
 >(
-  options: TanStackStartAuthApiClientOptions<TPlugins> = {}
-): TanStackStartAuthApiClientWithPlugins<TPlugins> {
+  options: TanStackStartAuthApiClientOptions<TPlugins, TConvexFunctions> = {}
+): TanStackStartAuthApiClientAuto<TPlugins, TConvexFunctions> {
+  const autoPluginsEnabled =
+    options.plugins === undefined || options.plugins === "auto";
+  if (
+    autoPluginsEnabled &&
+    options.convexFunctions !== undefined &&
+    options.pluginMeta === undefined
+  ) {
+    throw new Error(
+      'createTanStackAuthClient requires "pluginMeta" when plugins is "auto" and convexFunctions is provided. ' +
+        "Pass generated authPluginMeta (convex/auth/plugin/metaGenerated.ts) " +
+        'or disable auto plugins with plugins: [].'
+    );
+  }
+
   const basePath = normalizeBasePath(options.basePath ?? "/api/auth");
   const credentials = options.credentials ?? "same-origin";
   const fetchImpl = options.fetch ?? fetch;
-  const plugins = options.plugins ?? [];
+  const plugins = (
+    autoPluginsEnabled ? [] : options.plugins
+  ) as readonly TanStackStartAuthApiClientPlugin<object>[];
+
+  const resolveRequestUrl = async (path: string): Promise<string> => {
+    const relativeUrl = `${basePath}/${path}`;
+    if (isAbsoluteHttpUrl(relativeUrl) || typeof window !== "undefined") {
+      return relativeUrl;
+    }
+
+    try {
+      const moduleId = "@tanstack/react-start/server";
+      const serverModule = (await import(
+        /* @vite-ignore */ moduleId
+      )) as {
+        getRequestUrl: (opts?: {
+          xForwardedHost?: boolean;
+          xForwardedProto?: boolean;
+        }) => URL;
+      };
+      const { getRequestUrl } = serverModule;
+      const currentRequestUrl = getRequestUrl({
+        xForwardedHost: true,
+        xForwardedProto: true,
+      });
+      return new URL(relativeUrl, currentRequestUrl).toString();
+    } catch {
+      return relativeUrl;
+    }
+  };
 
   const request = async (
     path: string,
     init: RequestInit,
     failure: RequestFailureContext
   ): Promise<Response> => {
-    const response = await fetchImpl(`${basePath}/${path}`, {
+    const requestUrl = await resolveRequestUrl(path);
+    const response = await fetchImpl(requestUrl, {
       ...init,
       credentials,
     });
@@ -247,6 +356,55 @@ export function createTanStackStartAuthApiClient<
     requestVoid,
   };
 
+  const inferredPluginMethods: Record<string, unknown> = {};
+  const shouldInferAutoPlugins =
+    autoPluginsEnabled &&
+    !!options.pluginMeta &&
+    !!options.convexFunctions;
+  if (shouldInferAutoPlugins) {
+    const pluginMeta = options.pluginMeta as TanStackAuthPluginMeta;
+    const pluginFunctions = readMember(options.convexFunctions, "plugin");
+    const pluginExtension: Record<string, unknown> = {};
+
+    for (const [pluginName, functions] of Object.entries(pluginMeta)) {
+      const pluginFunctionRefs = readMember(pluginFunctions, pluginName);
+      const clientFunctions: Record<string, unknown> = {};
+
+      for (const functionName of Object.keys(functions)) {
+        const functionRef = readMember(pluginFunctionRefs, functionName);
+        if (!hasFunctionRefCandidate(functionRef)) {
+          throw new Error(
+            `createTanStackAuthClient could not resolve "convexFunctions.plugin.${pluginName}.${functionName}".`
+          );
+        }
+
+        const routePath = `plugin/${toKebabCase(pluginName)}/${toKebabCase(functionName)}`;
+        clientFunctions[functionName] = async (input?: unknown) => {
+          const requestBody = input === undefined ? {} : input;
+          return requestJson<unknown>(
+            routePath,
+            {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify(requestBody),
+            },
+            {
+              fallback: `Could not call plugin method ${pluginName}.${functionName}`,
+            }
+          );
+        };
+      }
+
+      if (Object.keys(clientFunctions).length > 0) {
+        pluginExtension[pluginName] = clientFunctions;
+      }
+    }
+
+    if (Object.keys(pluginExtension).length > 0) {
+      inferredPluginMethods.plugin = pluginExtension;
+    }
+  }
+
   const pluginExtensions: Record<string, unknown> = {};
   for (const plugin of plugins) {
     Object.assign(pluginExtensions, plugin.create(pluginContext));
@@ -254,6 +412,7 @@ export function createTanStackStartAuthApiClient<
 
   return {
     ...baseClient,
+    ...inferredPluginMethods,
     ...pluginExtensions,
-  } as TanStackStartAuthApiClientWithPlugins<TPlugins>;
+  } as TanStackStartAuthApiClientAuto<TPlugins, TConvexFunctions>;
 }

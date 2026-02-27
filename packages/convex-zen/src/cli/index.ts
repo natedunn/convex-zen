@@ -12,7 +12,7 @@ function printHelp(): void {
   console.log(`convex-zen CLI
 
 Usage:
-  convex-zen generate [--cwd <path>] [--check] [--verbose]
+  convex-zen generate [--cwd <path>] [--check]
 
 Commands:
   generate    Generate Convex auth function wrappers in convex/auth/
@@ -20,7 +20,6 @@ Commands:
 Flags:
   --cwd       Workspace root (default: current working directory)
   --check     Check for drift without writing files
-  --verbose   Print additional details
   -h, --help  Show this help message
 `);
 }
@@ -84,6 +83,21 @@ function printSummary(result: GenerateResult): void {
     console.log("  status:   up-to-date");
   }
 
+  const orderedGroups: ReadonlyArray<{
+    status: "created" | "updated" | "deleted" | "unchanged";
+    files: readonly string[];
+  }> = [
+    { status: "created", files: result.created },
+    { status: "updated", files: result.updated },
+    { status: "deleted", files: result.deleted },
+    { status: "unchanged", files: result.unchanged },
+  ];
+  for (const group of orderedGroups) {
+    for (const file of group.files) {
+      console.log(`  ${group.status}: ${file}`);
+    }
+  }
+
   for (const warning of result.warnings) {
     console.warn(`warning: ${warning}`);
   }
@@ -102,18 +116,6 @@ async function main(): Promise<void> {
 
   const result = await generateAuthFunctions(options);
   printSummary(result);
-
-  if (options.verbose) {
-    for (const file of result.created) {
-      console.log(`created: ${file}`);
-    }
-    for (const file of result.updated) {
-      console.log(`updated: ${file}`);
-    }
-    for (const file of result.deleted) {
-      console.log(`deleted: ${file}`);
-    }
-  }
 
   if (options.check) {
     const hasDrift =

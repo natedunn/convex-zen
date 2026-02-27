@@ -181,6 +181,19 @@ describe("oauth", () => {
       });
       expect(user).not.toBeNull();
       expect(user!.emailVerified).toBe(true);
+
+      const account = await t.run(async (ctx) => {
+        return ctx.db
+          .query("accounts")
+          .withIndex("by_provider_accountId", (q) =>
+            q.eq("providerId", "google").eq("accountId", "google-uid-123")
+          )
+          .unique();
+      });
+      expect(account).not.toBeNull();
+      expect(account!.accessToken).toBeTruthy();
+      expect(account!.accessToken).not.toBe("mock-access-token");
+      expect(account!.accessToken!.startsWith("enc:v1:")).toBe(true);
     });
 
     it("reuses existing account on subsequent login", async () => {

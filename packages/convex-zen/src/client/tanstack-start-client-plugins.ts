@@ -5,6 +5,8 @@ function normalizeRoutePrefix(prefix: string): string {
   return trimmed.length > 0 ? trimmed : "admin";
 }
 
+export const ADMIN_CLIENT_PLUGIN_ID = "admin" as const;
+
 export interface TanStackStartAdminListUsersInput {
   limit?: number;
   cursor?: string;
@@ -72,7 +74,7 @@ export function adminClient<
   const routePrefix = normalizeRoutePrefix(options.routePrefix ?? "admin");
 
   return {
-    id: "admin",
+    id: ADMIN_CLIENT_PLUGIN_ID,
     create: (context) => {
       const post = async <T>(path: string, input: unknown, fallback: string) => {
         return context.requestJson<T>(

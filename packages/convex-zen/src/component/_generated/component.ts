@@ -25,10 +25,11 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
   {
     gateway: {
       adminBanUser: FunctionReference<
-        "action",
+        "mutation",
         "internal",
         {
-          adminToken: string;
+          actorUserId: string;
+          adminRole?: string;
           expiresAt?: number;
           reason?: string;
           userId: string;
@@ -37,30 +38,47 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         Name
       >;
       adminDeleteUser: FunctionReference<
-        "action",
+        "mutation",
         "internal",
-        { adminToken: string; userId: string },
+        { actorUserId: string; adminRole?: string; userId: string },
+        any,
+        Name
+      >;
+      adminIsAdmin: FunctionReference<
+        "query",
+        "internal",
+        { actorUserId: string; adminRole?: string },
         any,
         Name
       >;
       adminListUsers: FunctionReference<
-        "action",
+        "query",
         "internal",
-        { adminToken: string; cursor?: string; limit?: number },
+        {
+          actorUserId: string;
+          adminRole?: string;
+          cursor?: string;
+          limit?: number;
+        },
         any,
         Name
       >;
       adminSetRole: FunctionReference<
-        "action",
+        "mutation",
         "internal",
-        { adminToken: string; role: string; userId: string },
+        {
+          actorUserId: string;
+          adminRole?: string;
+          role: string;
+          userId: string;
+        },
         any,
         Name
       >;
       adminUnbanUser: FunctionReference<
-        "action",
+        "mutation",
         "internal",
-        { adminToken: string; userId: string },
+        { actorUserId: string; adminRole?: string; userId: string },
         any,
         Name
       >;
@@ -74,6 +92,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             clientSecret: string;
             id: string;
             scopes: Array<string>;
+            tokenEncryptionSecret?: string;
             tokenUrl: string;
             userInfoUrl: string;
           };
@@ -83,14 +102,14 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         Name
       >;
       getCurrentUser: FunctionReference<
-        "action",
+        "mutation",
         "internal",
         { checkBanned?: boolean; token: string },
         any,
         Name
       >;
       getUserById: FunctionReference<
-        "action",
+        "mutation",
         "internal",
         { checkBanned?: boolean; userId: string },
         any,
@@ -101,6 +120,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "internal",
         {
           code: string;
+          defaultRole?: string;
           ipAddress?: string;
           provider: {
             authorizationUrl: string;
@@ -108,6 +128,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             clientSecret: string;
             id: string;
             scopes: Array<string>;
+            tokenEncryptionSecret?: string;
             tokenUrl: string;
             userInfoUrl: string;
           };
@@ -119,35 +140,35 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         Name
       >;
       invalidateAllSessions: FunctionReference<
-        "action",
+        "mutation",
         "internal",
         { userId: string },
         any,
         Name
       >;
       invalidateSession: FunctionReference<
-        "action",
+        "mutation",
         "internal",
         { token: string },
         any,
         Name
       >;
       requestPasswordReset: FunctionReference<
-        "action",
+        "mutation",
         "internal",
         { email: string; ipAddress?: string },
         any,
         Name
       >;
       resetPassword: FunctionReference<
-        "action",
+        "mutation",
         "internal",
         { code: string; email: string; newPassword: string },
         any,
         Name
       >;
       signIn: FunctionReference<
-        "action",
+        "mutation",
         "internal",
         {
           email: string;
@@ -160,21 +181,27 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         Name
       >;
       signUp: FunctionReference<
-        "action",
+        "mutation",
         "internal",
-        { email: string; ipAddress?: string; name?: string; password: string },
+        {
+          defaultRole?: string;
+          email: string;
+          ipAddress?: string;
+          name?: string;
+          password: string;
+        },
         any,
         Name
       >;
       validateSession: FunctionReference<
-        "action",
+        "mutation",
         "internal",
         { checkBanned?: boolean; token: string },
         any,
         Name
       >;
       verifyEmail: FunctionReference<
-        "action",
+        "mutation",
         "internal",
         { code: string; email: string },
         any,

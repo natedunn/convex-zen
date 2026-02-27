@@ -13,7 +13,7 @@ export const Route = createFileRoute("/verify")({
 
 function VerifyPage() {
   const verifyEmailMutation = useMutation({
-    mutationFn: useConvexMutation(api.functions.verifyEmail),
+    mutationFn: useConvexMutation(api.auth.core.verifyEmail),
   });
   const navigate = useNavigate();
   const { email } = Route.useSearch();

@@ -10,7 +10,7 @@ export const internal = anyApi as unknown as {
     sessions: {
       create: InternalMutation;
       getByToken: InternalQuery;
-      validate: InternalAction;
+      validate: InternalMutation;
       extend: InternalMutation;
       invalidateByHash: InternalMutation;
       invalidateByToken: InternalMutation;
@@ -40,11 +40,11 @@ export const internal = anyApi as unknown as {
   };
   providers: {
     emailPassword: {
-      signUp: InternalAction;
-      signIn: InternalAction;
-      verifyEmail: InternalAction;
-      requestPasswordReset: InternalAction;
-      resetPassword: InternalAction;
+      signUp: InternalMutation;
+      signIn: InternalMutation;
+      verifyEmail: InternalMutation;
+      requestPasswordReset: InternalMutation;
+      resetPassword: InternalMutation;
       updatePasswordHash: InternalMutation;
     };
     oauth: {

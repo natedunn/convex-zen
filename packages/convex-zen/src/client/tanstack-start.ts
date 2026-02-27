@@ -9,6 +9,12 @@ import type {
   setCookie as setCookieFn,
 } from "@tanstack/react-start/server";
 import {
+  createConvexZenIdentityJwt,
+  type SessionTokenCodec,
+} from "./tanstack-start-identity-jwt";
+import type { TanStackAuthPluginMeta } from "./tanstack-start-plugin-meta";
+import { pluginApiPlugin } from "./tanstack-start-plugins";
+import {
   createSessionPrimitives,
   type SessionInfo,
   type SessionPrimitives,
@@ -21,31 +27,71 @@ type DeleteCookieOptions = Exclude<
   Parameters<typeof deleteCookieFn>[1],
   undefined
 >;
+type MaybePromise<T> = T | Promise<T>;
+const DEFAULT_COOKIE_MAX_AGE_SECONDS = 14 * 24 * 60 * 60;
 
 export interface TanStackStartAuthOptions {
   primitives: SessionPrimitives;
   cookieName?: string;
   cookieOptions?: Partial<SetCookieOptions>;
+  sessionTokenCodec?: SessionTokenCodec;
 }
 
 export interface TanStackStartConvexActions {
-  /** Email/password sign-in action. */
-  signInWithEmail: FunctionReference<"action", "public">;
-  validateSession: FunctionReference<"action", "public">;
-  signOut: FunctionReference<"action", "public">;
+  /** Email/password sign-in mutation. */
+  signInWithEmail: FunctionReference<"mutation", "public">;
+  validateSession: FunctionReference<"mutation", "public">;
+  signOut: FunctionReference<"mutation", "public">;
 }
+
+export type TanStackStartConvexActionRefs =
+  | TanStackStartConvexActions
+  | ({
+      core: TanStackStartConvexActions;
+      plugin?: Record<string, Record<string, unknown>>;
+    } & Record<string, unknown>);
 
 export interface TanStackStartConvexAuthOptions {
   convexUrl: string;
-  actions: TanStackStartConvexActions;
+  convexFunctions: TanStackStartConvexActionRefs;
   cookieName?: string;
   cookieOptions?: Partial<SetCookieOptions>;
+  sessionTokenCodec?: SessionTokenCodec;
 }
+
+export type TanStackAuthApiPluginSelection =
+  | "auto"
+  | readonly TanStackStartAuthApiPluginFactory[];
 
 export interface TanStackStartConvexReactStartOptions
   extends TanStackStartConvexAuthOptions {
   authApiBasePath?: string;
-  plugins?: readonly TanStackStartAuthApiPluginFactory[];
+  /**
+   * Auth API route plugins.
+   * - `"auto"` (default): infer supported built-ins from `convexFunctions`.
+   * - array: explicit plugin factories.
+   */
+  plugins?: TanStackAuthApiPluginSelection;
+  /**
+   * Generated plugin function metadata.
+   * Required for generic auto plugin routing (`/api/auth/plugin/*`).
+   */
+  pluginMeta?: TanStackAuthPluginMeta;
+  /**
+   * Additional trusted origins allowed for non-GET auth API requests.
+   * Same-origin is always trusted.
+   */
+  trustedOrigins?: TrustedOriginsConfig;
+  /**
+   * Whether `/api/auth/*` handlers should trust proxy-forwarded client IP headers.
+   * Default: `false` (secure by default).
+   */
+  trustedProxy?: TrustedProxyConfig;
+  /**
+   * Optional custom client-IP resolver for sign-in requests.
+   * Returned values are sanitized before use.
+   */
+  getClientIp?: ClientIpResolver;
 }
 
 export interface AuthenticatedSession {
@@ -82,7 +128,29 @@ export interface TanStackStartAuthApiHandlerOptions {
   tanstackAuth: Pick<TanStackStartAuth, "getSession" | "signIn" | "signOut">;
   basePath?: string;
   plugins?: readonly TanStackStartAuthApiPlugin[];
+  trustedOrigins?: TrustedOriginsConfig;
+  trustedProxy?: TrustedProxyConfig;
+  getClientIp?: ClientIpResolver;
 }
+
+export type TrustedOriginsConfig =
+  | readonly string[]
+  | ((request: Request) => MaybePromise<readonly string[]>);
+
+export type TrustedProxyConfig =
+  | boolean
+  | ((request: Request) => boolean);
+
+export interface ResolveClientIpContext {
+  trustProxy: boolean;
+  readForwardedIp: () => string | undefined;
+  readRealIp: () => string | undefined;
+}
+
+export type ClientIpResolver = (
+  request: Request,
+  context: ResolveClientIpContext
+) => string | undefined;
 
 export interface TanStackStartAuthApiPluginContext {
   request: Request;
@@ -102,6 +170,7 @@ export interface TanStackStartAuthApiPlugin {
 export interface TanStackStartAuthApiPluginFactoryContext {
   tanstackAuth: TanStackAuthForPluginFactory;
   fetchers: TanStackStartConvexFetchers;
+  convexFunctions: Record<string, unknown>;
 }
 
 type TanStackAuthForPluginFactory = Pick<
@@ -142,6 +211,96 @@ export interface TanStackStartConvexReactStart
   handler: (request: Request) => Promise<Response>;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function hasFunctionRefCandidate(value: unknown): boolean {
+  return (
+    value !== null &&
+    (typeof value === "object" || typeof value === "function")
+  );
+}
+
+function readMember(source: unknown, key: string): unknown {
+  if (
+    source === null ||
+    (typeof source !== "object" && typeof source !== "function")
+  ) {
+    return undefined;
+  }
+  return (source as Record<string, unknown>)[key];
+}
+
+function resolveNamedConvexFunctionRef(
+  convexFunctions: TanStackStartConvexActionRefs,
+  name: string,
+  group?: string
+): unknown {
+  if (group) {
+    const groupedCandidate = readMember(readMember(convexFunctions, group), name);
+    if (hasFunctionRefCandidate(groupedCandidate)) {
+      return groupedCandidate;
+    }
+  }
+  const rootCandidate = readMember(convexFunctions, name);
+  if (hasFunctionRefCandidate(rootCandidate)) {
+    return rootCandidate;
+  }
+  return undefined;
+}
+
+function asMutationActionRef(
+  value: unknown,
+  actionName: "signInWithEmail" | "validateSession" | "signOut"
+): FunctionReference<"mutation", "public"> {
+  if (!hasFunctionRefCandidate(value)) {
+    throw new Error(
+      `createTanStackAuthServer could not resolve "${actionName}" function. ` +
+        `Pass flat convexFunctions ({ ${actionName}, ... }) or nested convexFunctions ({ core: { ${actionName}, ... } }).`
+    );
+  }
+  return value as FunctionReference<"mutation", "public">;
+}
+
+function resolveCoreActions(
+  convexFunctions: TanStackStartConvexActionRefs
+): TanStackStartConvexActions {
+  return {
+    signInWithEmail: asMutationActionRef(
+      resolveNamedConvexFunctionRef(convexFunctions, "signInWithEmail", "core"),
+      "signInWithEmail"
+    ),
+    validateSession: asMutationActionRef(
+      resolveNamedConvexFunctionRef(convexFunctions, "validateSession", "core"),
+      "validateSession"
+    ),
+    signOut: asMutationActionRef(
+      resolveNamedConvexFunctionRef(convexFunctions, "signOut", "core"),
+      "signOut"
+    ),
+  };
+}
+
+function hasPluginMeta(pluginMeta: TanStackAuthPluginMeta | undefined): boolean {
+  if (!pluginMeta) {
+    return false;
+  }
+  for (const pluginFunctions of Object.values(pluginMeta)) {
+    if (Object.keys(pluginFunctions).length > 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function isProductionRuntime(): boolean {
+  const env = (
+    globalThis as { process?: { env?: Record<string, string | undefined> } }
+  ).process?.env;
+  return env?.NODE_ENV === "production";
+}
+
 function resolveCookieOptions(
   options?: Partial<SetCookieOptions>
 ): SetCookieOptions {
@@ -149,7 +308,8 @@ function resolveCookieOptions(
     path: "/",
     httpOnly: true,
     sameSite: "lax",
-    secure: false,
+    secure: isProductionRuntime(),
+    maxAge: DEFAULT_COOKIE_MAX_AGE_SECONDS,
     ...options,
   };
 }
@@ -189,17 +349,158 @@ function resolveActionFromPath(pathname: string, basePath: string): string | nul
   return action.length > 0 ? action : null;
 }
 
-function readClientIp(request: Request): string | undefined {
-  const forwarded = request.headers.get("x-forwarded-for");
-  if (typeof forwarded === "string" && forwarded.length > 0) {
-    const [first] = forwarded.split(",");
-    const ip = first?.trim();
-    if (ip) {
-      return ip;
+function normalizeOrigin(origin: string): string | null {
+  try {
+    return new URL(origin).origin;
+  } catch {
+    return null;
+  }
+}
+
+async function resolveTrustedOrigins(
+  request: Request,
+  trustedOrigins: TrustedOriginsConfig | undefined
+): Promise<Set<string>> {
+  if (!trustedOrigins) {
+    return new Set();
+  }
+  const values =
+    typeof trustedOrigins === "function"
+      ? await trustedOrigins(request)
+      : trustedOrigins;
+  const resolved = new Set<string>();
+  for (const value of values) {
+    const normalized = normalizeOrigin(value);
+    if (normalized) {
+      resolved.add(normalized);
     }
   }
-  const realIp = request.headers.get("x-real-ip");
-  return realIp && realIp.length > 0 ? realIp : undefined;
+  return resolved;
+}
+
+function sanitizeIpValue(rawValue: string | null | undefined): string | undefined {
+  if (!rawValue) {
+    return undefined;
+  }
+  let value = rawValue.trim();
+  if (!value) {
+    return undefined;
+  }
+
+  if (value.startsWith('"') && value.endsWith('"') && value.length > 1) {
+    value = value.slice(1, -1).trim();
+  }
+
+  if (value.toLowerCase() === "unknown") {
+    return undefined;
+  }
+
+  if (value.startsWith("[")) {
+    const endBracket = value.indexOf("]");
+    if (endBracket <= 1) {
+      return undefined;
+    }
+    value = value.slice(1, endBracket);
+  } else {
+    const colonCount = (value.match(/:/g) ?? []).length;
+    if (colonCount === 1) {
+      const [host, port] = value.split(":");
+      if (host && port && /^\d+$/.test(port)) {
+        value = host;
+      }
+    }
+  }
+
+  if (value.length > 64) {
+    return undefined;
+  }
+
+  if (!/^[A-Za-z0-9:.%_-]+$/.test(value)) {
+    return undefined;
+  }
+
+  return value;
+}
+
+function readForwardedIp(request: Request): string | undefined {
+  const forwarded = request.headers.get("forwarded");
+  if (forwarded) {
+    const firstEntry = forwarded.split(",")[0];
+    if (firstEntry) {
+      for (const segment of firstEntry.split(";")) {
+        const [rawKey, rawValue] = segment.split("=", 2);
+        if (!rawKey || !rawValue) {
+          continue;
+        }
+        if (rawKey.trim().toLowerCase() !== "for") {
+          continue;
+        }
+        const parsed = sanitizeIpValue(rawValue.trim());
+        if (parsed) {
+          return parsed;
+        }
+      }
+    }
+  }
+
+  const xForwardedFor = request.headers.get("x-forwarded-for");
+  if (!xForwardedFor) {
+    return undefined;
+  }
+  const first = xForwardedFor.split(",")[0];
+  return sanitizeIpValue(first);
+}
+
+function readRealIp(request: Request): string | undefined {
+  return sanitizeIpValue(request.headers.get("x-real-ip"));
+}
+
+function shouldTrustProxy(
+  request: Request,
+  trustedProxy: TrustedProxyConfig | undefined
+): boolean {
+  if (typeof trustedProxy === "function") {
+    return trustedProxy(request);
+  }
+  return trustedProxy === true;
+}
+
+function resolveClientIp(
+  request: Request,
+  options: Pick<TanStackStartAuthApiHandlerOptions, "trustedProxy" | "getClientIp">
+): string | undefined {
+  const trustProxy = shouldTrustProxy(request, options.trustedProxy);
+  const resolverContext: ResolveClientIpContext = {
+    trustProxy,
+    readForwardedIp: () => (trustProxy ? readForwardedIp(request) : undefined),
+    readRealIp: () => (trustProxy ? readRealIp(request) : undefined),
+  };
+
+  const custom = options.getClientIp?.(request, resolverContext);
+  const resolved = custom ?? resolverContext.readForwardedIp() ?? resolverContext.readRealIp();
+  return sanitizeIpValue(resolved);
+}
+
+async function isAllowedOriginRequest(
+  request: Request,
+  trustedOrigins: TrustedOriginsConfig | undefined
+): Promise<boolean> {
+  const originHeader = request.headers.get("origin");
+  if (!originHeader) {
+    // Non-browser clients may not send Origin.
+    return true;
+  }
+  try {
+    const requestUrl = new URL(request.url);
+    const originUrl = new URL(originHeader);
+    if (requestUrl.origin === originUrl.origin) {
+      return true;
+    }
+    const trusted = await resolveTrustedOrigins(request, trustedOrigins);
+    return trusted.has(originUrl.origin);
+  } catch {
+    return false;
+  }
 }
 
 function toErrorMessage(error: unknown): string {
@@ -234,6 +535,7 @@ export function createTanStackStartAuth(
   const clearCookieOptions: DeleteCookieOptions = {
     path: cookieOptions.path ?? "/",
   };
+  const sessionTokenCodec = options.sessionTokenCodec;
   const unauthorizedError = () => new Error("Unauthorized");
   const getCookieToken = async () => {
     const { getCookie } = await import("@tanstack/react-start/server");
@@ -247,8 +549,24 @@ export function createTanStackStartAuth(
       return null;
     }
 
-    const session = await options.primitives.getSessionFromToken(token);
+    let sessionToken = token;
+    let expectedUserId: string | null = null;
+    if (sessionTokenCodec) {
+      const decoded = await sessionTokenCodec.decode(token);
+      if (!decoded) {
+        deleteCookie(cookieName, clearCookieOptions);
+        return null;
+      }
+      sessionToken = decoded.sessionToken;
+      expectedUserId = decoded.userId;
+    }
+
+    const session = await options.primitives.getSessionFromToken(sessionToken);
     if (!session) {
+      deleteCookie(cookieName, clearCookieOptions);
+      return null;
+    }
+    if (expectedUserId !== null && session.userId !== expectedUserId) {
       deleteCookie(cookieName, clearCookieOptions);
       return null;
     }
@@ -267,15 +585,26 @@ export function createTanStackStartAuth(
   const signIn = async (input: SignInInput) => {
     const { setCookie } = await import("@tanstack/react-start/server");
     const established = await options.primitives.signInAndResolveSession(input);
-    setCookie(cookieName, established.sessionToken, cookieOptions);
+    const cookieToken = sessionTokenCodec
+      ? await sessionTokenCodec.encode({
+          userId: established.session.userId,
+          sessionToken: established.sessionToken,
+        })
+      : established.sessionToken;
+    setCookie(cookieName, cookieToken, cookieOptions);
     return established.session;
   };
 
   const signOut = async () => {
     const { deleteCookie } = await import("@tanstack/react-start/server");
     const token = await getCookieToken();
+    let sessionToken = token;
+    if (token && sessionTokenCodec) {
+      const decoded = await sessionTokenCodec.decode(token);
+      sessionToken = decoded?.sessionToken;
+    }
     try {
-      await options.primitives.signOutByToken(token);
+      await options.primitives.signOutByToken(sessionToken);
     } finally {
       deleteCookie(cookieName, clearCookieOptions);
     }
@@ -331,7 +660,7 @@ export function createTanStackStartAuthHandlers(
 /**
  * Build a Request handler for `/api/auth/*` routes in TanStack Start.
  *
- * Supported actions:
+ * Supported endpoints:
  * - `GET /api/auth/session`
  * - `POST /api/auth/sign-in-with-email`
  * - `POST /api/auth/sign-out`
@@ -356,6 +685,13 @@ export function createTanStackStartAuthApiHandler(
     };
 
     try {
+      if (
+        request.method !== "GET" &&
+        !(await isAllowedOriginRequest(request, options.trustedOrigins))
+      ) {
+        return json({ error: "Forbidden origin" }, 403);
+      }
+
       if (request.method === "GET" && action === "session") {
         const session = await options.tanstackAuth.getSession();
         return json({ session });
@@ -365,7 +701,6 @@ export function createTanStackStartAuthApiHandler(
         const body = (await readRequestBody()) as {
           email?: unknown;
           password?: unknown;
-          ipAddress?: unknown;
           userAgent?: unknown;
         };
         if (
@@ -379,13 +714,9 @@ export function createTanStackStartAuthApiHandler(
           email: body.email,
           password: body.password,
         };
-        if (typeof body.ipAddress === "string" && body.ipAddress.length > 0) {
-          signInInput.ipAddress = body.ipAddress;
-        } else {
-          const requestIp = readClientIp(request);
-          if (requestIp) {
-            signInInput.ipAddress = requestIp;
-          }
+        const requestIp = resolveClientIp(request, options);
+        if (requestIp) {
+          signInInput.ipAddress = requestIp;
         }
         if (typeof body.userAgent === "string" && body.userAgent.length > 0) {
           signInInput.userAgent = body.userAgent;
@@ -421,6 +752,9 @@ export function createTanStackStartAuthApiHandler(
 
       return json({ error: "Not found" }, 404);
     } catch (error) {
+      if (isProductionRuntime()) {
+        return json({ error: "Authentication request failed" }, 400);
+      }
       return json({ error: toErrorMessage(error) }, 400);
     }
   };
@@ -456,7 +790,7 @@ export function createTanStackStartConvexFetchers(
 }
 
 /**
- * Build TanStack Start auth handlers directly from Convex public action refs.
+ * Build TanStack Start auth handlers directly from Convex public mutation refs.
  *
  * This removes transport boilerplate in app code while keeping session logic
  * fully based on Convex functions.
@@ -464,21 +798,27 @@ export function createTanStackStartConvexFetchers(
 export function createTanStackStartConvexAuth(
   options: TanStackStartConvexAuthOptions
 ): TanStackStartAuth {
+  const coreActions = resolveCoreActions(options.convexFunctions);
   const convex = new ConvexHttpClient(options.convexUrl);
   const primitives = createSessionPrimitives({
     signIn: async (input) => {
-      return (await convex.action(options.actions.signInWithEmail, input)) as SignInOutput;
+      return (await convex.mutation(coreActions.signInWithEmail, input)) as SignInOutput;
     },
     validateSession: async (token) => {
-      return (await convex.action(options.actions.validateSession, {
+      return (await convex.mutation(coreActions.validateSession, {
         token,
       })) as SessionInfo | null;
     },
     signOut: async (token) => {
-      await convex.action(options.actions.signOut, { token });
+      await convex.mutation(coreActions.signOut, { token });
     },
   });
-  const adapterOptions: TanStackStartAuthOptions = { primitives };
+  const adapterOptions: TanStackStartAuthOptions = {
+    primitives,
+    sessionTokenCodec:
+      options.sessionTokenCodec ??
+      createConvexZenIdentityJwt().sessionTokenCodec,
+  };
   if (options.cookieName !== undefined) {
     adapterOptions.cookieName = options.cookieName;
   }
@@ -496,27 +836,57 @@ export function createTanStackStartConvexAuth(
  * - token/session helpers (`getSession`, `getToken`, ...)
  * - authenticated Convex fetchers (`fetchAuthQuery`, `fetchAuthMutation`, `fetchAuthAction`)
  */
-export function convexZenReactStart(
+export function createTanStackAuthServer(
   options: TanStackStartConvexReactStartOptions
 ): TanStackStartConvexReactStart {
+  const autoPluginsEnabled =
+    options.plugins === undefined || options.plugins === "auto";
+  if (autoPluginsEnabled && options.pluginMeta === undefined) {
+    throw new Error(
+      'createTanStackAuthServer requires "pluginMeta" when plugins is "auto". ' +
+        "Pass generated authPluginMeta (convex/auth/plugin/metaGenerated.ts) " +
+        'or disable auto plugins with plugins: [].'
+    );
+  }
+
   const tanstackAuth = createTanStackStartConvexAuth(options);
   const fetchers = createTanStackStartConvexFetchers({
     tanstackAuth,
     convexUrl: options.convexUrl,
   });
-  const authApiPlugins =
-    options.plugins?.map((plugin) =>
-      plugin.create({
-        tanstackAuth,
-        fetchers,
+  const autoPluginFactories: TanStackStartAuthApiPluginFactory[] = [];
+  if (hasPluginMeta(options.pluginMeta)) {
+    autoPluginFactories.push(
+      pluginApiPlugin({
+        pluginMeta: options.pluginMeta as TanStackAuthPluginMeta,
       })
-    ) ?? [];
+    );
+  }
+  const pluginFactories = (
+    autoPluginsEnabled ? autoPluginFactories : options.plugins
+  ) as readonly TanStackStartAuthApiPluginFactory[];
+  const authApiPlugins = pluginFactories.map((plugin) =>
+    plugin.create({
+      tanstackAuth,
+      fetchers,
+      convexFunctions: options.convexFunctions as Record<string, unknown>,
+    })
+  );
   const authApiHandlerOptions: TanStackStartAuthApiHandlerOptions = {
     tanstackAuth,
     plugins: authApiPlugins,
   };
   if (options.authApiBasePath !== undefined) {
     authApiHandlerOptions.basePath = options.authApiBasePath;
+  }
+  if (options.trustedOrigins !== undefined) {
+    authApiHandlerOptions.trustedOrigins = options.trustedOrigins;
+  }
+  if (options.trustedProxy !== undefined) {
+    authApiHandlerOptions.trustedProxy = options.trustedProxy;
+  }
+  if (options.getClientIp !== undefined) {
+    authApiHandlerOptions.getClientIp = options.getClientIp;
   }
   const handler = createTanStackStartAuthApiHandler(authApiHandlerOptions);
 

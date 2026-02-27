@@ -111,6 +111,34 @@ describe("admin plugin", () => {
         })
       ).rejects.toThrow("Forbidden");
     });
+
+    it("supports custom admin role checks", async () => {
+      const t = convexTest(schema, modules);
+      const ownerId = await createUser(t, "owner-list@example.com", {
+        role: "owner",
+      });
+      await createUser(t, "member-owner-list@example.com", {
+        role: "user",
+      });
+
+      const isDefaultAdmin = await t.query(api.gateway.adminIsAdmin, {
+        actorUserId: ownerId,
+      });
+      expect(isDefaultAdmin).toBe(false);
+
+      const isOwnerAdmin = await t.query(api.gateway.adminIsAdmin, {
+        actorUserId: ownerId,
+        adminRole: "owner",
+      });
+      expect(isOwnerAdmin).toBe(true);
+
+      const result = await t.query(api.gateway.adminListUsers, {
+        actorUserId: ownerId,
+        adminRole: "owner",
+        limit: 5,
+      }) as { users: unknown[] };
+      expect(result.users.length).toBeGreaterThan(0);
+    });
   });
 
   describe("banUser", () => {
@@ -125,7 +153,7 @@ describe("admin plugin", () => {
       const token = await t.mutation(internal.core.sessions.create, { userId });
 
       // Verify session is valid
-      const beforeBan = await t.action(internal.core.sessions.validate, { token });
+      const beforeBan = await t.mutation(internal.core.sessions.validate, { token });
       expect(beforeBan).not.toBeNull();
 
       // Ban the user
@@ -136,7 +164,7 @@ describe("admin plugin", () => {
       });
 
       // Session should be gone (invalidated on ban)
-      const afterBan = await t.action(internal.core.sessions.validate, { token });
+      const afterBan = await t.mutation(internal.core.sessions.validate, { token });
       expect(afterBan).toBeNull();
 
       // User should be marked as banned
@@ -172,7 +200,7 @@ describe("admin plugin", () => {
         role: "admin",
       });
 
-      await t.action(internal.providers.emailPassword.signUp, {
+      await t.mutation(internal.providers.emailPassword.signUp, {
         email: "willbeban@example.com",
         password: "Password123!",
       });
@@ -196,7 +224,7 @@ describe("admin plugin", () => {
       });
 
       await expect(
-        t.action(internal.providers.emailPassword.signIn, {
+        t.mutation(internal.providers.emailPassword.signIn, {
           email: "willbeban@example.com",
           password: "Password123!",
         })
@@ -234,7 +262,7 @@ describe("admin plugin", () => {
         role: "admin",
       });
 
-      await t.action(internal.providers.emailPassword.signUp, {
+      await t.mutation(internal.providers.emailPassword.signUp, {
         email: "tobounce@example.com",
         password: "Password123!",
       });
@@ -261,7 +289,7 @@ describe("admin plugin", () => {
       });
 
       // Should be able to sign in again
-      const result = await t.action(internal.providers.emailPassword.signIn, {
+      const result = await t.mutation(internal.providers.emailPassword.signIn, {
         email: "tobounce@example.com",
         password: "Password123!",
       }) as { sessionToken: string };
@@ -376,52 +404,92 @@ describe("admin plugin", () => {
   });
 
   describe("gateway authorization", () => {
-    it("rejects invalid admin token", async () => {
+    it("reports admin status for an admin identity", async () => {
+      const t = convexTest(schema, modules);
+      const adminId = await createUser(t, "admin-is-admin@example.com", {
+        role: "admin",
+      });
+
+      const result = await t.query(api.gateway.adminIsAdmin, {
+        actorUserId: adminId,
+      });
+
+      expect(result).toBe(true);
+    });
+
+    it("reports false for a non-admin identity", async () => {
+      const t = convexTest(schema, modules);
+      const userId = await createUser(t, "member-is-admin@example.com", {
+        role: "user",
+      });
+
+      const result = await t.query(api.gateway.adminIsAdmin, {
+        actorUserId: userId,
+      });
+
+      expect(result).toBe(false);
+    });
+
+    it("reports false for a banned admin identity", async () => {
+      const t = convexTest(schema, modules);
+      const adminId = await createUser(t, "banned-admin@example.com", {
+        role: "admin",
+      });
+
+      await t.run(async (ctx) => {
+        await ctx.db.patch(adminId, {
+          banned: true,
+          banReason: "test",
+          updatedAt: Date.now(),
+        });
+      });
+
+      const result = await t.query(api.gateway.adminIsAdmin, {
+        actorUserId: adminId,
+      });
+
+      expect(result).toBe(false);
+    });
+
+    it("requires actor identity", async () => {
       const t = convexTest(schema, modules);
       await createUser(t, "someone@example.com");
 
       await expect(
-        t.action(api.gateway.adminListUsers, {
-          adminToken: "not-a-valid-session-token",
+        t.query(api.gateway.adminListUsers, {
           limit: 10,
         })
-      ).rejects.toThrow("Unauthorized");
+      ).rejects.toThrow(/actorUserId/);
     });
 
-    it("rejects authenticated non-admin users", async () => {
-      const t = convexTest(schema, modules);
-      const nonAdminId = await createUser(t, "member@example.com", {
-        role: "user",
-      });
-      const nonAdminToken = await t.mutation(internal.core.sessions.create, {
-        userId: nonAdminId,
-      });
-
-      await expect(
-        t.action(api.gateway.adminListUsers, {
-          adminToken: nonAdminToken,
-          limit: 10,
-        })
-      ).rejects.toThrow("Forbidden");
-    });
-
-    it("allows authenticated admin users", async () => {
+    it("allows admin identity", async () => {
       const t = convexTest(schema, modules);
       const adminId = await createUser(t, "admin@example.com", {
         role: "admin",
       });
       await createUser(t, "member@example.com", { role: "user" });
-      const adminToken = await t.mutation(internal.core.sessions.create, {
-        userId: adminId,
-      });
 
-      const result = (await t.action(api.gateway.adminListUsers, {
-        adminToken,
+      const result = (await t.query(api.gateway.adminListUsers, {
+        actorUserId: adminId,
         limit: 10,
       })) as { users: Array<{ _id: string }>; isDone: boolean };
 
       expect(result.users.length).toBeGreaterThan(0);
       expect(result.isDone).toBe(true);
+    });
+
+    it("rejects non-admin identity", async () => {
+      const t = convexTest(schema, modules);
+      const userId = await createUser(t, "member-identity-forbidden@example.com", {
+        role: "user",
+      });
+
+      await expect(
+        t.query(api.gateway.adminListUsers, {
+          actorUserId: userId,
+          limit: 10,
+        })
+      ).rejects.toThrow("Forbidden");
     });
   });
 });

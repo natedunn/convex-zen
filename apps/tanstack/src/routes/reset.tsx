@@ -12,10 +12,10 @@ type Phase = "request" | "reset" | "done";
 
 function ResetPage() {
   const requestPasswordResetMutation = useMutation({
-    mutationFn: useConvexMutation(api.functions.requestPasswordReset),
+    mutationFn: useConvexMutation(api.auth.core.requestPasswordReset),
   });
   const resetPasswordMutation = useMutation({
-    mutationFn: useConvexMutation(api.functions.resetPassword),
+    mutationFn: useConvexMutation(api.auth.core.resetPassword),
   });
   const navigate = useNavigate();
 

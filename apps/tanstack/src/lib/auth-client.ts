@@ -1,12 +1,12 @@
-import { createServerFn } from "@tanstack/react-start";
-import { createTanStackStartAuthApiClient } from "convex-zen/tanstack-start-client";
-import { adminClient } from "convex-zen/tanstack-start-client/plugins";
-import { getSession as getServerSession } from "./auth-server";
+import { createTanStackAuthClient } from "convex-zen/tanstack-start-client";
+import { api } from "../../convex/_generated/api";
+import { authPluginMeta } from "../../convex/auth/plugin/metaGenerated";
 
-export const getSession = createServerFn({ method: "GET" }).handler(async () =>
-	getServerSession(),
-);
+const test = Object.keys(api.auth.plugin.admin);
 
-export const authClient = createTanStackStartAuthApiClient({
-  plugins: [adminClient()],
+export const authClient = createTanStackAuthClient({
+	convexFunctions: api.auth,
+	pluginMeta: authPluginMeta,
 });
+
+export const getSession = () => authClient.getSession();

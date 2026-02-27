@@ -10,7 +10,7 @@ export const Route = createFileRoute("/signup")({
 
 function SignUpPage() {
   const signUpMutation = useMutation({
-    mutationFn: useConvexMutation(api.functions.signUp),
+    mutationFn: useConvexMutation(api.auth.core.signUp),
   });
   const navigate = useNavigate();
 

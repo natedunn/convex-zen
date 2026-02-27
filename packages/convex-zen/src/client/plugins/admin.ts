@@ -1,4 +1,4 @@
-import type { AdminPluginConfig } from "../../types";
+import type { AdminListUsersResult, AdminPluginConfig } from "../../types";
 
 /**
  * Create an admin plugin configuration.
@@ -7,7 +7,7 @@ import type { AdminPluginConfig } from "../../types";
  * ```ts
  * import { adminPlugin } from "convex-zen/plugins/admin";
  *
- * export const auth = new ConvexAuth(components.convexAuth, {
+ * export const auth = new ConvexZen(components.convexAuth, {
  *   plugins: [adminPlugin({ defaultRole: "user", adminRole: "admin" })],
  * });
  * ```
@@ -18,6 +18,8 @@ export function adminPlugin(config?: {
 }): AdminPluginConfig {
   const plugin: AdminPluginConfig = {
     id: "admin",
+    defaultRole: "user",
+    adminRole: "admin",
   };
   if (config?.defaultRole !== undefined) {
     plugin.defaultRole = config.defaultRole;
@@ -30,13 +32,18 @@ export function adminPlugin(config?: {
 
 /**
  * AdminPlugin client class — exposes admin operations as typed methods.
- * Obtained via `auth.plugins.admin` after ConvexAuth is initialized with adminPlugin.
+ * Obtained via `auth.plugins.admin` after ConvexZen is initialized with adminPlugin.
  */
 export class AdminPlugin {
   constructor(
     private readonly componentApi: Record<string, unknown>,
     private readonly config: AdminPluginConfig
   ) {}
+
+  private resolveAdminRole(): string {
+    const normalized = this.config.adminRole?.trim();
+    return normalized && normalized.length > 0 ? normalized : "admin";
+  }
 
   /**
    * Resolve a nested component function reference from a path string.
@@ -67,132 +74,183 @@ export class AdminPlugin {
     return resolved;
   }
 
-  private getAdminToken(args: { adminToken?: string; token?: string }): string {
-    const token = args.adminToken ?? args.token;
-    if (!token) {
-      throw new Error("adminToken is required");
-    }
-    return token;
-  }
-
-  private stringifyError(error: unknown): string {
-    const errorObj = error as { message?: unknown; data?: unknown } | null;
-    return [
-      error instanceof Error ? error.message : "",
-      typeof errorObj?.message === "string" ? errorObj.message : "",
-      typeof errorObj?.data === "string"
-        ? errorObj.data
-        : errorObj?.data
-          ? JSON.stringify(errorObj.data)
-          : "",
-      String(error),
-    ]
-      .filter(Boolean)
-      .join(" | ");
-  }
-
-  private isRetryableGatewayShapeError(error: unknown): boolean {
-    const details = this.stringifyError(error);
-    return (
-      details.includes("Object contains extra field") ||
-      details.includes("ArgumentValidationError") ||
-      details.includes("Server Error")
-    );
-  }
-
-  private async runAdminGatewayAction(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ctx: { runAction: (fn: any, args: any) => Promise<any> },
+  private async runAdminGatewayMutation(
+    ctx: {
+      runMutation: (
+        fn: unknown,
+        args: Record<string, unknown>
+      ) => Promise<unknown>;
+    },
     path: string,
-    args: Record<string, unknown> & { adminToken?: string; token?: string }
-  ) {
-    const adminToken = this.getAdminToken(args);
-    const payload = { ...args };
-    delete payload.adminToken;
-    delete payload.token;
+    args: Record<string, unknown>
+  ): Promise<unknown> {
+    return ctx.runMutation(this.fn(path), args);
+  }
 
-    const attempts = [
-      { ...payload, adminToken },
-      payload,
-      { ...payload, token: adminToken },
-    ];
+  private async runAdminGatewayQuery(
+    ctx: {
+      runQuery: (
+        fn: unknown,
+        args: Record<string, unknown>
+      ) => Promise<unknown>;
+    },
+    path: string,
+    args: Record<string, unknown>
+  ): Promise<unknown> {
+    return ctx.runQuery(this.fn(path), args);
+  }
 
-    let lastError: unknown = null;
-    for (let i = 0; i < attempts.length; i += 1) {
-      const attempt = attempts[i];
-      try {
-        return await ctx.runAction(this.fn(path), attempt);
-      } catch (error) {
-        const isLastAttempt = i === attempts.length - 1;
-        if (isLastAttempt || !this.isRetryableGatewayShapeError(error)) {
-          throw error;
-        }
-        lastError = error;
-      }
+  /**
+   * Returns true when the actor has an active admin role.
+   */
+  async isAdmin(
+    ctx: {
+      runQuery: (
+        fn: unknown,
+        args: Record<string, unknown>
+      ) => Promise<unknown>;
+    },
+    args: {
+      actorUserId: string;
     }
-
-    throw lastError ?? new Error(`Failed to call admin action: ${path}`);
+  ): Promise<boolean> {
+    return this.runAdminGatewayQuery(
+      ctx,
+      "gateway:adminIsAdmin",
+      {
+        ...args,
+        adminRole: this.resolveAdminRole(),
+      }
+    ) as Promise<boolean>;
   }
 
   /**
    * List users with pagination.
    */
   async listUsers(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ctx: { runAction: (fn: any, args: any) => Promise<any> },
-    args: { adminToken?: string; token?: string; limit?: number; cursor?: string }
-  ) {
-    return this.runAdminGatewayAction(ctx, "gateway:adminListUsers", args);
+    ctx: {
+      runQuery: (
+        fn: unknown,
+        args: Record<string, unknown>
+      ) => Promise<unknown>;
+    },
+    args: {
+      actorUserId: string;
+      limit?: number;
+      cursor?: string;
+    }
+  ): Promise<AdminListUsersResult> {
+    return this.runAdminGatewayQuery(
+      ctx,
+      "gateway:adminListUsers",
+      {
+        ...args,
+        adminRole: this.resolveAdminRole(),
+      }
+    ) as Promise<AdminListUsersResult>;
   }
 
   /**
    * Ban a user, invalidating all their sessions.
    */
   async banUser(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ctx: { runAction: (fn: any, args: any) => Promise<any> },
+    ctx: {
+      runMutation: (
+        fn: unknown,
+        args: Record<string, unknown>
+      ) => Promise<unknown>;
+    },
     args: {
-      adminToken?: string;
-      token?: string;
+      actorUserId: string;
       userId: string;
       reason?: string;
       expiresAt?: number;
     }
-  ) {
-    return this.runAdminGatewayAction(ctx, "gateway:adminBanUser", args);
+  ): Promise<void> {
+    return this.runAdminGatewayMutation(
+      ctx,
+      "gateway:adminBanUser",
+      {
+        ...args,
+        adminRole: this.resolveAdminRole(),
+      }
+    ) as Promise<void>;
   }
 
   /**
    * Unban a user.
    */
   async unbanUser(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ctx: { runAction: (fn: any, args: any) => Promise<any> },
-    args: { adminToken?: string; token?: string; userId: string }
-  ) {
-    return this.runAdminGatewayAction(ctx, "gateway:adminUnbanUser", args);
+    ctx: {
+      runMutation: (
+        fn: unknown,
+        args: Record<string, unknown>
+      ) => Promise<unknown>;
+    },
+    args: {
+      actorUserId: string;
+      userId: string;
+    }
+  ): Promise<void> {
+    return this.runAdminGatewayMutation(
+      ctx,
+      "gateway:adminUnbanUser",
+      {
+        ...args,
+        adminRole: this.resolveAdminRole(),
+      }
+    ) as Promise<void>;
   }
 
   /**
    * Set a user's role.
    */
   async setRole(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ctx: { runAction: (fn: any, args: any) => Promise<any> },
-    args: { adminToken?: string; token?: string; userId: string; role: string }
-  ) {
-    return this.runAdminGatewayAction(ctx, "gateway:adminSetRole", args);
+    ctx: {
+      runMutation: (
+        fn: unknown,
+        args: Record<string, unknown>
+      ) => Promise<unknown>;
+    },
+    args: {
+      actorUserId: string;
+      userId: string;
+      role: string;
+    }
+  ): Promise<void> {
+    return this.runAdminGatewayMutation(
+      ctx,
+      "gateway:adminSetRole",
+      {
+        ...args,
+        adminRole: this.resolveAdminRole(),
+      }
+    ) as Promise<void>;
   }
 
   /**
    * Permanently delete a user and all associated data.
    */
   async deleteUser(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ctx: { runAction: (fn: any, args: any) => Promise<any> },
-    args: { adminToken?: string; token?: string; userId: string }
-  ) {
-    return this.runAdminGatewayAction(ctx, "gateway:adminDeleteUser", args);
+    ctx: {
+      runMutation: (
+        fn: unknown,
+        args: Record<string, unknown>
+      ) => Promise<unknown>;
+    },
+    args: {
+      actorUserId: string;
+      userId: string;
+    }
+  ): Promise<void> {
+    return this.runAdminGatewayMutation(
+      ctx,
+      "gateway:adminDeleteUser",
+      {
+        ...args,
+        adminRole: this.resolveAdminRole(),
+      }
+    ) as Promise<void>;
   }
 
   get defaultRole() {

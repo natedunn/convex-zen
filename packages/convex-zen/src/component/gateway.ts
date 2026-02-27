@@ -1,34 +1,98 @@
 /**
  * Public gateway — the only functions callable from the host app.
  *
- * All functions are `action` (not `internalAction`) so they appear in the
- * component's public API and can be reached via ctx.runAction / ctx.runQuery
- * from the parent Convex backend. They simply delegate to the corresponding
- * internal functions.
- *
- * Internal functions remain `internalAction`/`internalMutation`/`internalQuery`
- * and are only callable from within this component.
+ * Functions are exposed as public mutation/query/action entrypoints so they
+ * appear in the component API and can be reached via ctx.runMutation /
+ * ctx.runQuery / ctx.runAction from the parent Convex backend.
  */
 import { v } from "convex/values";
-import { action } from "./_generated/server";
+import { action, mutation, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
-import { internal } from "./lib/internalApi";
 import { oauthProviderConfigValidator } from "./lib/validators";
+import {
+  signUpWithEmailPassword,
+  signInWithEmailPassword,
+  verifyEmailCode,
+  requestPasswordResetCode,
+  resetPasswordWithCode,
+} from "./providers/emailPassword";
+import {
+  invalidateAllUserSessions,
+  invalidateSessionByRawToken,
+  validateSessionToken,
+} from "./core/sessions";
+import { findUserById, patchUser } from "./core/users";
+import {
+  getAuthorizationUrlForProvider,
+  handleOAuthCallbackForProvider,
+} from "./providers/oauth";
+import {
+  banUserByAdmin,
+  deleteUserByAdmin,
+  listUsersForAdmin,
+  setUserRoleByAdmin,
+  unbanUserByAdmin,
+} from "./plugins/admin";
+
+type AdminActorRecord = {
+  _id: Id<"users">;
+  role?: string;
+  banned?: boolean;
+  banExpires?: number;
+};
+
+type AdminLookupCtx = {
+  db: {
+    get: (id: Id<"users">) => Promise<AdminActorRecord | null>;
+  };
+};
+
+function isCurrentlyBanned(actor: AdminActorRecord, now: number): boolean {
+  return !!(
+    actor.banned &&
+    (actor.banExpires === undefined || actor.banExpires > now)
+  );
+}
+
+function resolveAdminRole(role: string | undefined): string {
+  const trimmed = role?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : "admin";
+}
+
+async function requireAdminActor(
+  ctx: AdminLookupCtx,
+  actorUserId: string,
+  adminRole?: string,
+): Promise<Id<"users">> {
+  const now = Date.now();
+  const adminUser = await ctx.db.get(actorUserId as Id<"users">);
+  const requiredRole = resolveAdminRole(adminRole);
+  if (!adminUser) {
+    throw new Error("Unauthorized");
+  }
+  if (isCurrentlyBanned(adminUser, now)) {
+    throw new Error("Unauthorized");
+  }
+  if (adminUser.role !== requiredRole) {
+    throw new Error("Forbidden");
+  }
+  return adminUser._id;
+}
 
 // ─── Email / Password ──────────────────────────────────────────────────────
 
-export const signUp = action({
+export const signUp = mutation({
   args: {
     email: v.string(),
     password: v.string(),
     name: v.optional(v.string()),
     ipAddress: v.optional(v.string()),
+    defaultRole: v.optional(v.string()),
   },
-  handler: (ctx, args) =>
-    ctx.runAction(internal.providers.emailPassword.signUp, args),
+  handler: async (ctx, args) => await signUpWithEmailPassword(ctx, args),
 });
 
-export const signIn = action({
+export const signIn = mutation({
   args: {
     email: v.string(),
     password: v.string(),
@@ -36,77 +100,69 @@ export const signIn = action({
     userAgent: v.optional(v.string()),
     requireEmailVerified: v.optional(v.boolean()),
   },
-  handler: (ctx, args) =>
-    ctx.runAction(internal.providers.emailPassword.signIn, args),
+  handler: async (ctx, args) => await signInWithEmailPassword(ctx, args),
 });
 
-export const verifyEmail = action({
+export const verifyEmail = mutation({
   args: {
     email: v.string(),
     code: v.string(),
   },
-  handler: (ctx, args) =>
-    ctx.runAction(internal.providers.emailPassword.verifyEmail, args),
+  handler: async (ctx, args) => await verifyEmailCode(ctx, args),
 });
 
-export const requestPasswordReset = action({
+export const requestPasswordReset = mutation({
   args: {
     email: v.string(),
     ipAddress: v.optional(v.string()),
   },
-  handler: (ctx, args) =>
-    ctx.runAction(internal.providers.emailPassword.requestPasswordReset, args),
+  handler: async (ctx, args) => await requestPasswordResetCode(ctx, args),
 });
 
-export const resetPassword = action({
+export const resetPassword = mutation({
   args: {
     email: v.string(),
     code: v.string(),
     newPassword: v.string(),
   },
-  handler: (ctx, args) =>
-    ctx.runAction(internal.providers.emailPassword.resetPassword, args),
+  handler: async (ctx, args) => await resetPasswordWithCode(ctx, args),
 });
 
 // ─── Sessions ──────────────────────────────────────────────────────────────
 
-export const validateSession = action({
+export const validateSession = mutation({
   args: {
     token: v.string(),
     checkBanned: v.optional(v.boolean()),
   },
-  handler: (ctx, args) =>
-    ctx.runAction(internal.core.sessions.validate, args),
+  handler: async (ctx, args) => await validateSessionToken(ctx.db, args),
 });
 
-export const getCurrentUser = action({
+export const getCurrentUser = mutation({
   args: {
     token: v.string(),
     checkBanned: v.optional(v.boolean()),
   },
   handler: async (ctx, { token, checkBanned }) => {
-    const session = await ctx.runAction(internal.core.sessions.validate, {
+    const session = await validateSessionToken(ctx.db, {
       token,
       checkBanned,
     });
     if (!session) {
       return null;
     }
-    return ctx.runQuery(internal.core.users.getById, {
-      userId: session.userId,
-    });
+    return await findUserById(ctx.db, session.userId);
   },
 });
 
-export const getUserById = action({
+export const getUserById = mutation({
   args: {
     userId: v.string(),
     checkBanned: v.optional(v.boolean()),
   },
   handler: async (ctx, { userId, checkBanned }) => {
-    const user = await ctx.runQuery(internal.core.users.getById, {
-      userId: userId as Id<"users">,
-    });
+    const normalizedUserId = userId as Id<"users">;
+    const user = await findUserById(ctx.db, normalizedUserId);
     if (!user) {
       return null;
     }
@@ -120,30 +176,24 @@ export const getUserById = action({
       return null;
     }
 
-    // Temp ban expired — unban automatically.
-    await ctx.runMutation(internal.core.users.update, {
-      userId: userId as Id<"users">,
+    await patchUser(ctx.db, normalizedUserId, {
       banned: false,
     });
 
-    return ctx.runQuery(internal.core.users.getById, {
-      userId: userId as Id<"users">,
-    });
+    return await findUserById(ctx.db, normalizedUserId);
   },
 });
 
-export const invalidateSession = action({
+export const invalidateSession = mutation({
   args: { token: v.string() },
-  handler: (ctx, args) =>
-    ctx.runMutation(internal.core.sessions.invalidateByToken, args),
+  handler: async (ctx, args) =>
+    await invalidateSessionByRawToken(ctx.db, args.token),
 });
 
-export const invalidateAllSessions = action({
+export const invalidateAllSessions = mutation({
   args: { userId: v.string() },
-  handler: (ctx, { userId }) =>
-    ctx.runMutation(internal.core.sessions.invalidateAll, {
-      userId: userId as Id<"users">,
-    }),
+  handler: async (ctx, { userId }) =>
+    await invalidateAllUserSessions(ctx.db, userId as Id<"users">),
 });
 
 // ─── OAuth ─────────────────────────────────────────────────────────────────
@@ -153,8 +203,11 @@ export const getAuthorizationUrl = action({
     provider: oauthProviderConfigValidator,
     redirectUrl: v.optional(v.string()),
   },
-  handler: (ctx, args) =>
-    ctx.runAction(internal.providers.oauth.getAuthorizationUrl, args),
+  handler: async (ctx, args) =>
+    await getAuthorizationUrlForProvider(ctx, {
+      provider: args.provider,
+      redirectUrl: args.redirectUrl,
+    }),
 });
 
 export const handleCallback = action({
@@ -165,68 +218,72 @@ export const handleCallback = action({
     redirectUrl: v.optional(v.string()),
     ipAddress: v.optional(v.string()),
     userAgent: v.optional(v.string()),
+    defaultRole: v.optional(v.string()),
   },
-  handler: (ctx, args) =>
-    ctx.runAction(internal.providers.oauth.handleCallback, args),
+  handler: async (ctx, args) =>
+    await handleOAuthCallbackForProvider(ctx, {
+      provider: args.provider,
+      code: args.code,
+      state: args.state,
+      redirectUrl: args.redirectUrl,
+      ipAddress: args.ipAddress,
+      userAgent: args.userAgent,
+      defaultRole: args.defaultRole,
+    }),
 });
 
 // ─── Admin ─────────────────────────────────────────────────────────────────
 
-export const adminListUsers = action({
+export const adminIsAdmin = query({
   args: {
-    adminToken: v.string(),
+    actorUserId: v.string(),
+    adminRole: v.optional(v.string()),
+  },
+  handler: async (ctx, { actorUserId, adminRole }) => {
+    const actor = await findUserById(ctx.db, actorUserId as Id<"users">);
+    if (!actor) {
+      return false;
+    }
+    if (isCurrentlyBanned(actor, Date.now())) {
+      return false;
+    }
+    return actor.role === resolveAdminRole(adminRole);
+  },
+});
+
+export const adminListUsers = query({
+  args: {
+    actorUserId: v.string(),
+    adminRole: v.optional(v.string()),
     limit: v.optional(v.number()),
     cursor: v.optional(v.string()),
   },
-  handler: async (ctx, { adminToken, limit, cursor }) => {
-    const session = await ctx.runAction(internal.core.sessions.validate, {
-      token: adminToken,
-      checkBanned: true,
-    });
-    if (!session) {
-      throw new Error("Unauthorized");
-    }
+  handler: async (ctx, { actorUserId, adminRole, limit, cursor }) => {
+    const actor = await requireAdminActor(ctx, actorUserId, adminRole);
 
-    const adminUser = await ctx.runQuery(internal.core.users.getById, {
-      userId: session.userId,
-    });
-    if (!adminUser || adminUser.role !== "admin") {
-      throw new Error("Forbidden");
-    }
-
-    return ctx.runQuery(internal.plugins.admin.listUsers, {
-      actorUserId: session.userId,
+    return await listUsersForAdmin(ctx.db, {
+      actorUserId: actor,
+      adminRole: resolveAdminRole(adminRole),
       limit,
       cursor,
     });
   },
 });
 
-export const adminBanUser = action({
+export const adminBanUser = mutation({
   args: {
-    adminToken: v.string(),
+    actorUserId: v.string(),
+    adminRole: v.optional(v.string()),
     userId: v.string(),
     reason: v.optional(v.string()),
     expiresAt: v.optional(v.number()),
   },
-  handler: async (ctx, { adminToken, userId, reason, expiresAt }) => {
-    const session = await ctx.runAction(internal.core.sessions.validate, {
-      token: adminToken,
-      checkBanned: true,
-    });
-    if (!session) {
-      throw new Error("Unauthorized");
-    }
+  handler: async (ctx, { actorUserId, adminRole, userId, reason, expiresAt }) => {
+    const actor = await requireAdminActor(ctx, actorUserId, adminRole);
 
-    const adminUser = await ctx.runQuery(internal.core.users.getById, {
-      userId: session.userId,
-    });
-    if (!adminUser || adminUser.role !== "admin") {
-      throw new Error("Forbidden");
-    }
-
-    return ctx.runMutation(internal.plugins.admin.banUser, {
-      actorUserId: session.userId,
+    return await banUserByAdmin(ctx.db, {
+      actorUserId: actor,
+      adminRole: resolveAdminRole(adminRole),
       userId: userId as Id<"users">,
       reason,
       expiresAt,
@@ -234,87 +291,54 @@ export const adminBanUser = action({
   },
 });
 
-export const adminUnbanUser = action({
+export const adminUnbanUser = mutation({
   args: {
-    adminToken: v.string(),
+    actorUserId: v.string(),
+    adminRole: v.optional(v.string()),
     userId: v.string(),
   },
-  handler: async (ctx, { adminToken, userId }) => {
-    const session = await ctx.runAction(internal.core.sessions.validate, {
-      token: adminToken,
-      checkBanned: true,
-    });
-    if (!session) {
-      throw new Error("Unauthorized");
-    }
+  handler: async (ctx, { actorUserId, adminRole, userId }) => {
+    const actor = await requireAdminActor(ctx, actorUserId, adminRole);
 
-    const adminUser = await ctx.runQuery(internal.core.users.getById, {
-      userId: session.userId,
-    });
-    if (!adminUser || adminUser.role !== "admin") {
-      throw new Error("Forbidden");
-    }
-
-    return ctx.runMutation(internal.plugins.admin.unbanUser, {
-      actorUserId: session.userId,
+    return await unbanUserByAdmin(ctx.db, {
+      actorUserId: actor,
+      adminRole: resolveAdminRole(adminRole),
       userId: userId as Id<"users">,
     });
   },
 });
 
-export const adminSetRole = action({
+export const adminSetRole = mutation({
   args: {
-    adminToken: v.string(),
+    actorUserId: v.string(),
+    adminRole: v.optional(v.string()),
     userId: v.string(),
     role: v.string(),
   },
-  handler: async (ctx, { adminToken, userId, role }) => {
-    const session = await ctx.runAction(internal.core.sessions.validate, {
-      token: adminToken,
-      checkBanned: true,
-    });
-    if (!session) {
-      throw new Error("Unauthorized");
-    }
+  handler: async (ctx, { actorUserId, adminRole, userId, role }) => {
+    const actor = await requireAdminActor(ctx, actorUserId, adminRole);
 
-    const adminUser = await ctx.runQuery(internal.core.users.getById, {
-      userId: session.userId,
-    });
-    if (!adminUser || adminUser.role !== "admin") {
-      throw new Error("Forbidden");
-    }
-
-    return ctx.runMutation(internal.plugins.admin.setRole, {
-      actorUserId: session.userId,
+    return await setUserRoleByAdmin(ctx.db, {
+      actorUserId: actor,
+      adminRole: resolveAdminRole(adminRole),
       userId: userId as Id<"users">,
       role,
     });
   },
 });
 
-export const adminDeleteUser = action({
+export const adminDeleteUser = mutation({
   args: {
-    adminToken: v.string(),
+    actorUserId: v.string(),
+    adminRole: v.optional(v.string()),
     userId: v.string(),
   },
-  handler: async (ctx, { adminToken, userId }) => {
-    const session = await ctx.runAction(internal.core.sessions.validate, {
-      token: adminToken,
-      checkBanned: true,
-    });
-    if (!session) {
-      throw new Error("Unauthorized");
-    }
+  handler: async (ctx, { actorUserId, adminRole, userId }) => {
+    const actor = await requireAdminActor(ctx, actorUserId, adminRole);
 
-    const adminUser = await ctx.runQuery(internal.core.users.getById, {
-      userId: session.userId,
-    });
-    if (!adminUser || adminUser.role !== "admin") {
-      throw new Error("Forbidden");
-    }
-
-    return ctx.runMutation(internal.plugins.admin.deleteUser, {
-      actorUserId: session.userId,
+    return await deleteUserByAdmin(ctx.db, {
+      actorUserId: actor,
+      adminRole: resolveAdminRole(adminRole),
       userId: userId as Id<"users">,
     });
   },

@@ -1,20 +1,191 @@
 import { v } from "convex/values";
 import {
-  internalAction,
   internalMutation,
   internalQuery,
+  type DatabaseReader,
+  type DatabaseWriter,
 } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
 import { generateToken, hashToken } from "../lib/crypto";
-import { internal } from "../lib/internalApi";
 
-/** Session duration: 1 hour. */
-const SESSION_DURATION_MS = 60 * 60 * 1000;
+/** Session duration: 24 hours. */
+const SESSION_DURATION_MS = 24 * 60 * 60 * 1000;
 
-/** Absolute max session duration: 12 hours. */
-const ABSOLUTE_DURATION_MS = 12 * 60 * 60 * 1000;
+/** Absolute max session duration: 14 days. */
+const ABSOLUTE_DURATION_MS = 14 * 24 * 60 * 60 * 1000;
 
 /** Extend session when last active > 30 minutes ago. */
 const EXTEND_THRESHOLD_MS = 30 * 60 * 1000;
+
+export async function createSession(
+  db: DatabaseWriter,
+  args: {
+    userId: Id<"users">;
+    ipAddress?: string;
+    userAgent?: string;
+  }
+): Promise<string> {
+  const token = generateToken();
+  const tokenHash = await hashToken(token);
+  const now = Date.now();
+
+  const sessionDoc: {
+    userId: Id<"users">;
+    tokenHash: string;
+    expiresAt: number;
+    absoluteExpiresAt: number;
+    lastActiveAt: number;
+    createdAt: number;
+    ipAddress?: string;
+    userAgent?: string;
+  } = {
+    userId: args.userId,
+    tokenHash,
+    expiresAt: now + SESSION_DURATION_MS,
+    absoluteExpiresAt: now + ABSOLUTE_DURATION_MS,
+    lastActiveAt: now,
+    createdAt: now,
+  };
+
+  if (args.ipAddress !== undefined) {
+    sessionDoc.ipAddress = args.ipAddress;
+  }
+  if (args.userAgent !== undefined) {
+    sessionDoc.userAgent = args.userAgent;
+  }
+
+  await db.insert("sessions", sessionDoc);
+  return token;
+}
+
+export async function getSessionByToken(
+  db: DatabaseReader,
+  token: string
+) {
+  const tokenHash = await hashToken(token);
+  return await db
+    .query("sessions")
+    .withIndex("by_tokenHash", (q) => q.eq("tokenHash", tokenHash))
+    .unique();
+}
+
+export async function extendSessionRecord(
+  db: DatabaseWriter,
+  sessionId: Id<"sessions">
+): Promise<void> {
+  const session = await db.get(sessionId);
+  if (!session) {
+    return;
+  }
+
+  const now = Date.now();
+  const newExpiresAt = Math.min(
+    now + SESSION_DURATION_MS,
+    session.absoluteExpiresAt
+  );
+
+  await db.patch(sessionId, {
+    expiresAt: newExpiresAt,
+    lastActiveAt: now,
+  });
+}
+
+export async function invalidateSessionById(
+  db: DatabaseWriter,
+  sessionId: Id<"sessions">
+): Promise<void> {
+  await db.delete(sessionId);
+}
+
+export async function invalidateSessionByHash(
+  db: DatabaseWriter,
+  tokenHash: string
+): Promise<void> {
+  const session = await db
+    .query("sessions")
+    .withIndex("by_tokenHash", (q) => q.eq("tokenHash", tokenHash))
+    .unique();
+  if (session) {
+    await db.delete(session._id);
+  }
+}
+
+export async function invalidateSessionByRawToken(
+  db: DatabaseWriter,
+  token: string
+): Promise<void> {
+  const tokenHash = await hashToken(token);
+  await invalidateSessionByHash(db, tokenHash);
+}
+
+export async function invalidateAllUserSessions(
+  db: DatabaseWriter,
+  userId: Id<"users">
+): Promise<void> {
+  const sessions = await db
+    .query("sessions")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .collect();
+  for (const session of sessions) {
+    await db.delete(session._id);
+  }
+}
+
+export async function validateSessionToken(
+  db: DatabaseWriter,
+  args: {
+    token: string;
+    checkBanned?: boolean;
+  }
+): Promise<{ userId: Id<"users">; sessionId: Id<"sessions"> } | null> {
+  const session = await getSessionByToken(db, args.token);
+  if (!session) {
+    return null;
+  }
+
+  const now = Date.now();
+
+  if (session.expiresAt < now || session.absoluteExpiresAt < now) {
+    await invalidateSessionByHash(db, session.tokenHash);
+    return null;
+  }
+
+  if (now - session.lastActiveAt > EXTEND_THRESHOLD_MS) {
+    await extendSessionRecord(db, session._id);
+  }
+
+  if (args.checkBanned) {
+    const user = await db.get(session.userId);
+    if (user?.banned) {
+      const banExpires = user.banExpires;
+      if (banExpires === undefined || banExpires > now) {
+        return null;
+      }
+      await db.patch(session.userId, {
+        banned: false,
+        updatedAt: now,
+      });
+    }
+  }
+
+  return {
+    userId: session.userId,
+    sessionId: session._id,
+  };
+}
+
+export async function cleanupExpiredSessions(
+  db: DatabaseWriter
+): Promise<void> {
+  const now = Date.now();
+  const expired = await db
+    .query("sessions")
+    .withIndex("by_expiresAt", (q) => q.lt("expiresAt", now))
+    .take(100);
+  for (const session of expired) {
+    await db.delete(session._id);
+  }
+}
 
 /**
  * Create a new session. Returns the raw session token (never stored).
@@ -27,39 +198,7 @@ export const create = internalMutation({
     ipAddress: v.optional(v.string()),
     userAgent: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
-    const token = generateToken();
-    const tokenHash = await hashToken(token);
-    const now = Date.now();
-
-    const sessionDoc: {
-      userId: typeof args.userId;
-      tokenHash: string;
-      expiresAt: number;
-      absoluteExpiresAt: number;
-      lastActiveAt: number;
-      createdAt: number;
-      ipAddress?: string;
-      userAgent?: string;
-    } = {
-      userId: args.userId,
-      tokenHash,
-      expiresAt: now + SESSION_DURATION_MS,
-      absoluteExpiresAt: now + ABSOLUTE_DURATION_MS,
-      lastActiveAt: now,
-      createdAt: now,
-    };
-    if (args.ipAddress !== undefined) {
-      sessionDoc.ipAddress = args.ipAddress;
-    }
-    if (args.userAgent !== undefined) {
-      sessionDoc.userAgent = args.userAgent;
-    }
-
-    await ctx.db.insert("sessions", sessionDoc);
-
-    return token;
-  },
+  handler: async (ctx, args) => await createSession(ctx.db, args),
 });
 
 /**
@@ -68,13 +207,7 @@ export const create = internalMutation({
  */
 export const getByToken = internalQuery({
   args: { token: v.string() },
-  handler: async (ctx, { token }) => {
-    const tokenHash = await hashToken(token);
-    return await ctx.db
-      .query("sessions")
-      .withIndex("by_tokenHash", (q) => q.eq("tokenHash", tokenHash))
-      .unique();
-  },
+  handler: async (ctx, { token }) => await getSessionByToken(ctx.db, token),
 });
 
 /**
@@ -82,131 +215,43 @@ export const getByToken = internalQuery({
  * Schedules session extension if within extend window.
  * Returns null if session is expired or invalid.
  */
-export const validate = internalAction({
+export const validate = internalMutation({
   args: {
     token: v.string(),
     checkBanned: v.optional(v.boolean()),
   },
-  handler: async (ctx, { token, checkBanned }) => {
-    const session = await ctx.runQuery(internal.core.sessions.getByToken, {
-      token,
-    });
-
-    if (!session) {
-      return null;
-    }
-
-    const now = Date.now();
-
-    // Check both expiry conditions
-    if (session.expiresAt < now || session.absoluteExpiresAt < now) {
-      await ctx.runMutation(internal.core.sessions.invalidateByHash, {
-        tokenHash: session.tokenHash,
-      });
-      return null;
-    }
-
-    // Extend session if within threshold
-    if (now - session.lastActiveAt > EXTEND_THRESHOLD_MS) {
-      await ctx.runMutation(internal.core.sessions.extend, {
-        sessionId: session._id,
-      });
-    }
-
-    // Check banned status if admin plugin is active
-    if (checkBanned) {
-      const user = await ctx.runQuery(internal.core.users.getById, {
-        userId: session.userId,
-      });
-      if (user?.banned) {
-        const banExpires = user.banExpires;
-        if (banExpires === undefined || banExpires > now) {
-          return null;
-        }
-        // Temp ban expired — unban automatically
-        await ctx.runMutation(internal.core.users.update, {
-          userId: session.userId,
-          banned: false,
-        });
-      }
-    }
-
-    return {
-      userId: session.userId,
-      sessionId: session._id,
-    };
-  },
+  handler: async (ctx, args) => await validateSessionToken(ctx.db, args),
 });
 
 /** Extend a session's expiry (up to absolute max). */
 export const extend = internalMutation({
   args: { sessionId: v.id("sessions") },
-  handler: async (ctx, { sessionId }) => {
-    const session = await ctx.db.get(sessionId);
-    if (!session) return;
-
-    const now = Date.now();
-    const newExpiresAt = Math.min(
-      now + SESSION_DURATION_MS,
-      session.absoluteExpiresAt
-    );
-
-    await ctx.db.patch(sessionId, {
-      expiresAt: newExpiresAt,
-      lastActiveAt: now,
-    });
-  },
+  handler: async (ctx, { sessionId }) => await extendSessionRecord(ctx.db, sessionId),
 });
 
 /** Invalidate a session by its document ID. */
 export const invalidate = internalMutation({
   args: { sessionId: v.id("sessions") },
-  handler: async (ctx, { sessionId }) => {
-    await ctx.db.delete(sessionId);
-  },
+  handler: async (ctx, { sessionId }) => await invalidateSessionById(ctx.db, sessionId),
 });
 
 /** Invalidate a session by its token hash (used internally). */
 export const invalidateByHash = internalMutation({
   args: { tokenHash: v.string() },
-  handler: async (ctx, { tokenHash }) => {
-    const session = await ctx.db
-      .query("sessions")
-      .withIndex("by_tokenHash", (q) => q.eq("tokenHash", tokenHash))
-      .unique();
-    if (session) {
-      await ctx.db.delete(session._id);
-    }
-  },
+  handler: async (ctx, { tokenHash }) =>
+    await invalidateSessionByHash(ctx.db, tokenHash),
 });
 
 /** Invalidate a session by raw token. */
 export const invalidateByToken = internalMutation({
   args: { token: v.string() },
-  handler: async (ctx, { token }) => {
-    const tokenHash = await hashToken(token);
-    const session = await ctx.db
-      .query("sessions")
-      .withIndex("by_tokenHash", (q) => q.eq("tokenHash", tokenHash))
-      .unique();
-    if (session) {
-      await ctx.db.delete(session._id);
-    }
-  },
+  handler: async (ctx, { token }) => await invalidateSessionByRawToken(ctx.db, token),
 });
 
 /** Invalidate all sessions for a user. */
 export const invalidateAll = internalMutation({
   args: { userId: v.id("users") },
-  handler: async (ctx, { userId }) => {
-    const sessions = await ctx.db
-      .query("sessions")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .collect();
-    for (const session of sessions) {
-      await ctx.db.delete(session._id);
-    }
-  },
+  handler: async (ctx, { userId }) => await invalidateAllUserSessions(ctx.db, userId),
 });
 
 /**
@@ -215,14 +260,5 @@ export const invalidateAll = internalMutation({
  */
 export const cleanup = internalMutation({
   args: {},
-  handler: async (ctx) => {
-    const now = Date.now();
-    const expired = await ctx.db
-      .query("sessions")
-      .withIndex("by_expiresAt", (q) => q.lt("expiresAt", now))
-      .take(100);
-    for (const session of expired) {
-      await ctx.db.delete(session._id);
-    }
-  },
+  handler: async (ctx) => await cleanupExpiredSessions(ctx.db),
 });

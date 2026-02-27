@@ -6,11 +6,19 @@ import {
 	Scripts,
 	useRouteContext,
 } from "@tanstack/react-router";
+import { createServerFn } from "@tanstack/react-start";
 import { ConvexProvider } from "convex/react";
 import { ConvexZenAuthProvider } from "convex-zen/react";
 import type { ReactNode } from "react";
-import { authClient, getSession } from "../lib/auth-client";
+import { authClient } from "../lib/auth-client";
 import type { RouterContext } from "../router";
+
+const getSessionServerFn = createServerFn({ method: "GET" }).handler(
+	async () => {
+		const { getSession } = await import("../lib/auth-server");
+		return getSession();
+	},
+);
 
 export const Route = createRootRouteWithContext<RouterContext>()({
 	head: () => ({
@@ -21,12 +29,21 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 		],
 		links: [{ rel: "stylesheet", href: "/styles.css" }],
 	}),
+	staleTime: 0,
+	preloadStaleTime: 0,
 	beforeLoad: async () => {
-		const session = await getSession();
-		return {
-			isAuthenticated: session !== null,
-			session,
-		};
+		try {
+			const session = await getSessionServerFn();
+			return {
+				isAuthenticated: session !== null,
+				session,
+			};
+		} catch {
+			return {
+				isAuthenticated: false,
+				session: null,
+			};
+		}
 	},
 	component: RootComponent,
 	notFoundComponent: NotFoundComponent,

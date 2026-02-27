@@ -18,7 +18,7 @@ describe("emailPassword", () => {
     it("creates user and returns verification code", async () => {
       const t = convexTest(schema, modules);
 
-      const result = (await t.action(internal.providers.emailPassword.signUp, {
+      const result = (await t.mutation(internal.providers.emailPassword.signUp, {
         email: "user@example.com",
         password: "SecurePassword123!",
       })) as { status: string; verificationCode: string };
@@ -41,7 +41,7 @@ describe("emailPassword", () => {
     it("normalizes email to lowercase", async () => {
       const t = convexTest(schema, modules);
 
-      await t.action(internal.providers.emailPassword.signUp, {
+      await t.mutation(internal.providers.emailPassword.signUp, {
         email: "User@EXAMPLE.COM",
         password: "SecurePassword123!",
       });
@@ -60,7 +60,7 @@ describe("emailPassword", () => {
       const t = convexTest(schema, modules);
 
       await expect(
-        t.action(internal.providers.emailPassword.signUp, {
+        t.mutation(internal.providers.emailPassword.signUp, {
           email: "not-an-email",
           password: "SecurePassword123!",
         })
@@ -70,17 +70,48 @@ describe("emailPassword", () => {
     it("rejects duplicate email", async () => {
       const t = convexTest(schema, modules);
 
-      await t.action(internal.providers.emailPassword.signUp, {
+      await t.mutation(internal.providers.emailPassword.signUp, {
         email: "dup@example.com",
         password: "Password123!",
       });
 
       await expect(
-        t.action(internal.providers.emailPassword.signUp, {
+        t.mutation(internal.providers.emailPassword.signUp, {
           email: "dup@example.com",
           password: "AnotherPassword123!",
         })
       ).rejects.toThrow("Email already registered");
+    });
+
+    it("rejects short passwords", async () => {
+      const t = convexTest(schema, modules);
+
+      await expect(
+        t.mutation(internal.providers.emailPassword.signUp, {
+          email: "shortpw@example.com",
+          password: "short123",
+        })
+      ).rejects.toThrow("Password must be at least 12 characters long");
+    });
+
+    it("applies default role for new users when provided", async () => {
+      const t = convexTest(schema, modules);
+
+      await t.mutation(internal.providers.emailPassword.signUp, {
+        email: "role-default@example.com",
+        password: "SecurePassword123!",
+        defaultRole: "member",
+      });
+
+      const user = await t.run(async (ctx) => {
+        return ctx.db
+          .query("users")
+          .withIndex("by_email", (q) => q.eq("email", "role-default@example.com"))
+          .unique();
+      });
+
+      expect(user).not.toBeNull();
+      expect(user!.role).toBe("member");
     });
 
     it("applies IP rate limiting", async () => {
@@ -97,7 +128,7 @@ describe("emailPassword", () => {
       });
 
       await expect(
-        t.action(internal.providers.emailPassword.signUp, {
+        t.mutation(internal.providers.emailPassword.signUp, {
           email: "new@example.com",
           password: "Password123!",
           ipAddress: "10.0.0.1",
@@ -112,7 +143,7 @@ describe("emailPassword", () => {
       email = "verified@example.com",
       password = "CorrectPassword123!"
     ) {
-      await t.action(internal.providers.emailPassword.signUp, {
+      await t.mutation(internal.providers.emailPassword.signUp, {
         email,
         password,
       });
@@ -132,7 +163,7 @@ describe("emailPassword", () => {
       const t = convexTest(schema, modules);
       await createVerifiedUser(t);
 
-      const result = (await t.action(internal.providers.emailPassword.signIn, {
+      const result = (await t.mutation(internal.providers.emailPassword.signIn, {
         email: "verified@example.com",
         password: "CorrectPassword123!",
       })) as { sessionToken: string; userId: string };
@@ -146,7 +177,7 @@ describe("emailPassword", () => {
       await createVerifiedUser(t);
 
       await expect(
-        t.action(internal.providers.emailPassword.signIn, {
+        t.mutation(internal.providers.emailPassword.signIn, {
           email: "verified@example.com",
           password: "WrongPassword!",
         })
@@ -157,7 +188,7 @@ describe("emailPassword", () => {
       const t = convexTest(schema, modules);
 
       await expect(
-        t.action(internal.providers.emailPassword.signIn, {
+        t.mutation(internal.providers.emailPassword.signIn, {
           email: "nobody@example.com",
           password: "SomePassword123!",
         })
@@ -177,7 +208,7 @@ describe("emailPassword", () => {
       });
 
       await expect(
-        t.action(internal.providers.emailPassword.signIn, {
+        t.mutation(internal.providers.emailPassword.signIn, {
           email: "verified@example.com",
           password: "CorrectPassword123!",
         })
@@ -198,7 +229,7 @@ describe("emailPassword", () => {
       });
 
       await expect(
-        t.action(internal.providers.emailPassword.signIn, {
+        t.mutation(internal.providers.emailPassword.signIn, {
           email: "verified@example.com",
           password: "WrongPassword!",
           ipAddress: "192.168.1.1",
@@ -211,16 +242,14 @@ describe("emailPassword", () => {
     it("verifies email with correct code", async () => {
       const t = convexTest(schema, modules);
 
-      const signUpResult = (await t.action(
-        internal.providers.emailPassword.signUp,
+      const signUpResult = (await t.mutation(internal.providers.emailPassword.signUp,
         {
           email: "toverify@example.com",
           password: "Password123!",
         }
       )) as { verificationCode: string };
 
-      const result = (await t.action(
-        internal.providers.emailPassword.verifyEmail,
+      const result = (await t.mutation(internal.providers.emailPassword.verifyEmail,
         {
           email: "toverify@example.com",
           code: signUpResult.verificationCode,
@@ -241,13 +270,12 @@ describe("emailPassword", () => {
     it("rejects wrong code", async () => {
       const t = convexTest(schema, modules);
 
-      await t.action(internal.providers.emailPassword.signUp, {
+      await t.mutation(internal.providers.emailPassword.signUp, {
         email: "toverify@example.com",
         password: "Password123!",
       });
 
-      const result = (await t.action(
-        internal.providers.emailPassword.verifyEmail,
+      const result = (await t.mutation(internal.providers.emailPassword.verifyEmail,
         {
           email: "toverify@example.com",
           code: "WRONGCOD",
@@ -260,7 +288,7 @@ describe("emailPassword", () => {
     it("rejects expired code", async () => {
       const t = convexTest(schema, modules);
 
-      await t.action(internal.providers.emailPassword.signUp, {
+      await t.mutation(internal.providers.emailPassword.signUp, {
         email: "toverify@example.com",
         password: "Password123!",
       });
@@ -268,8 +296,7 @@ describe("emailPassword", () => {
       // Advance past 60 minute TTL
       vi.advanceTimersByTime(61 * 60 * 1000);
 
-      const result = (await t.action(
-        internal.providers.emailPassword.verifyEmail,
+      const result = (await t.mutation(internal.providers.emailPassword.verifyEmail,
         {
           email: "toverify@example.com",
           code: "ANYCODE1",
@@ -282,20 +309,18 @@ describe("emailPassword", () => {
     it("verification code is single-use", async () => {
       const t = convexTest(schema, modules);
 
-      const signUpResult = (await t.action(
-        internal.providers.emailPassword.signUp,
+      const signUpResult = (await t.mutation(internal.providers.emailPassword.signUp,
         { email: "once@example.com", password: "Password123!" }
       )) as { verificationCode: string };
 
       // Use the code
-      await t.action(internal.providers.emailPassword.verifyEmail, {
+      await t.mutation(internal.providers.emailPassword.verifyEmail, {
         email: "once@example.com",
         code: signUpResult.verificationCode,
       });
 
       // Use it again — should be invalid
-      const second = (await t.action(
-        internal.providers.emailPassword.verifyEmail,
+      const second = (await t.mutation(internal.providers.emailPassword.verifyEmail,
         { email: "once@example.com", code: signUpResult.verificationCode }
       )) as { status: string };
 
@@ -308,14 +333,13 @@ describe("emailPassword", () => {
       const t = convexTest(schema, modules);
 
       // Sign up user
-      await t.action(internal.providers.emailPassword.signUp, {
+      await t.mutation(internal.providers.emailPassword.signUp, {
         email: "reset@example.com",
         password: "OldPassword123!",
       });
 
       // Request reset
-      const resetResult = (await t.action(
-        internal.providers.emailPassword.requestPasswordReset,
+      const resetResult = (await t.mutation(internal.providers.emailPassword.requestPasswordReset,
         { email: "reset@example.com" }
       )) as { status: string; resetCode: string | null };
 
@@ -324,8 +348,7 @@ describe("emailPassword", () => {
       expect(resetResult.resetCode).toMatch(/^[A-Z0-9]{8}$/);
 
       // Reset password
-      const verifyResult = (await t.action(
-        internal.providers.emailPassword.resetPassword,
+      const verifyResult = (await t.mutation(internal.providers.emailPassword.resetPassword,
         {
           email: "reset@example.com",
           code: resetResult.resetCode!,
@@ -345,8 +368,7 @@ describe("emailPassword", () => {
         await ctx.db.patch(user!._id, { emailVerified: true });
       });
 
-      const signInResult = (await t.action(
-        internal.providers.emailPassword.signIn,
+      const signInResult = (await t.mutation(internal.providers.emailPassword.signIn,
         {
           email: "reset@example.com",
           password: "NewPassword456!",
@@ -359,27 +381,25 @@ describe("emailPassword", () => {
     it("reset code is single-use", async () => {
       const t = convexTest(schema, modules);
 
-      await t.action(internal.providers.emailPassword.signUp, {
+      await t.mutation(internal.providers.emailPassword.signUp, {
         email: "reset2@example.com",
         password: "OldPassword123!",
       });
 
-      const resetResult = (await t.action(
-        internal.providers.emailPassword.requestPasswordReset,
+      const resetResult = (await t.mutation(internal.providers.emailPassword.requestPasswordReset,
         { email: "reset2@example.com" }
       )) as { resetCode: string | null };
 
       const code = resetResult.resetCode!;
 
-      await t.action(internal.providers.emailPassword.resetPassword, {
+      await t.mutation(internal.providers.emailPassword.resetPassword, {
         email: "reset2@example.com",
         code,
         newPassword: "NewPassword456!",
       });
 
       // Second use — should be invalid
-      const secondResult = (await t.action(
-        internal.providers.emailPassword.resetPassword,
+      const secondResult = (await t.mutation(internal.providers.emailPassword.resetPassword,
         {
           email: "reset2@example.com",
           code,
@@ -393,13 +413,33 @@ describe("emailPassword", () => {
     it("returns sent with no resetCode for non-existent email", async () => {
       const t = convexTest(schema, modules);
 
-      const result = (await t.action(
-        internal.providers.emailPassword.requestPasswordReset,
+      const result = (await t.mutation(internal.providers.emailPassword.requestPasswordReset,
         { email: "nonexistent@example.com" }
       )) as { status: string; resetCode: string | null };
 
       expect(result.status).toBe("sent");
       expect(result.resetCode).toBeNull();
+    });
+
+    it("rejects short new passwords", async () => {
+      const t = convexTest(schema, modules);
+
+      await t.mutation(internal.providers.emailPassword.signUp, {
+        email: "reset-short@example.com",
+        password: "OldPassword123!",
+      });
+      const resetResult = (await t.mutation(
+        internal.providers.emailPassword.requestPasswordReset,
+        { email: "reset-short@example.com" }
+      )) as { resetCode: string | null };
+
+      await expect(
+        t.mutation(internal.providers.emailPassword.resetPassword, {
+          email: "reset-short@example.com",
+          code: resetResult.resetCode!,
+          newPassword: "tiny1234",
+        })
+      ).rejects.toThrow("Password must be at least 12 characters long");
     });
   });
 });

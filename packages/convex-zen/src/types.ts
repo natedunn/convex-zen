@@ -13,6 +13,7 @@ export interface OAuthProviderConfig {
   id: string;          // "google" | "github"
   clientId: string;
   clientSecret: string;
+  tokenEncryptionSecret?: string;
   authorizationUrl: string;
   tokenUrl: string;
   userInfoUrl: string;
@@ -65,4 +66,29 @@ export interface OAuthCallbackResult {
   sessionToken: string;
   userId: string;
   redirectUrl?: string;
+}
+
+/** Admin list-users row shape. */
+export interface AdminListUser {
+  _id: string;
+  email: string;
+  emailVerified: boolean;
+  name?: string;
+  image?: string;
+  role?: string;
+  banned?: boolean;
+  banReason?: string;
+  banExpires?: number;
+  createdAt?: number;
+  updatedAt?: number;
+  _creationTime?: number;
+}
+
+/** Admin list-users response shape. */
+export interface AdminListUsersResult<
+  TUser extends AdminListUser = AdminListUser,
+> {
+  users: TUser[];
+  cursor: string | null;
+  isDone: boolean;
 }

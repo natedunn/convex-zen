@@ -1,31 +1,14 @@
-import { convexAction, useConvexMutation } from "@convex-dev/react-query";
-import {
-	createFileRoute,
-	redirect,
-	useNavigate,
-} from "@tanstack/react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { createServerFn } from "@tanstack/react-start";
+import { useMutation } from "@tanstack/react-query";
 import { useAuth } from "convex-zen/react";
+import { useEffect, useState } from "react";
+import type { FunctionArgs } from "convex/server";
 import { api } from "../../convex/_generated/api";
-
-export const Route = createFileRoute("/admin")({
-	beforeLoad: ({ context }) => {
-		if (!context.isAuthenticated) {
-			throw redirect({ to: "/signin" });
-		}
-	},
-	loader: async ({ context }) => {
-		await context.queryClient.ensureQueryData(
-			convexAction(api.functions.listUsers, {
-				limit: 50,
-			}),
-		);
-	},
-	component: AdminPage,
-});
+import { authClient } from "../lib/auth-client";
 
 type User = {
-	id: string;
+	_id: string;
 	email: string;
 	name?: string;
 	emailVerified: boolean;
@@ -35,38 +18,135 @@ type User = {
 	createdAt: number;
 };
 
+type AdminListUsersResponse = {
+	users: User[];
+	cursor: string | null;
+	isDone: boolean;
+};
+
+type ListUsersArgs = FunctionArgs<typeof api.auth.plugin.admin.listUsers>;
+
+const listAdminUsersServerFn = createServerFn({ method: "POST" })
+	.inputValidator(
+		(input: ListUsersArgs | undefined): ListUsersArgs => input ?? {},
+	)
+	.handler(async ({ data }) => {
+		const { fetchAuthQuery } = await import("../lib/auth-server");
+		return fetchAuthQuery(api.auth.plugin.admin.listUsers, data);
+	});
+
+export const Route = createFileRoute("/admin")({
+	preload: false,
+	staleTime: 0,
+	gcTime: 0,
+	loader: async ({ context }) => {
+		if (!context.isAuthenticated) {
+			throw redirect({ to: "/signin" });
+		}
+		try {
+			const result = (await listAdminUsersServerFn({
+				data: {
+					limit: 50,
+				},
+			})) as AdminListUsersResponse;
+			return {
+				users: result.users,
+			};
+		} catch (error) {
+			const message = error instanceof Error ? error.message : "Forbidden";
+			if (message.includes("Unauthorized")) {
+				throw redirect({ to: "/signin" });
+			}
+			if (message.includes("Forbidden")) {
+				throw redirect({ to: "/dashboard" });
+			}
+			throw error;
+		}
+	},
+	component: AdminPage,
+	errorComponent: ({ error }) => {
+		const message = error instanceof Error ? error.message : "Unknown error";
+		return (
+			<div>
+				<h1>Admin</h1>
+				<p className="error">Could not load admin page: {message}</p>
+			</div>
+		);
+	},
+});
+
 function AdminPage() {
+	const { users: prefetchedUsers } = Route.useLoaderData();
 	const { status, session } = useAuth();
 	const navigate = useNavigate();
-	const queryClient = useQueryClient();
-	const queryOptions = convexAction(api.functions.listUsers, { limit: 50 });
-	const usersQuery = useQuery(queryOptions);
+	const [users, setUsers] = useState(prefetchedUsers);
+	const [error, setError] = useState("");
+	useEffect(() => {
+		setUsers(prefetchedUsers);
+	}, [prefetchedUsers]);
 
-	const banUserMutationFn = useConvexMutation(api.functions.banUser);
 	const banUserMutation = useMutation({
-		mutationFn: banUserMutationFn,
-		onSuccess: async () => {
-			if (queryOptions) {
-				await queryClient.invalidateQueries({
-					queryKey: queryOptions.queryKey,
-				});
-			}
+		mutationFn: async (input: { userId: string; reason?: string }) =>
+			authClient.plugin.admin.banUser(input),
+		onSuccess: (_result, input) => {
+			setUsers((current) =>
+				current.map((user) =>
+					user._id === input.userId
+						? { ...user, banned: true, banReason: input.reason }
+						: user,
+				),
+			);
+		},
+		onError: (mutationError) => {
+			setError(
+				mutationError instanceof Error
+					? mutationError.message
+					: "Could not ban user",
+			);
 		},
 	});
 
-	const setRoleMutationFn = useConvexMutation(api.functions.setRole);
+	const unbanUserMutation = useMutation({
+		mutationFn: async (input: { userId: string }) =>
+			authClient.plugin.admin.unbanUser(input),
+		onSuccess: (_result, input) => {
+			setUsers((current) =>
+				current.map((user) =>
+					user._id === input.userId
+						? { ...user, banned: false, banReason: undefined }
+						: user,
+				),
+			);
+		},
+		onError: (mutationError) => {
+			setError(
+				mutationError instanceof Error
+					? mutationError.message
+					: "Could not unban user",
+			);
+		},
+	});
+
 	const setRoleMutation = useMutation({
-		mutationFn: setRoleMutationFn,
-		onSuccess: async () => {
-			if (queryOptions) {
-				await queryClient.invalidateQueries({
-					queryKey: queryOptions.queryKey,
-				});
-			}
+		mutationFn: async (input: { userId: string; role: string }) =>
+			authClient.plugin.admin.setRole(input),
+		onSuccess: (_result, input) => {
+			setUsers((current) =>
+				current.map((user) =>
+					user._id === input.userId ? { ...user, role: input.role } : user,
+				),
+			);
+		},
+		onError: (mutationError) => {
+			setError(
+				mutationError instanceof Error
+					? mutationError.message
+					: "Could not set role",
+			);
 		},
 	});
 
-	if (status === "loading" || usersQuery.isPending) {
+	if (status === "loading") {
 		return (
 			<div>
 				<h1>Admin</h1>
@@ -93,22 +173,10 @@ function AdminPage() {
 		);
 	}
 
-	const users = usersQuery.data?.users ?? [];
-	const error =
-		usersQuery.error instanceof Error ? usersQuery.error.message : "";
-	const actionError =
-		banUserMutation.error instanceof Error
-			? banUserMutation.error.message
-			: setRoleMutation.error instanceof Error
-				? setRoleMutation.error.message
-				: "";
-
 	return (
 		<div>
 			<h1>Admin</h1>
-
-			{error && <p className="error">{error}</p>}
-			{actionError && <p className="error">{actionError}</p>}
+			{error ? <p className="error">{error}</p> : null}
 
 			<div
 				style={{
@@ -119,25 +187,13 @@ function AdminPage() {
 				}}
 			>
 				<h2 style={{ margin: 0 }}>Users ({users.length})</h2>
-				<button
-					className="btn-secondary"
-					onClick={() =>
-						queryOptions &&
-						void queryClient.invalidateQueries({
-							queryKey: queryOptions.queryKey,
-						})
-					}
-					disabled={usersQuery.isRefetching}
-				>
-					Refresh
-				</button>
 			</div>
 
 			{users.length === 0 ? (
 				<p style={{ color: "#64748b" }}>No users found.</p>
 			) : (
 				users.map((user) => (
-					<div key={user.id} className="card">
+					<div key={user._id} className="card">
 						<div
 							style={{
 								display: "flex",
@@ -159,7 +215,7 @@ function AdminPage() {
 										color: "#64748b",
 									}}
 								>
-									<code>{user.id}</code>
+									<code>{user._id}</code>
 								</div>
 							</div>
 							<div
@@ -191,7 +247,7 @@ function AdminPage() {
 										const reason = window.prompt("Ban reason:");
 										if (reason) {
 											banUserMutation.mutate({
-												userId: user.id,
+												userId: user._id,
 												reason,
 											});
 										}
@@ -200,13 +256,29 @@ function AdminPage() {
 									Ban
 								</button>
 							)}
+							{user.banned && (
+								<button
+									className="btn-secondary"
+									style={{ fontSize: "0.8125rem", padding: "0.25rem 0.75rem" }}
+									onClick={() => {
+										unbanUserMutation.mutate({
+											userId: user._id,
+										});
+									}}
+								>
+									Unban
+								</button>
+							)}
 							<button
 								className="btn-secondary"
 								style={{ fontSize: "0.8125rem", padding: "0.25rem 0.75rem" }}
 								onClick={() => {
 									const role = window.prompt("New role:", user.role ?? "user");
 									if (role) {
-										setRoleMutation.mutate({ userId: user.id, role });
+										setRoleMutation.mutate({
+											userId: user._id,
+											role,
+										});
 									}
 								}}
 							>

@@ -5,6 +5,13 @@ import { routerWithQueryClient } from "@tanstack/react-router-with-query";
 import { ConvexReactClient } from "convex/react";
 import { routeTree } from "./routeTree.gen";
 
+function isAuthzError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  return /\b(unauthorized|forbidden)\b/i.test(error.message);
+}
+
 function createRouterContext() {
   const convex = new ConvexReactClient(import.meta.env["VITE_CONVEX_URL"] as string);
   const convexQueryClient = new ConvexQueryClient(convex);
@@ -13,6 +20,12 @@ function createRouterContext() {
       queries: {
         queryKeyHashFn: convexQueryClient.hashFn(),
         queryFn: convexQueryClient.queryFn(),
+        retry: (failureCount, error) => {
+          if (isAuthzError(error)) {
+            return false;
+          }
+          return failureCount < 2;
+        },
       },
     },
   });
@@ -32,7 +45,9 @@ export function getRouter() {
   const router = createTanstackRouter({
     routeTree,
     context,
-    defaultPreload: "intent",
+    defaultPreload: false,
+    defaultStaleTime: 5_000,
+    defaultPreloadStaleTime: 10_000,
     scrollRestoration: true,
   });
 
