@@ -1,3 +1,10 @@
+## [1.0.2](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.0.1...convex-zen-v1.0.2) (2026-02-27)
+
+
+### Bug Fixes
+
+* **pkg:** add repository metadata for npm provenance ([48ce93f](https://github.com/natedunn/convex-zen/commit/48ce93ff56fd75eba54cbf56d56740e47829a992))
+
 ## [1.0.1](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.0.0...convex-zen-v1.0.1) (2026-02-27)
 
 
