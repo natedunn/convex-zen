@@ -1,25 +1,22 @@
-# convex-zen docs (draft)
+# convex-zen docs
 
-This folder documents the new package-first integration model for `convex-zen`.
+This directory now has two tracks:
 
-## Import Distinction
+- `apps/docs/internal`: implementation notes for internal contributors and LLM context.
+- `apps/docs/external`: public-facing documentation we can publish later.
 
-- Baseline reference project: https://github.com/get-convex/better-auth
-- Baseline reference docs: https://labs.convex.dev/better-auth
-- `convex-zen` does not import Better Auth runtime into the app. It reimplements auth natively inside Convex components and exposes framework entrypoints from `convex-zen/<framework>`.
-
-Goals:
-
-1. Keep auth logic in `convex-zen`, not in app-specific glue code.
-2. Expose stable framework-agnostic primitives.
-3. Add framework adapters via dedicated exports (`convex-zen/tanstack-start`, etc.).
-4. Keep function-side auth data flow explicit and consistent with Convex component constraints.
+## Internal docs
 
 Read in order:
 
-1. `apps/docs/01-architecture.md`
-2. `apps/docs/02-core-primitives.md`
-3. `apps/docs/03-tanstack-start.md`
-4. `apps/docs/04-convex-function-auth-data.md`
-5. `apps/docs/05-react-context.md`
-6. `apps/docs/06-convex-generate-plan.md`
+1. `apps/docs/internal/README.md`
+2. `apps/docs/internal/01-architecture.md`
+3. `apps/docs/internal/02-core-primitives.md`
+4. `apps/docs/internal/03-tanstack-start.md`
+5. `apps/docs/internal/04-convex-function-auth-data.md`
+6. `apps/docs/internal/05-react-context.md`
+7. `apps/docs/internal/06-convex-generate-plan.md`
+
+## External docs
+
+1. `apps/docs/external/tanstack-start-installation.md`
