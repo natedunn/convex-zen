@@ -102,14 +102,14 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         Name
       >;
       getCurrentUser: FunctionReference<
-        "mutation",
+        "query",
         "internal",
         { checkBanned?: boolean; token: string },
         any,
         Name
       >;
       getUserById: FunctionReference<
-        "mutation",
+        "query",
         "internal",
         { checkBanned?: boolean; userId: string },
         any,

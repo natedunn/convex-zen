@@ -19,9 +19,10 @@ import {
 import {
   invalidateAllUserSessions,
   invalidateSessionByRawToken,
+  validateSessionTokenReadOnly,
   validateSessionToken,
 } from "./core/sessions";
-import { findUserById, patchUser } from "./core/users";
+import { findUserById } from "./core/users";
 import {
   getAuthorizationUrlForProvider,
   handleOAuthCallbackForProvider,
@@ -57,6 +58,27 @@ function isCurrentlyBanned(actor: AdminActorRecord, now: number): boolean {
 function resolveAdminRole(role: string | undefined): string {
   const trimmed = role?.trim();
   return trimmed && trimmed.length > 0 ? trimmed : "admin";
+}
+
+function normalizeUserForAuthRead<T extends {
+  banned?: boolean;
+  banReason?: string;
+  banExpires?: number;
+}>(user: T, checkBanned: boolean | undefined): T | null {
+  if (!checkBanned || !user.banned) {
+    return user;
+  }
+  const now = Date.now();
+  const banExpires = user.banExpires;
+  if (banExpires === undefined || banExpires > now) {
+    return null;
+  }
+  return {
+    ...user,
+    banned: false,
+    banReason: undefined,
+    banExpires: undefined,
+  };
 }
 
 async function requireAdminActor(
@@ -138,24 +160,28 @@ export const validateSession = mutation({
   handler: async (ctx, args) => await validateSessionToken(ctx.db, args),
 });
 
-export const getCurrentUser = mutation({
+export const getCurrentUser = query({
   args: {
     token: v.string(),
     checkBanned: v.optional(v.boolean()),
   },
   handler: async (ctx, { token, checkBanned }) => {
-    const session = await validateSessionToken(ctx.db, {
+    const session = await validateSessionTokenReadOnly(ctx.db, {
       token,
       checkBanned,
     });
     if (!session) {
       return null;
     }
-    return await findUserById(ctx.db, session.userId);
+    const user = await findUserById(ctx.db, session.userId);
+    if (!user) {
+      return null;
+    }
+    return normalizeUserForAuthRead(user, checkBanned);
   },
 });
 
-export const getUserById = mutation({
+export const getUserById = query({
   args: {
     userId: v.string(),
     checkBanned: v.optional(v.boolean()),
@@ -166,21 +192,7 @@ export const getUserById = mutation({
     if (!user) {
       return null;
     }
-    if (!checkBanned || !user.banned) {
-      return user;
-    }
-
-    const now = Date.now();
-    const banExpires = user.banExpires;
-    if (banExpires === undefined || banExpires > now) {
-      return null;
-    }
-
-    await patchUser(ctx.db, normalizedUserId, {
-      banned: false,
-    });
-
-    return await findUserById(ctx.db, normalizedUserId);
+    return normalizeUserForAuthRead(user, checkBanned);
   },
 });
 

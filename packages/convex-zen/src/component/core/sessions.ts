@@ -174,6 +174,39 @@ export async function validateSessionToken(
   };
 }
 
+export async function validateSessionTokenReadOnly(
+  db: DatabaseReader,
+  args: {
+    token: string;
+    checkBanned?: boolean;
+  }
+): Promise<{ userId: Id<"users">; sessionId: Id<"sessions"> } | null> {
+  const session = await getSessionByToken(db, args.token);
+  if (!session) {
+    return null;
+  }
+
+  const now = Date.now();
+  if (session.expiresAt < now || session.absoluteExpiresAt < now) {
+    return null;
+  }
+
+  if (args.checkBanned) {
+    const user = await db.get(session.userId);
+    if (user?.banned) {
+      const banExpires = user.banExpires;
+      if (banExpires === undefined || banExpires > now) {
+        return null;
+      }
+    }
+  }
+
+  return {
+    userId: session.userId,
+    sessionId: session._id,
+  };
+}
+
 export async function cleanupExpiredSessions(
   db: DatabaseWriter
 ): Promise<void> {
