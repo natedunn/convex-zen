@@ -29,9 +29,11 @@ Current demo integration:
 - sign-in/sign-out transport is handled by dynamic API route `apps/tanstack/src/routes/api.auth.$.tsx`
 - Provider is mounted in `apps/tanstack/src/routes/__root.tsx`
 - `initialSession` is sourced from root route SSR `beforeLoad`
-- `authClient` includes `getSession`, `signInWithEmail` (`signIn.email` alias), and `signOut`
+- `authClient` includes `getSession`, `signIn.email`, and `signOut`
 - `authClient` can expose plugin methods via auto mode (for example `authClient.plugin.admin.*`)
-- client boilerplate can be generated with `createTanStackAuthClient(...)` from `convex-zen/tanstack-start-client`
+- client boilerplate can be generated with:
+  - `createTanStackAuthClient(...)` for route methods only
+  - `createTanStackQueryAuthClient(...)` for dependency-free query/mutation/action helpers on plugin + core methods
 - TanStack Query + Convex client providers are wired at the router level in `apps/tanstack/src/router.tsx`
 
 The provider expects a small client interface:

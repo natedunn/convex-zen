@@ -48,7 +48,7 @@ const transport: SessionTransport = {
     return { userId: "...", sessionId: "..." };
   },
   signOut: async (token) => {
-    // call your Convex signOut action
+    // call your Convex invalidateSession mutation
   },
 };
 
