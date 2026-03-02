@@ -1,3 +1,16 @@
+# [1.1.0](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.0.2...convex-zen-v1.1.0) (2026-03-02)
+
+
+### Bug Fixes
+
+* **component:** make current user reads query-safe ([8cc7ef9](https://github.com/natedunn/convex-zen/commit/8cc7ef9836995f485cfafd1bb334a9cf2b42d647))
+
+
+### Features
+
+* **client:** add auth runtime and tanstack auth query adapters ([b7aad23](https://github.com/natedunn/convex-zen/commit/b7aad2327c4edc36759b0f679ae2226e7c7b168b))
+* **generate:** support zen.config and unified auth metadata ([4acb377](https://github.com/natedunn/convex-zen/commit/4acb3773310fdf42204a8e8c55dc669aae0ba36e))
+
 ## [1.0.2](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.0.1...convex-zen-v1.0.2) (2026-02-27)
 
 
