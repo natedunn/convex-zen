@@ -1,6 +1,12 @@
 import { createTanStackAuthServer } from "convex-zen/tanstack-start";
 import { api } from "../../convex/_generated/api";
-import { authPluginMeta } from "../../convex/auth/plugin/metaGenerated";
+import { authMeta } from "../../convex/auth/metaGenerated";
+
+const authServer = createTanStackAuthServer({
+	convexUrl: import.meta.env["VITE_CONVEX_URL"] as string,
+	convexFunctions: api.auth,
+	meta: authMeta,
+});
 
 export const {
 	handler,
@@ -8,8 +14,4 @@ export const {
 	fetchAuthQuery,
 	fetchAuthMutation,
 	fetchAuthAction,
-} = createTanStackAuthServer({
-	convexUrl: import.meta.env["VITE_CONVEX_URL"] as string,
-	convexFunctions: api.auth,
-	pluginMeta: authPluginMeta,
-});
+} = authServer;

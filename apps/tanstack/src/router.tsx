@@ -3,59 +3,67 @@ import { ConvexQueryClient } from "@convex-dev/react-query";
 import { QueryClient } from "@tanstack/react-query";
 import { routerWithQueryClient } from "@tanstack/react-router-with-query";
 import { ConvexReactClient } from "convex/react";
+import { connectConvexZen } from "convex-zen/tanstack-start-client";
+import { authClient } from "./lib/auth-client";
 import { routeTree } from "./routeTree.gen";
 
-function isAuthzError(error: unknown): boolean {
-  if (!(error instanceof Error)) {
-    return false;
-  }
-  return /\b(unauthorized|forbidden)\b/i.test(error.message);
+function isAuthError(error: unknown): boolean {
+	if (!(error instanceof Error)) {
+		return false;
+	}
+	return /\b(unauthorized|forbidden)\b/i.test(error.message);
 }
 
 function createRouterContext() {
-  const convex = new ConvexReactClient(import.meta.env["VITE_CONVEX_URL"] as string);
-  const convexQueryClient = new ConvexQueryClient(convex);
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: {
-        queryKeyHashFn: convexQueryClient.hashFn(),
-        queryFn: convexQueryClient.queryFn(),
-        retry: (failureCount, error) => {
-          if (isAuthzError(error)) {
-            return false;
-          }
-          return failureCount < 2;
-        },
-      },
-    },
-  });
-  convexQueryClient.connect(queryClient);
+	const convex = new ConvexReactClient(
+		import.meta.env["VITE_CONVEX_URL"] as string,
+	);
 
-  return {
-    convex,
-    convexQueryClient,
-    queryClient,
-  };
+	connectConvexZen(authClient, convex);
+
+	const convexQueryClient = new ConvexQueryClient(convex);
+
+	const queryClient = new QueryClient({
+		defaultOptions: {
+			queries: {
+				queryKeyHashFn: convexQueryClient.hashFn(),
+				queryFn: convexQueryClient.queryFn(),
+				retry: (failureCount, error) => {
+					if (isAuthError(error)) {
+						return false;
+					}
+					return failureCount < 2;
+				},
+			},
+		},
+	});
+	convexQueryClient.connect(queryClient);
+
+	return {
+		convex,
+		convexQueryClient,
+		queryClient,
+	};
 }
 
 export type RouterContext = ReturnType<typeof createRouterContext>;
 
 export function getRouter() {
-  const context = createRouterContext();
-  const router = createTanstackRouter({
-    routeTree,
-    context,
-    defaultPreload: false,
-    defaultStaleTime: 5_000,
-    defaultPreloadStaleTime: 10_000,
-    scrollRestoration: true,
-  });
+	const context = createRouterContext();
+	const router = createTanstackRouter({
+		routeTree,
+		context,
+		defaultPreload: false,
+		defaultStaleTime: 5_000,
+		defaultPreloadStaleTime: 10_000,
+		scrollRestoration: true,
+	});
 
-  return routerWithQueryClient(router, context.queryClient);
+	return routerWithQueryClient(router, context.queryClient);
 }
 
 declare module "@tanstack/react-router" {
-  interface Register {
-    router: ReturnType<typeof getRouter>;
-  }
+	interface Register {
+		router: ReturnType<typeof getRouter>;
+	}
 }

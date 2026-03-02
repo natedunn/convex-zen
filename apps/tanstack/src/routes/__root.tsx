@@ -9,7 +9,7 @@ import {
 import { createServerFn } from "@tanstack/react-start";
 import { ConvexProvider } from "convex/react";
 import { ConvexZenAuthProvider } from "convex-zen/react";
-import type { ReactNode } from "react";
+import { type ReactNode } from "react";
 import { authClient } from "../lib/auth-client";
 import type { RouterContext } from "../router";
 
