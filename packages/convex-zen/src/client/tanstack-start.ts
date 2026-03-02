@@ -12,8 +12,12 @@ import {
   createConvexZenIdentityJwt,
   type SessionTokenCodec,
 } from "./tanstack-start-identity-jwt";
-import type { TanStackAuthPluginMeta } from "./tanstack-start-plugin-meta";
-import { pluginApiPlugin } from "./tanstack-start-plugins";
+import type {
+  TanStackAuthCoreMeta,
+  TanStackAuthMeta,
+  TanStackAuthPluginMeta,
+} from "./tanstack-start-plugin-meta";
+import { coreApiPlugin, pluginApiPlugin } from "./tanstack-start-plugins";
 import {
   createSessionPrimitives,
   type SessionInfo,
@@ -41,7 +45,7 @@ export interface TanStackStartConvexActions {
   /** Email/password sign-in mutation. */
   signInWithEmail: FunctionReference<"mutation", "public">;
   validateSession: FunctionReference<"mutation", "public">;
-  signOut: FunctionReference<"mutation", "public">;
+  invalidateSession: FunctionReference<"mutation", "public">;
 }
 
 export type TanStackStartConvexActionRefs =
@@ -77,6 +81,15 @@ export interface TanStackStartConvexReactStartOptions
    * Required for generic auto plugin routing (`/api/auth/plugin/*`).
    */
   pluginMeta?: TanStackAuthPluginMeta;
+  /**
+   * Generated core function metadata.
+   * Enables deterministic core route mapping for proxy-shaped Convex refs.
+   */
+  coreMeta?: TanStackAuthCoreMeta;
+  /**
+   * Generated auth metadata (`core` + `plugin`) from `convex/auth/metaGenerated.ts`.
+   */
+  meta?: TanStackAuthMeta;
   /**
    * Additional trusted origins allowed for non-GET auth API requests.
    * Same-origin is always trusted.
@@ -125,7 +138,10 @@ export interface TanStackStartAuthHandlers {
 }
 
 export interface TanStackStartAuthApiHandlerOptions {
-  tanstackAuth: Pick<TanStackStartAuth, "getSession" | "signIn" | "signOut">;
+  tanstackAuth: Pick<
+    TanStackStartAuth,
+    "getSession" | "getToken" | "signIn" | "signOut"
+  >;
   basePath?: string;
   plugins?: readonly TanStackStartAuthApiPlugin[];
   trustedOrigins?: TrustedOriginsConfig;
@@ -186,6 +202,18 @@ export interface TanStackStartAuthApiPluginFactory {
 }
 
 export interface TanStackStartConvexFetchers {
+  fetchQuery: <Query extends FunctionReference<"query", "public">>(
+    fn: Query,
+    args: FunctionArgs<Query>
+  ) => Promise<FunctionReturnType<Query>>;
+  fetchMutation: <Mutation extends FunctionReference<"mutation", "public">>(
+    fn: Mutation,
+    args: FunctionArgs<Mutation>
+  ) => Promise<FunctionReturnType<Mutation>>;
+  fetchAction: <Action extends FunctionReference<"action", "public">>(
+    fn: Action,
+    args: FunctionArgs<Action>
+  ) => Promise<FunctionReturnType<Action>>;
   fetchAuthQuery: <Query extends FunctionReference<"query", "public">>(
     fn: Query,
     args: FunctionArgs<Query>
@@ -252,7 +280,7 @@ function resolveNamedConvexFunctionRef(
 
 function asMutationActionRef(
   value: unknown,
-  actionName: "signInWithEmail" | "validateSession" | "signOut"
+  actionName: "signInWithEmail" | "validateSession" | "invalidateSession"
 ): FunctionReference<"mutation", "public"> {
   if (!hasFunctionRefCandidate(value)) {
     throw new Error(
@@ -275,9 +303,9 @@ function resolveCoreActions(
       resolveNamedConvexFunctionRef(convexFunctions, "validateSession", "core"),
       "validateSession"
     ),
-    signOut: asMutationActionRef(
-      resolveNamedConvexFunctionRef(convexFunctions, "signOut", "core"),
-      "signOut"
+    invalidateSession: asMutationActionRef(
+      resolveNamedConvexFunctionRef(convexFunctions, "invalidateSession", "core"),
+      "invalidateSession"
     ),
   };
 }
@@ -292,6 +320,29 @@ function hasPluginMeta(pluginMeta: TanStackAuthPluginMeta | undefined): boolean 
     }
   }
   return false;
+}
+
+function resolvePluginMeta(
+  options: Pick<TanStackStartConvexReactStartOptions, "meta" | "pluginMeta">
+): TanStackAuthPluginMeta | undefined {
+  return options.meta?.plugin ?? options.pluginMeta;
+}
+
+function resolveCoreMeta(
+  options: Pick<TanStackStartConvexReactStartOptions, "meta" | "coreMeta">
+): TanStackAuthCoreMeta | undefined {
+  return options.meta?.core ?? options.coreMeta;
+}
+
+function hasPluginFunctionRefs(convexFunctions: unknown): boolean {
+  const pluginFunctions = readMember(convexFunctions, "plugin");
+  if (
+    pluginFunctions === null ||
+    (typeof pluginFunctions !== "object" && typeof pluginFunctions !== "function")
+  ) {
+    return false;
+  }
+  return Object.keys(pluginFunctions as Record<string, unknown>).length > 0;
 }
 
 function isProductionRuntime(): boolean {
@@ -323,6 +374,18 @@ function json(data: unknown, status = 200): Response {
   });
 }
 
+function jsonNoStore(data: unknown, status = 200): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+      pragma: "no-cache",
+      expires: "0",
+    },
+  });
+}
+
 function normalizeBasePath(path: string): string {
   const normalized = path.trim();
   if (normalized === "") {
@@ -347,6 +410,62 @@ function resolveActionFromPath(pathname: string, basePath: string): string | nul
   }
   const action = pathname.slice(expectedPrefix.length);
   return action.length > 0 ? action : null;
+}
+
+function decodeBase64UrlToUtf8(input: string): string | null {
+  const normalized = input.replace(/-/g, "+").replace(/_/g, "/");
+  const remainder = normalized.length % 4;
+  const padded =
+    remainder === 0 ? normalized : normalized + "=".repeat(4 - remainder);
+  try {
+    if (typeof atob === "function") {
+      return atob(padded);
+    }
+    const globalBuffer = (globalThis as { Buffer?: typeof Buffer }).Buffer;
+    if (!globalBuffer) {
+      return null;
+    }
+    return globalBuffer.from(padded, "base64").toString("utf8");
+  } catch {
+    return null;
+  }
+}
+
+function extractJwtTokenMetadata(token: string): {
+  issuedAtMs?: number;
+  expiresAtMs?: number;
+} {
+  const segments = token.split(".");
+  if (segments.length !== 3) {
+    return {};
+  }
+  const payloadSegment = segments[1];
+  if (!payloadSegment) {
+    return {};
+  }
+  const decodedPayload = decodeBase64UrlToUtf8(payloadSegment);
+  if (!decodedPayload) {
+    return {};
+  }
+  try {
+    const payload = JSON.parse(decodedPayload) as {
+      iat?: unknown;
+      exp?: unknown;
+    };
+    const metadata: {
+      issuedAtMs?: number;
+      expiresAtMs?: number;
+    } = {};
+    if (typeof payload.iat === "number" && Number.isFinite(payload.iat)) {
+      metadata.issuedAtMs = Math.floor(payload.iat * 1000);
+    }
+    if (typeof payload.exp === "number" && Number.isFinite(payload.exp)) {
+      metadata.expiresAtMs = Math.floor(payload.exp * 1000);
+    }
+    return metadata;
+  } catch {
+    return {};
+  }
 }
 
 function normalizeOrigin(origin: string): string | null {
@@ -662,6 +781,7 @@ export function createTanStackStartAuthHandlers(
  *
  * Supported endpoints:
  * - `GET /api/auth/session`
+ * - `GET /api/auth/token`
  * - `POST /api/auth/sign-in-with-email`
  * - `POST /api/auth/sign-out`
  */
@@ -695,6 +815,27 @@ export function createTanStackStartAuthApiHandler(
       if (request.method === "GET" && action === "session") {
         const session = await options.tanstackAuth.getSession();
         return json({ session });
+      }
+
+      if (request.method === "GET" && action === "token") {
+        const token = await options.tanstackAuth.getToken();
+        const tokenPayload: {
+          token: string | null;
+          issuedAtMs?: number;
+          expiresAtMs?: number;
+        } = {
+          token,
+        };
+        if (token) {
+          const metadata = extractJwtTokenMetadata(token);
+          if (metadata.issuedAtMs !== undefined) {
+            tokenPayload.issuedAtMs = metadata.issuedAtMs;
+          }
+          if (metadata.expiresAtMs !== undefined) {
+            tokenPayload.expiresAtMs = metadata.expiresAtMs;
+          }
+        }
+        return jsonNoStore(tokenPayload);
       }
 
       if (request.method === "POST" && action === "sign-in-with-email") {
@@ -761,12 +902,13 @@ export function createTanStackStartAuthApiHandler(
 }
 
 /**
- * Build authenticated Convex fetch helpers for TanStack Start server functions.
- * Each call resolves auth from cookies via `requireSession`.
+ * Build Convex fetch helpers for TanStack Start server functions.
+ * Authenticated helpers resolve auth from cookies via `requireSession`.
  */
 export function createTanStackStartConvexFetchers(
   options: TanStackStartConvexFetchersOptions
 ): TanStackStartConvexFetchers {
+  const publicConvex = new ConvexHttpClient(options.convexUrl);
   const withAuthenticatedConvexClient = async <T>(
     runner: (client: ConvexHttpClient) => Promise<T>
   ): Promise<T> => {
@@ -777,6 +919,15 @@ export function createTanStackStartConvexFetchers(
   };
 
   return {
+    fetchQuery: async (fn, args) => {
+      return publicConvex.query(fn, args);
+    },
+    fetchMutation: async (fn, args) => {
+      return publicConvex.mutation(fn, args);
+    },
+    fetchAction: async (fn, args) => {
+      return publicConvex.action(fn, args);
+    },
     fetchAuthQuery: async (fn, args) => {
       return withAuthenticatedConvexClient((convex) => convex.query(fn, args));
     },
@@ -810,7 +961,7 @@ export function createTanStackStartConvexAuth(
       })) as SessionInfo | null;
     },
     signOut: async (token) => {
-      await convex.mutation(coreActions.signOut, { token });
+      await convex.mutation(coreActions.invalidateSession, { token });
     },
   });
   const adapterOptions: TanStackStartAuthOptions = {
@@ -841,10 +992,16 @@ export function createTanStackAuthServer(
 ): TanStackStartConvexReactStart {
   const autoPluginsEnabled =
     options.plugins === undefined || options.plugins === "auto";
-  if (autoPluginsEnabled && options.pluginMeta === undefined) {
+  const pluginMeta = resolvePluginMeta(options);
+  const coreMeta = resolveCoreMeta(options);
+  if (
+    autoPluginsEnabled &&
+    hasPluginFunctionRefs(options.convexFunctions) &&
+    pluginMeta === undefined
+  ) {
     throw new Error(
       'createTanStackAuthServer requires "pluginMeta" when plugins is "auto". ' +
-        "Pass generated authPluginMeta (convex/auth/plugin/metaGenerated.ts) " +
+        "Pass generated authMeta/authPluginMeta (convex/auth/metaGenerated.ts) " +
         'or disable auto plugins with plugins: [].'
     );
   }
@@ -855,10 +1012,11 @@ export function createTanStackAuthServer(
     convexUrl: options.convexUrl,
   });
   const autoPluginFactories: TanStackStartAuthApiPluginFactory[] = [];
-  if (hasPluginMeta(options.pluginMeta)) {
+  autoPluginFactories.push(coreApiPlugin(coreMeta ? { coreMeta } : {}));
+  if (hasPluginMeta(pluginMeta)) {
     autoPluginFactories.push(
       pluginApiPlugin({
-        pluginMeta: options.pluginMeta as TanStackAuthPluginMeta,
+        pluginMeta: pluginMeta as TanStackAuthPluginMeta,
       })
     );
   }
@@ -897,6 +1055,9 @@ export function createTanStackAuthServer(
     signOut: tanstackAuth.signOut,
     requireSession: tanstackAuth.requireSession,
     withSession: tanstackAuth.withSession,
+    fetchQuery: fetchers.fetchQuery,
+    fetchMutation: fetchers.fetchMutation,
+    fetchAction: fetchers.fetchAction,
     fetchAuthQuery: fetchers.fetchAuthQuery,
     fetchAuthMutation: fetchers.fetchAuthMutation,
     fetchAuthAction: fetchers.fetchAuthAction,

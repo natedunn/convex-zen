@@ -1,6 +1,7 @@
 import type { FunctionArgs, FunctionReference } from "convex/server";
 import type { TanStackStartAuthApiPluginFactory } from "./tanstack-start";
 import type {
+  TanStackAuthCoreMeta,
   TanStackAuthPluginFunctionKind,
   TanStackAuthPluginMeta,
 } from "./tanstack-start-plugin-meta";
@@ -30,6 +31,7 @@ export interface TanStackStartAdminApiPluginOptions {
 }
 
 export const ADMIN_API_PLUGIN_ID = "admin" as const;
+export const CORE_API_PLUGIN_ID = "core" as const;
 
 export const REQUIRED_ADMIN_CONVEX_FUNCTIONS = [
   "listUsers",
@@ -206,6 +208,192 @@ function parsePluginArgs(value: unknown): Record<string, unknown> | null {
     return null;
   }
   return value;
+}
+
+function isUnauthorizedCoreRouteError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  const message = error.message.toLowerCase();
+  return message.includes("unauthorized") || message.includes("forbidden");
+}
+
+function isProductionRuntime(): boolean {
+  return (
+    typeof process !== "undefined" &&
+    typeof process.env === "object" &&
+    process.env?.NODE_ENV === "production"
+  );
+}
+
+function logCurrentUserAuthBridgeFailure(error: unknown): void {
+  if (isProductionRuntime()) {
+    return;
+  }
+  const details =
+    error instanceof Error
+      ? { message: error.message, stack: error.stack }
+      : { error };
+  console.warn(
+    "[convex-zen] core/current-user auth bridge failed (unauthorized). Returning null.",
+    details
+  );
+}
+
+type CoreRouteEntry = {
+  ref: FunctionReference<"query" | "mutation" | "action", "public">;
+};
+
+export interface TanStackStartCoreApiPluginOptions {
+  routePrefix?: string;
+  coreMeta?: TanStackAuthCoreMeta;
+}
+
+function normalizeCoreRoutePrefix(prefix: string): string {
+  const trimmed = prefix.trim().replace(/^\/+|\/+$/g, "");
+  return trimmed.length > 0 ? trimmed : "core";
+}
+
+function resolveCoreRouteEntries(
+  coreMeta: TanStackAuthCoreMeta | undefined,
+  convexFunctions: Record<string, unknown> | undefined
+): Map<string, CoreRouteEntry> {
+  const entries = new Map<string, CoreRouteEntry>();
+  const coreRoot = readMember(convexFunctions, "core");
+  if (!coreRoot || (typeof coreRoot !== "object" && typeof coreRoot !== "function")) {
+    return entries;
+  }
+
+  const coreFunctionNames = coreMeta
+    ? Object.keys(coreMeta)
+    : Object.keys(coreRoot as Record<string, unknown>);
+
+  for (const functionName of coreFunctionNames) {
+    const routeKey = toKebabCase(functionName);
+    if (entries.has(routeKey)) {
+      throw new Error(
+        `coreApiPlugin found duplicate route mapping for "${routeKey}".`
+      );
+    }
+    const functionRefCandidate = readMember(coreRoot, functionName);
+    const functionRef = readFunctionRef<
+      FunctionReference<"query" | "mutation" | "action", "public">
+    >(functionRefCandidate);
+    if (!functionRef) {
+      if (coreMeta) {
+        throw new Error(
+          `coreApiPlugin could not resolve "convexFunctions.core.${functionName}".`
+        );
+      }
+      continue;
+    }
+    entries.set(routeKey, { ref: functionRef });
+  }
+  return entries;
+}
+
+function shouldTryNextCoreKind(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  const message = error.message.toLowerCase();
+  return (
+    message.includes("no query exists") ||
+    message.includes("no mutation exists") ||
+    message.includes("no action exists") ||
+    message.includes("could not find public function") ||
+    message.includes("is not a query") ||
+    message.includes("is not a mutation") ||
+    message.includes("is not an action")
+  );
+}
+
+/**
+ * Add generic core auth API routes to TanStack Start handler.
+ *
+ * Endpoint shape:
+ * - POST `/api/auth/core/<function-name>`
+ */
+export function coreApiPlugin(
+  options: TanStackStartCoreApiPluginOptions = {}
+): TanStackStartAuthApiPluginFactory {
+  const routePrefix = normalizeCoreRoutePrefix(options.routePrefix ?? "core");
+
+  return {
+    id: CORE_API_PLUGIN_ID,
+    create: ({ fetchers, convexFunctions }) => {
+      const routeEntries = resolveCoreRouteEntries(options.coreMeta, convexFunctions);
+      return {
+        id: CORE_API_PLUGIN_ID,
+        handle: async (context) => {
+          const actionPrefix = `${routePrefix}/`;
+          if (!context.action.startsWith(actionPrefix)) {
+            return null;
+          }
+          if (context.method !== "POST") {
+            return context.json({ error: "Method not allowed" }, 405);
+          }
+
+          const coreAction = context.action.slice(actionPrefix.length);
+          const entry = routeEntries.get(coreAction);
+          if (!entry) {
+            return null;
+          }
+          const payload = await context.readJson();
+          const args = parsePluginArgs(payload);
+          if (!args) {
+            return context.json({ error: "Invalid request body" }, 400);
+          }
+
+          if (coreAction === "current-user") {
+            try {
+              const result = await fetchers.fetchAuthQuery(
+                entry.ref as FunctionReference<"query", "public">,
+                args as FunctionArgs<FunctionReference<"query", "public">>
+              );
+              return context.json(result);
+            } catch (authQueryError) {
+              if (isUnauthorizedCoreRouteError(authQueryError)) {
+                logCurrentUserAuthBridgeFailure(authQueryError);
+                return context.json(null);
+              }
+              throw authQueryError;
+            }
+          }
+
+          try {
+            const result = await fetchers.fetchMutation(
+              entry.ref as FunctionReference<"mutation", "public">,
+              args as FunctionArgs<FunctionReference<"mutation", "public">>
+            );
+            return context.json(result);
+          } catch (mutationError) {
+            if (!shouldTryNextCoreKind(mutationError)) {
+              throw mutationError;
+            }
+          }
+
+          try {
+            const result = await fetchers.fetchQuery(
+              entry.ref as FunctionReference<"query", "public">,
+              args as FunctionArgs<FunctionReference<"query", "public">>
+            );
+            return context.json(result);
+          } catch (queryError) {
+            if (!shouldTryNextCoreKind(queryError)) {
+              throw queryError;
+            }
+          }
+
+          const result = await fetchers.fetchAction(
+            entry.ref as FunctionReference<"action", "public">,
+            args as FunctionArgs<FunctionReference<"action", "public">>
+          );
+          return context.json(result);
+        },
+      };
+    },
+  };
 }
 
 /**

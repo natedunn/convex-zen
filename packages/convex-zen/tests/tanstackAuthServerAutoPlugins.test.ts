@@ -18,6 +18,18 @@ const adminPluginMeta = {
   },
 } as const;
 
+const authMeta = {
+  core: {},
+  plugin: adminPluginMeta,
+} as const;
+
+const authMetaWithCore = {
+  core: {
+    signUp: "mutation",
+  },
+  plugin: adminPluginMeta,
+} as const;
+
 function mutationRef(name: string): FunctionReference<"mutation", "public"> {
   return { name } as unknown as FunctionReference<"mutation", "public">;
 }
@@ -30,7 +42,8 @@ function createNonEnumerableConvexFunctionsProxy() {
   const coreRefs = {
     signInWithEmail: mutationRef("signInWithEmail"),
     validateSession: mutationRef("validateSession"),
-    signOut: mutationRef("signOut"),
+    invalidateSession: mutationRef("invalidateSession"),
+    signUp: mutationRef("signUp"),
   };
   const adminRefs = {
     listUsers: queryRef("listUsers"),
@@ -95,7 +108,7 @@ describe("createTanStackAuthServer auto plugins", () => {
         core: {
           signInWithEmail: mutationRef("signInWithEmail"),
           validateSession: mutationRef("validateSession"),
-          signOut: mutationRef("signOut"),
+          invalidateSession: mutationRef("invalidateSession"),
         },
         plugin: {
           admin: {
@@ -121,6 +134,38 @@ describe("createTanStackAuthServer auto plugins", () => {
     expect(response.status).toBe(405);
   });
 
+  it("enables plugin routes by default when meta is provided", async () => {
+    const authServer = createTanStackAuthServer({
+      convexUrl: "https://example.convex.cloud",
+      convexFunctions: {
+        core: {
+          signInWithEmail: mutationRef("signInWithEmail"),
+          validateSession: mutationRef("validateSession"),
+          invalidateSession: mutationRef("invalidateSession"),
+        },
+        plugin: {
+          admin: {
+            listUsers: queryRef("listUsers"),
+            banUser: mutationRef("banUser"),
+            setRole: mutationRef("setRole"),
+            unbanUser: mutationRef("unbanUser"),
+            deleteUser: mutationRef("deleteUser"),
+          },
+        },
+      },
+      meta: authMeta,
+      sessionTokenCodec: passthroughSessionTokenCodec,
+    });
+
+    const response = await authServer.handler(
+      new Request("https://app.test/api/auth/plugin/admin/list-users", {
+        method: "GET",
+      })
+    );
+
+    expect(response.status).toBe(405);
+  });
+
   it("throws when auto plugins are enabled without pluginMeta", () => {
     expect(() =>
       createTanStackAuthServer({
@@ -129,7 +174,7 @@ describe("createTanStackAuthServer auto plugins", () => {
           core: {
             signInWithEmail: mutationRef("signInWithEmail"),
             validateSession: mutationRef("validateSession"),
-            signOut: mutationRef("signOut"),
+            invalidateSession: mutationRef("invalidateSession"),
           },
           plugin: {
             admin: {
@@ -153,7 +198,7 @@ describe("createTanStackAuthServer auto plugins", () => {
         core: {
           signInWithEmail: mutationRef("signInWithEmail"),
           validateSession: mutationRef("validateSession"),
-          signOut: mutationRef("signOut"),
+          invalidateSession: mutationRef("invalidateSession"),
         },
         plugin: {
           admin: {
@@ -187,7 +232,7 @@ describe("createTanStackAuthServer auto plugins", () => {
           core: {
             signInWithEmail: mutationRef("signInWithEmail"),
             validateSession: mutationRef("validateSession"),
-            signOut: mutationRef("signOut"),
+            invalidateSession: mutationRef("invalidateSession"),
           },
           plugin: {
             admin: {
@@ -209,7 +254,7 @@ describe("createTanStackAuthServer auto plugins", () => {
           core: {
             signInWithEmail: FunctionReference<"mutation", "public">;
             validateSession: FunctionReference<"mutation", "public">;
-            signOut: FunctionReference<"mutation", "public">;
+            invalidateSession: FunctionReference<"mutation", "public">;
           };
           plugin: {
             admin: {
@@ -231,6 +276,65 @@ describe("createTanStackAuthServer auto plugins", () => {
       })
     );
 
+    expect(response.status).toBe(405);
+  });
+
+  it("auto-detects core routes for proxy-based convexFunctions refs when core meta is provided", async () => {
+    const authServer = createTanStackAuthServer({
+      convexUrl: "https://example.convex.cloud",
+      convexFunctions:
+        createNonEnumerableConvexFunctionsProxy() as unknown as {
+          core: {
+            signInWithEmail: FunctionReference<"mutation", "public">;
+            validateSession: FunctionReference<"mutation", "public">;
+            invalidateSession: FunctionReference<"mutation", "public">;
+            signUp: FunctionReference<"mutation", "public">;
+          };
+          plugin: {
+            admin: {
+              listUsers: FunctionReference<"query", "public">;
+              banUser: FunctionReference<"mutation", "public">;
+              setRole: FunctionReference<"mutation", "public">;
+              unbanUser: FunctionReference<"mutation", "public">;
+              deleteUser: FunctionReference<"mutation", "public">;
+            };
+          };
+        },
+      meta: authMetaWithCore,
+      sessionTokenCodec: passthroughSessionTokenCodec,
+    });
+
+    const response = await authServer.handler(
+      new Request("https://app.test/api/auth/core/sign-up", {
+        method: "GET",
+      })
+    );
+
+    // 405 confirms the core route handler is active.
+    expect(response.status).toBe(405);
+  });
+
+  it("enables core routes without pluginMeta", async () => {
+    const authServer = createTanStackAuthServer({
+      convexUrl: "https://example.convex.cloud",
+      convexFunctions: {
+        core: {
+          signInWithEmail: mutationRef("signInWithEmail"),
+          validateSession: mutationRef("validateSession"),
+          invalidateSession: mutationRef("invalidateSession"),
+          signUp: mutationRef("signUp"),
+        },
+      },
+      sessionTokenCodec: passthroughSessionTokenCodec,
+    });
+
+    const response = await authServer.handler(
+      new Request("https://app.test/api/auth/core/sign-up", {
+        method: "GET",
+      })
+    );
+
+    // 405 confirms the core route handler is active.
     expect(response.status).toBe(405);
   });
 });

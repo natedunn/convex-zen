@@ -9,6 +9,7 @@ function makeSession(): SessionInfo {
 function createAuthMocks() {
   return {
     getSession: vi.fn(async () => null),
+    getToken: vi.fn(async () => null),
     signIn: vi.fn(async (_input: SignInInput) => makeSession()),
     signOut: vi.fn(async () => {}),
   };
@@ -176,5 +177,61 @@ describe("createTanStackStartAuthApiHandler trusted origins", () => {
       })
     );
     expect(allowed.status).toBe(200);
+  });
+});
+
+describe("createTanStackStartAuthApiHandler token route", () => {
+  const createJwtLikeToken = (payload: Record<string, unknown>): string => {
+    const base64Url = (value: unknown) =>
+      Buffer.from(JSON.stringify(value)).toString("base64url");
+    return `${base64Url({ alg: "HS256", typ: "JWT" })}.${base64Url(payload)}.signature`;
+  };
+
+  it("returns a token payload for GET /api/auth/token", async () => {
+    const auth = createAuthMocks();
+    auth.getToken.mockResolvedValueOnce("token_123");
+    const handler = createTanStackStartAuthApiHandler({ tanstackAuth: auth });
+
+    const response = await handler(new Request("https://app.test/api/auth/token"));
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(response.headers.get("pragma")).toBe("no-cache");
+    expect(response.headers.get("expires")).toBe("0");
+    expect(auth.getToken).toHaveBeenCalledTimes(1);
+    expect(await response.json()).toEqual({ token: "token_123" });
+  });
+
+  it("returns token: null when there is no session token", async () => {
+    const auth = createAuthMocks();
+    const handler = createTanStackStartAuthApiHandler({ tanstackAuth: auth });
+
+    const response = await handler(new Request("https://app.test/api/auth/token"));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ token: null });
+  });
+
+  it("includes issuedAtMs/expiresAtMs when token has JWT iat/exp claims", async () => {
+    const auth = createAuthMocks();
+    const token = createJwtLikeToken({ iat: 10, exp: 20 });
+    auth.getToken.mockResolvedValueOnce(token);
+    const handler = createTanStackStartAuthApiHandler({ tanstackAuth: auth });
+
+    const response = await handler(new Request("https://app.test/api/auth/token"));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      token,
+      issuedAtMs: 10_000,
+      expiresAtMs: 20_000,
+    });
+  });
+
+  it("omits metadata for opaque non-JWT tokens", async () => {
+    const auth = createAuthMocks();
+    auth.getToken.mockResolvedValueOnce("opaque_token");
+    const handler = createTanStackStartAuthApiHandler({ tanstackAuth: auth });
+
+    const response = await handler(new Request("https://app.test/api/auth/token"));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ token: "opaque_token" });
   });
 });
