@@ -2,7 +2,7 @@
   "name": "@convex-zen/next",
   "private": true,
   "scripts": {
-    "dev": "portless next.convex-zen next dev",
+    "dev": "sh -c 'if command -v portless >/dev/null 2>&1; then portless next.convex-zen next dev; else echo \"portless not found; starting next dev directly\"; next dev; fi'",
     "dev:direct": "next dev",
     "build": "next build",
     "start": "next start",
