@@ -4,9 +4,11 @@
 	"type": "module",
 	"scripts": {
 		"dev": "concurrently -k -n web,convex -c blue,green \"pnpm dev:web\" \"convex dev\"",
-		"dev:web": "portless tanstack.convex-zen vite dev",
+		"dev:web": "sh -c 'if command -v portless >/dev/null 2>&1; then portless tanstack.convex-zen vite dev; else echo \"portless not found; starting vite dev directly\"; vite dev; fi'",
+		"dev:direct": "concurrently -k -n web,convex -c blue,green \"pnpm dev:web:direct\" \"convex dev\"",
+		"dev:web:direct": "vite dev",
 		"dev:vite": "pnpm dev:web",
-		"dev:vite:direct": "vite dev",
+		"dev:vite:direct": "pnpm dev:web:direct",
 		"build": "vite build",
 		"preview": "vite preview",
 		"convex:dev": "convex dev"
