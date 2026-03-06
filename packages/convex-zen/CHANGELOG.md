@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.1.0...convex-zen-v1.2.0) (2026-03-06)
+
+
+### Features
+
+* **auth:** add next.js auth runtime and shared route clients ([bb8b3c0](https://github.com/natedunn/convex-zen/commit/bb8b3c016916a2e1ce5b0e3eabcb47e54a3aa748))
+
 # [1.1.0](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.0.2...convex-zen-v1.1.0) (2026-03-02)
 
 
