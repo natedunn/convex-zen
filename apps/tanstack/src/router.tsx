@@ -3,7 +3,6 @@ import { ConvexQueryClient } from "@convex-dev/react-query";
 import { QueryClient } from "@tanstack/react-query";
 import { routerWithQueryClient } from "@tanstack/react-router-with-query";
 import { ConvexReactClient } from "convex/react";
-import { connectConvexZen } from "convex-zen/tanstack-start-client";
 import { authClient } from "./lib/auth-client";
 import { routeTree } from "./routeTree.gen";
 
@@ -19,7 +18,7 @@ function createRouterContext() {
 		import.meta.env["VITE_CONVEX_URL"] as string,
 	);
 
-	connectConvexZen(authClient, convex);
+	authClient.connectConvexAuth(convex);
 
 	const convexQueryClient = new ConvexQueryClient(convex);
 

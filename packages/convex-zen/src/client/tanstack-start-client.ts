@@ -48,10 +48,6 @@ export {
   type LocalStorageAuthStorageOptions,
 } from "./auth-runtime";
 
-export interface TanStackStartAuthServerFns {
-  getSession: () => Promise<SessionInfo | null>;
-}
-
 interface AuthApiErrorPayload {
   error?: string;
 }
@@ -458,17 +454,6 @@ export interface TanStackStartAuthApiClient extends ReactAuthClient {
   };
 }
 
-export interface ConvexAuthConnectorLike {
-  connectConvexAuth: (convexClient: ConvexAuthClientLike) => () => void;
-}
-
-export interface ConnectConvexZenOptions {
-  /**
-   * If true (default), skip connecting when running outside the browser.
-   */
-  browserOnly?: boolean;
-}
-
 export type TanStackStartAuthApiClientWithPlugins<
   TPlugins extends readonly TanStackStartAuthApiClientPlugin<object>[],
 > = TanStackStartAuthApiClient & PluginExtensions<TPlugins>;
@@ -798,95 +783,6 @@ function attachActionHelpers<
   routeMethod.runAction = runAction;
 }
 
-type ConvexAuthConnectionEntry = {
-  disconnect: () => void;
-  refCount: number;
-};
-
-const convexAuthOnceRegistry = new WeakMap<
-  object,
-  WeakMap<object, ConvexAuthConnectionEntry>
->();
-
-function getOrCreateConvexAuthRegistryForClient(
-  authClient: object
-): WeakMap<object, ConvexAuthConnectionEntry> {
-  const existing = convexAuthOnceRegistry.get(authClient);
-  if (existing) {
-    return existing;
-  }
-  const created = new WeakMap<object, ConvexAuthConnectionEntry>();
-  convexAuthOnceRegistry.set(authClient, created);
-  return created;
-}
-
-function createConvexAuthDisconnect(
-  registry: WeakMap<object, ConvexAuthConnectionEntry>,
-  convexClient: object,
-  entry: ConvexAuthConnectionEntry
-): () => void {
-  let released = false;
-  return () => {
-    if (released) {
-      return;
-    }
-    released = true;
-    if (entry.refCount <= 0) {
-      return;
-    }
-    entry.refCount -= 1;
-    if (entry.refCount === 0) {
-      registry.delete(convexClient);
-      entry.disconnect();
-    }
-  };
-}
-
-/**
- * Connect ConvexZen auth bridge once per authClient + convexClient pair.
- * Repeated calls with the same pair are reference-counted and return idempotent cleanup callbacks.
- */
-export function connectConvexZen(
-  authClient: ConvexAuthConnectorLike,
-  convexClient: ConvexAuthClientLike,
-  options: ConnectConvexZenOptions = {}
-): () => void {
-  const browserOnly = options.browserOnly ?? true;
-  if (browserOnly && typeof window === "undefined") {
-    return () => {};
-  }
-
-  const authClientKey = authClient as unknown as object;
-  const convexClientKey = convexClient as unknown as object;
-  const registry = getOrCreateConvexAuthRegistryForClient(authClientKey);
-  const existingEntry = registry.get(convexClientKey);
-  if (existingEntry) {
-    existingEntry.refCount += 1;
-    return createConvexAuthDisconnect(registry, convexClientKey, existingEntry);
-  }
-
-  const disconnect = authClient.connectConvexAuth(convexClient);
-  const entry: ConvexAuthConnectionEntry = {
-    disconnect,
-    refCount: 1,
-  };
-  registry.set(convexClientKey, entry);
-  return createConvexAuthDisconnect(registry, convexClientKey, entry);
-}
-
-/**
- * Build a ConvexZen React auth client from TanStack Start server functions.
- */
-export function createTanStackStartReactAuthClient(
-  serverFns: TanStackStartAuthServerFns
-): ReactAuthClient {
-  return {
-    getSession: async () => {
-      return await serverFns.getSession();
-    },
-  };
-}
-
 /**
  * Build a browser auth client targeting TanStack Start auth API routes.
  *
@@ -894,7 +790,7 @@ export function createTanStackStartReactAuthClient(
  * - basePath: `/api/auth`
  * - credentials: `same-origin`
  */
-export function createTanStackAuthClient<
+function createTanStackRouteAuthClient<
   TPlugins extends readonly TanStackStartAuthApiClientPlugin<object>[] = [],
   TConvexFunctions extends Record<string, unknown> | undefined = undefined,
 >(
@@ -1227,13 +1123,19 @@ export function createTanStackAuthClient<
 }
 
 /**
- * Build a route-backed auth client and augment plugin methods with TanStack
- * Query helpers generated from `pluginMeta`.
+ * Build a route-backed auth client and augment plugin/core methods with TanStack
+ * query/mutation/action helpers.
  *
- * Session/sign-in/sign-out remain route-based (`/api/auth/*`), while plugin
- * methods also gain direct query/mutation/action wrappers.
+ * Session/sign-in/sign-out remain route-based (`/api/auth/*`), while plugin/core
+ * methods also gain `.query()`, `.mutationFn()`, `.actionFn()`, etc.
  */
-export function createTanStackQueryAuthClient<
+export function createTanStackAuthClient<
+  TPlugins extends readonly TanStackStartAuthApiClientPlugin<object>[] = [],
+  TConvexFunctions extends Record<string, unknown> | undefined = undefined,
+>(
+  options?: TanStackStartAuthApiClientOptions<TPlugins, TConvexFunctions>
+): TanStackStartAuthApiClientAuto<TPlugins, TConvexFunctions>;
+export function createTanStackAuthClient<
   TPlugins extends readonly TanStackStartAuthApiClientPlugin<object>[] = [],
   TConvexFunctions extends Record<string, unknown> = Record<string, unknown>,
   TPluginMeta extends TanStackAuthPluginMeta = TanStackAuthPluginMeta,
@@ -1245,82 +1147,120 @@ export function createTanStackQueryAuthClient<
     TPluginMeta,
     TCoreMeta
   >
-): TanStackQueryAuthClient<TPlugins, TConvexFunctions, TPluginMeta, TCoreMeta> {
-  const authClient = createTanStackAuthClient<TPlugins, TConvexFunctions>(options);
-  const pluginMeta = resolvePluginMetaFromOptions(options);
-  if (!pluginMeta) {
+): TanStackQueryAuthClient<TPlugins, TConvexFunctions, TPluginMeta, TCoreMeta>;
+export function createTanStackAuthClient<
+  TPlugins extends readonly TanStackStartAuthApiClientPlugin<object>[] = [],
+  TConvexFunctions extends Record<string, unknown> | undefined = undefined,
+  TPluginMeta extends TanStackAuthPluginMeta = TanStackAuthPluginMeta,
+  TCoreMeta extends TanStackAuthCoreMeta = typeof DEFAULT_GENERATED_CORE_META,
+>(
+  options:
+    | TanStackStartAuthApiClientOptions<TPlugins, TConvexFunctions>
+    | TanStackQueryAuthClientOptions<
+        TPlugins,
+        Extract<TConvexFunctions, Record<string, unknown>>,
+        TPluginMeta,
+        TCoreMeta
+      > = {}
+):
+  | TanStackStartAuthApiClientAuto<TPlugins, TConvexFunctions>
+  | TanStackQueryAuthClient<
+      TPlugins,
+      Extract<TConvexFunctions, Record<string, unknown>>,
+      TPluginMeta,
+      TCoreMeta
+    > {
+  const authClient = createTanStackRouteAuthClient(
+    options as TanStackStartAuthApiClientOptions<TPlugins, TConvexFunctions>
+  );
+  const queryOptions = options as TanStackQueryAuthClientOptions<
+    TPlugins,
+    Extract<TConvexFunctions, Record<string, unknown>>,
+    TPluginMeta,
+    TCoreMeta
+  >;
+  if (!("convexFunctions" in queryOptions) || !queryOptions.convexFunctions) {
+    return authClient;
+  }
+
+  const hasPluginFns = hasPluginFunctionRefs(queryOptions.convexFunctions);
+  const pluginMeta = resolvePluginMetaFromOptions(queryOptions);
+  if (hasPluginFns && !pluginMeta) {
     throw new Error(
-      'createTanStackQueryAuthClient requires plugin metadata. Pass "meta" from convex/auth/metaGenerated.ts or "pluginMeta".'
+      'createTanStackAuthClient requires plugin metadata. Pass "meta" from convex/auth/metaGenerated.ts or "pluginMeta".'
     );
   }
   const clientPluginRoot = readMember(authClient, "plugin");
-  if (!clientPluginRoot) {
+  if (hasPluginFns && pluginMeta && !clientPluginRoot) {
     throw new Error(
-      'createTanStackQueryAuthClient requires plugin route methods on authClient.plugin.*. ' +
+      'createTanStackAuthClient requires plugin route methods on authClient.plugin.*. ' +
         'Do not disable auto plugins with "plugins: []".'
     );
   }
 
-  const convexPluginRoot = readMember(options.convexFunctions, "plugin");
-  for (const [pluginName, functions] of Object.entries(pluginMeta)) {
-    const pluginClient = readMember(clientPluginRoot, pluginName);
-    if (
-      pluginClient === null ||
-      (typeof pluginClient !== "object" && typeof pluginClient !== "function")
-    ) {
-      throw new Error(
-        `createTanStackQueryAuthClient could not resolve "authClient.plugin.${pluginName}".`
-      );
-    }
-    const pluginFunctionRefs = readMember(convexPluginRoot, pluginName);
-
-    for (const [functionName, functionKind] of Object.entries(functions)) {
-      const routeMethod = asMutableCallable(readMember(pluginClient, functionName));
-      if (!routeMethod) {
+  if (pluginMeta && clientPluginRoot) {
+    const convexPluginRoot = readMember(queryOptions.convexFunctions, "plugin");
+    for (const [pluginName, functions] of Object.entries(pluginMeta)) {
+      const pluginClient = readMember(clientPluginRoot, pluginName);
+      if (
+        pluginClient === null ||
+        (typeof pluginClient !== "object" && typeof pluginClient !== "function")
+      ) {
         throw new Error(
-          `createTanStackQueryAuthClient could not resolve "authClient.plugin.${pluginName}.${functionName}".`
+          `createTanStackAuthClient could not resolve "authClient.plugin.${pluginName}".`
         );
       }
-      const functionRefCandidate = readMember(pluginFunctionRefs, functionName);
-      if (!hasFunctionRefCandidate(functionRefCandidate)) {
-        throw new Error(
-          `createTanStackQueryAuthClient could not resolve "convexFunctions.plugin.${pluginName}.${functionName}".`
-        );
-      }
+      const pluginFunctionRefs = readMember(convexPluginRoot, pluginName);
 
-      if (functionKind === "query") {
-        const queryRef = functionRefCandidate as FunctionReference<"query", "public">;
-        attachQueryHelpers(
+      for (const [functionName, functionKind] of Object.entries(functions)) {
+        const routeMethod = asMutableCallable(readMember(pluginClient, functionName));
+        if (!routeMethod) {
+          throw new Error(
+            `createTanStackAuthClient could not resolve "authClient.plugin.${pluginName}.${functionName}".`
+          );
+        }
+        const functionRefCandidate = readMember(pluginFunctionRefs, functionName);
+        if (!hasFunctionRefCandidate(functionRefCandidate)) {
+          throw new Error(
+            `createTanStackAuthClient could not resolve "convexFunctions.plugin.${pluginName}.${functionName}".`
+          );
+        }
+
+        if (functionKind === "query") {
+          const queryRef = functionRefCandidate as FunctionReference<"query", "public">;
+          attachQueryHelpers(
+            routeMethod,
+            queryRef,
+            async (input) => {
+              return (await routeMethod(input)) as FunctionReturnType<typeof queryRef>;
+            },
+            ROUTE_QUERY_KEY_PREFIX
+          );
+          continue;
+        }
+        if (functionKind === "mutation") {
+          attachMutationHelpers(
+            routeMethod,
+            functionRefCandidate as FunctionReference<"mutation", "public">
+          );
+          continue;
+        }
+        attachActionHelpers(
           routeMethod,
-          queryRef,
-          async (input) => {
-            return (await routeMethod(input)) as FunctionReturnType<typeof queryRef>;
-          },
-          ROUTE_QUERY_KEY_PREFIX
+          functionRefCandidate as FunctionReference<"action", "public">
         );
-        continue;
       }
-      if (functionKind === "mutation") {
-        attachMutationHelpers(
-          routeMethod,
-          functionRefCandidate as FunctionReference<"mutation", "public">
-        );
-        continue;
-      }
-      attachActionHelpers(
-        routeMethod,
-        functionRefCandidate as FunctionReference<"action", "public">
-      );
     }
   }
 
-  const coreMeta = resolveCoreMetaFromOptions(options);
-  const explicitCoreMeta = options.coreMeta !== undefined || options.meta !== undefined;
+  const coreMeta = resolveCoreMetaFromOptions(queryOptions);
+  const explicitCoreMeta =
+    queryOptions.coreMeta !== undefined || queryOptions.meta !== undefined;
   const clientCoreRoot = readMember(authClient, "core");
-  const convexCoreRoot = readMember(options.convexFunctions, "core");
-  if (explicitCoreMeta && !clientCoreRoot) {
+  const convexCoreRoot = readMember(queryOptions.convexFunctions, "core");
+  if (explicitCoreMeta && convexCoreRoot && !clientCoreRoot) {
     throw new Error(
-      'createTanStackQueryAuthClient requires core route methods on authClient.core.* when "coreMeta" or "meta" is provided.'
+      'createTanStackAuthClient requires core route methods on authClient.core.* when "coreMeta" or "meta" is provided.'
     );
   }
   if (clientCoreRoot && convexCoreRoot) {
@@ -1330,7 +1270,7 @@ export function createTanStackQueryAuthClient<
       if (!coreMethod || !hasFunctionRefCandidate(functionRefCandidate)) {
         if (explicitCoreMeta) {
           throw new Error(
-            `createTanStackQueryAuthClient could not resolve core helper target "${functionName}".`
+            `createTanStackAuthClient could not resolve core helper target "${functionName}".`
           );
         }
         continue;
@@ -1364,7 +1304,7 @@ export function createTanStackQueryAuthClient<
 
   return authClient as TanStackQueryAuthClient<
     TPlugins,
-    TConvexFunctions,
+    Extract<TConvexFunctions, Record<string, unknown>>,
     TPluginMeta,
     TCoreMeta
   >;

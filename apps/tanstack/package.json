@@ -3,8 +3,10 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"dev": "concurrently -k -n web,convex -c blue,green \"vite dev\" \"convex dev\"",
-		"dev:vite": "vite dev",
+		"dev": "concurrently -k -n web,convex -c blue,green \"pnpm dev:web\" \"convex dev\"",
+		"dev:web": "portless tanstack.convex-zen vite dev",
+		"dev:vite": "pnpm dev:web",
+		"dev:vite:direct": "vite dev",
 		"build": "vite build",
 		"preview": "vite preview",
 		"convex:dev": "convex dev"
@@ -27,6 +29,7 @@
 		"@types/react-dom": "^19.0.3",
 		"@vitejs/plugin-react": "^4.3.4",
 		"concurrently": "^9.2.1",
+		"portless": "^0.4.2",
 		"typescript": "^5.7.2",
 		"vite": "^7.3.1",
 		"vite-tsconfig-paths": "^5.1.4"

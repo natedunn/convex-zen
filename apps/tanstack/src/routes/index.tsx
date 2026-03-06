@@ -1,12 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useAuth } from "convex-zen/react";
+import { useSession } from "convex-zen/react";
 
 export const Route = createFileRoute("/")({
   component: HomePage,
 });
 
 function HomePage() {
-  const { status, session, refresh } = useAuth();
+  const { status, session, refresh } = useSession();
 
   return (
     <div>

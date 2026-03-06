@@ -4,7 +4,7 @@ import {
 	useNavigate,
 	useRouter,
 } from "@tanstack/react-router";
-import { useAuth } from "convex-zen/react";
+import { useSession } from "convex-zen/react";
 import { authClient } from "../lib/auth-client";
 import { useQuery } from "@tanstack/react-query";
 
@@ -18,7 +18,7 @@ export const Route = createFileRoute("/dashboard")({
 });
 
 function DashboardPage() {
-	const { status, session } = useAuth();
+	const { status, session } = useSession();
 
 	const { data: user } = useQuery(authClient.currentUser.query());
 

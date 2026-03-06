@@ -82,16 +82,14 @@ export function ConvexZenAuthProvider({
   return createElement(AuthContext.Provider, { value }, children);
 }
 
-export function useConvexZenAuth(): ConvexZenAuthContextValue {
+function useSessionContext(): ConvexZenAuthContextValue {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error("useConvexZenAuth must be used within ConvexZenAuthProvider");
+    throw new Error("useSession must be used within ConvexZenAuthProvider");
   }
   return context;
 }
 
-export const useAuth = useConvexZenAuth;
-
-export function useSession(): AuthSession | null {
-  return useConvexZenAuth().session;
+export function useSession(): ConvexZenAuthContextValue {
+  return useSessionContext();
 }

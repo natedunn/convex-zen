@@ -1,6 +1,6 @@
 import { describe, expect, expectTypeOf, it, vi } from "vitest";
 import type { FunctionReference } from "convex/server";
-import { createTanStackQueryAuthClient } from "../src/client/tanstack-start-client";
+import { createTanStackAuthClient } from "../src/client/tanstack-start-client";
 
 function mutationRef(name: string): FunctionReference<"mutation", "public"> {
   return { name } as unknown as FunctionReference<"mutation", "public">;
@@ -95,7 +95,7 @@ function createNonEnumerableConvexFunctionsProxy() {
   );
 }
 
-describe("createTanStackQueryAuthClient", () => {
+describe("createTanStackAuthClient", () => {
   it("preserves route calls and adds TanStack query helpers for query functions", async () => {
     const fetchImpl = vi.fn(async () => {
       return new Response(
@@ -108,7 +108,7 @@ describe("createTanStackQueryAuthClient", () => {
     });
 
     const listUsersRef = queryRef("plugin.admin.listUsers");
-    const authClient = createTanStackQueryAuthClient({
+    const authClient = createTanStackAuthClient({
       fetch: fetchImpl,
       convexFunctions: {
         plugin: {
@@ -166,7 +166,7 @@ describe("createTanStackQueryAuthClient", () => {
   it("adds mutation and action helpers", async () => {
     const banUserRef = mutationRef("plugin.admin.banUser");
     const exportAuditRef = actionRef("plugin.admin.exportAudit");
-    const authClient = createTanStackQueryAuthClient({
+    const authClient = createTanStackAuthClient({
       fetch: vi.fn(async () => new Response("{}")),
       convexFunctions: {
         plugin: {
@@ -230,7 +230,7 @@ describe("createTanStackQueryAuthClient", () => {
         headers: { "content-type": "application/json; charset=utf-8" },
       });
     });
-    const authClient = createTanStackQueryAuthClient({
+    const authClient = createTanStackAuthClient({
       fetch: fetchImpl,
       convexFunctions: {
         core: {
@@ -306,7 +306,7 @@ describe("createTanStackQueryAuthClient", () => {
 
   it("supports custom core helper metadata via coreMeta", () => {
     const customLookupRef = queryRef("core.customLookup");
-    const authClient = createTanStackQueryAuthClient({
+    const authClient = createTanStackAuthClient({
       fetch: vi.fn(async () => new Response("{}")),
       convexFunctions: {
         core: {
@@ -335,7 +335,7 @@ describe("createTanStackQueryAuthClient", () => {
 
   it("throws when plugin routes are disabled", () => {
     expect(() =>
-      createTanStackQueryAuthClient({
+      createTanStackAuthClient({
         plugins: [] as const,
         fetch: vi.fn(async () => new Response("{}")),
         convexFunctions: {
@@ -356,7 +356,7 @@ describe("createTanStackQueryAuthClient", () => {
 
   it("keeps query option result typing for framework adapters", () => {
     const listUsersRef = typedListUsersQueryRef("plugin.admin.listUsers");
-    const authClient = createTanStackQueryAuthClient({
+    const authClient = createTanStackAuthClient({
       fetch: vi.fn(async () => new Response("{}")),
       convexFunctions: {
         plugin: {
@@ -393,7 +393,7 @@ describe("createTanStackQueryAuthClient", () => {
   });
 
   it("supports core query helpers with proxy-based convexFunctions when meta is provided", () => {
-    const authClient = createTanStackQueryAuthClient({
+    const authClient = createTanStackAuthClient({
       fetch: vi.fn(async () => new Response("{}")),
       convexFunctions:
         createNonEnumerableConvexFunctionsProxy() as unknown as {

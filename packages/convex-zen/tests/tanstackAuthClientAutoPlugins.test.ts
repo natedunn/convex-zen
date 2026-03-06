@@ -1,9 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { FunctionReference } from "convex/server";
-import {
-  connectConvexZen,
-  createTanStackAuthClient,
-} from "../src/client/tanstack-start-client";
+import { createTanStackAuthClient } from "../src/client/tanstack-start-client";
 
 const adminPluginMeta = {
   admin: {
@@ -210,38 +207,6 @@ describe("createTanStackAuthClient auto plugins", () => {
     expect(convexClient.clearAuth).toHaveBeenCalledTimes(1);
 
     disconnect();
-  });
-
-  it("connectConvexZen deduplicates bridge setup per client pair", () => {
-    const authClient = createTanStackAuthClient({
-      fetch: vi.fn(async () => new Response("{}")),
-    });
-    const convexClient = {
-      setAuth: vi.fn(),
-      clearAuth: vi.fn(),
-    };
-
-    const disconnectA = connectConvexZen(authClient, convexClient, {
-      browserOnly: false,
-    });
-    const disconnectB = connectConvexZen(authClient, convexClient, {
-      browserOnly: false,
-    });
-
-    expect(convexClient.setAuth).toHaveBeenCalledTimes(1);
-
-    disconnectB();
-    expect(convexClient.clearAuth).toHaveBeenCalledTimes(0);
-
-    disconnectA();
-    expect(convexClient.clearAuth).toHaveBeenCalledTimes(1);
-
-    disconnectA();
-    disconnectB();
-    expect(convexClient.clearAuth).toHaveBeenCalledTimes(1);
-
-    connectConvexZen(authClient, convexClient, { browserOnly: false });
-    expect(convexClient.setAuth).toHaveBeenCalledTimes(2);
   });
 
   it("invalidates cached token when convex auth onChange reports unauthenticated", async () => {
@@ -528,25 +493,25 @@ describe("createTanStackAuthClient auto plugins", () => {
     expect(firstCall?.[1]?.method).toBe("POST");
   });
 
-  it("supports disabling auto plugins with plugins: []", () => {
-    const authClient = createTanStackAuthClient({
-      plugins: [] as const,
-      fetch: vi.fn(async () => new Response("{}")),
-      convexFunctions: {
-        plugin: {
-          admin: {
-            listUsers: queryRef("listUsers"),
+  it("throws when plugin routes are disabled with plugins: []", () => {
+    expect(() =>
+      createTanStackAuthClient({
+        plugins: [] as const,
+        fetch: vi.fn(async () => new Response("{}")),
+        convexFunctions: {
+          plugin: {
+            admin: {
+              listUsers: queryRef("listUsers"),
+            },
           },
         },
-      },
-      pluginMeta: {
-        admin: {
-          listUsers: "query",
+        pluginMeta: {
+          admin: {
+            listUsers: "query",
+          },
         },
-      },
-    });
-
-    expect((authClient as { plugin?: unknown }).plugin).toBeUndefined();
+      })
+    ).toThrow("requires plugin route methods");
   });
 
   it("throws when auto plugins are enabled without pluginMeta", () => {

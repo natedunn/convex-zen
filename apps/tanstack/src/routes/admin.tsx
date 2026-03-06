@@ -1,7 +1,7 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
-import { useAuth } from "convex-zen/react";
+import { useSession } from "convex-zen/react";
 import { useEffect, useState } from "react";
 import type { FunctionArgs } from "convex/server";
 import { api } from "../../convex/_generated/api";
@@ -77,7 +77,7 @@ export const Route = createFileRoute("/admin")({
 
 function AdminPage() {
 	const { users: prefetchedUsers } = Route.useLoaderData();
-	const { status, session } = useAuth();
+	const { status, session } = useSession();
 	const navigate = useNavigate();
 	const [users, setUsers] = useState(prefetchedUsers);
 	const [error, setError] = useState("");

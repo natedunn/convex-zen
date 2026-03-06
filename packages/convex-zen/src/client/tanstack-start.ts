@@ -25,6 +25,7 @@ import {
   type SignInInput,
   type SignInOutput,
 } from "./primitives";
+import { createConvexFetchers } from "./convex-fetchers";
 
 type SetCookieOptions = Exclude<Parameters<typeof setCookieFn>[2], undefined>;
 type DeleteCookieOptions = Exclude<
@@ -33,6 +34,21 @@ type DeleteCookieOptions = Exclude<
 >;
 type MaybePromise<T> = T | Promise<T>;
 const DEFAULT_COOKIE_MAX_AGE_SECONDS = 14 * 24 * 60 * 60;
+const TANSTACK_START_SERVER_MODULE_ID = "@tanstack/react-start/server";
+
+type TanStackStartServerModule = {
+  getCookie: (name: string) => string | undefined;
+  setCookie: typeof setCookieFn;
+  deleteCookie: typeof deleteCookieFn;
+};
+
+// Keep this dynamic to avoid bundling TanStack server internals into client code.
+async function loadTanStackStartServerModule(): Promise<TanStackStartServerModule> {
+  const moduleId = TANSTACK_START_SERVER_MODULE_ID;
+  return (await import(
+    /* @vite-ignore */ moduleId
+  )) as TanStackStartServerModule;
+}
 
 export interface TanStackStartAuthOptions {
   primitives: SessionPrimitives;
@@ -121,20 +137,6 @@ export interface TanStackStartAuth {
   withSession: <T>(
     handler: (auth: AuthenticatedSession) => Promise<T>
   ) => Promise<T>;
-}
-
-export interface TanStackStartSessionHandlers {
-  getSession: () => Promise<SessionInfo | null>;
-  getToken: () => Promise<string | null>;
-  requireSession: () => Promise<AuthenticatedSession>;
-  withSession: <T>(
-    handler: (auth: AuthenticatedSession) => Promise<T>
-  ) => Promise<T>;
-}
-
-export interface TanStackStartAuthHandlers {
-  signInWithEmail: (input: SignInInput) => Promise<SessionInfo>;
-  signOut: () => Promise<void>;
 }
 
 export interface TanStackStartAuthApiHandlerOptions {
@@ -646,7 +648,7 @@ function toErrorMessage(error: unknown): string {
  * These handlers are meant to be wrapped by route-local `createServerFn(...)`
  * so TanStack's server function transform runs in application code.
  */
-export function createTanStackStartAuth(
+function createTanStackStartAuth(
   options: TanStackStartAuthOptions
 ): TanStackStartAuth {
   const cookieName = options.cookieName ?? "cz_session";
@@ -657,12 +659,12 @@ export function createTanStackStartAuth(
   const sessionTokenCodec = options.sessionTokenCodec;
   const unauthorizedError = () => new Error("Unauthorized");
   const getCookieToken = async () => {
-    const { getCookie } = await import("@tanstack/react-start/server");
+    const { getCookie } = await loadTanStackStartServerModule();
     return getCookie(cookieName);
   };
 
   const resolveAuthenticatedSession = async (): Promise<AuthenticatedSession | null> => {
-    const { deleteCookie } = await import("@tanstack/react-start/server");
+    const { deleteCookie } = await loadTanStackStartServerModule();
     const token = await getCookieToken();
     if (!token) {
       return null;
@@ -702,7 +704,7 @@ export function createTanStackStartAuth(
   };
 
   const signIn = async (input: SignInInput) => {
-    const { setCookie } = await import("@tanstack/react-start/server");
+    const { setCookie } = await loadTanStackStartServerModule();
     const established = await options.primitives.signInAndResolveSession(input);
     const cookieToken = sessionTokenCodec
       ? await sessionTokenCodec.encode({
@@ -715,7 +717,7 @@ export function createTanStackStartAuth(
   };
 
   const signOut = async () => {
-    const { deleteCookie } = await import("@tanstack/react-start/server");
+    const { deleteCookie } = await loadTanStackStartServerModule();
     const token = await getCookieToken();
     let sessionToken = token;
     if (token && sessionTokenCodec) {
@@ -750,29 +752,6 @@ export function createTanStackStartAuth(
     signOut,
     requireSession,
     withSession,
-  };
-}
-
-/** Build route-friendly session handlers from a TanStack auth instance. */
-export function createTanStackStartSessionHandlers(
-  tanstackAuth: TanStackStartAuth
-): TanStackStartSessionHandlers {
-  return {
-    getSession: async () => tanstackAuth.getSession(),
-    getToken: async () => tanstackAuth.getToken(),
-    requireSession: async () => tanstackAuth.requireSession(),
-    withSession: async <T>(handler: (auth: AuthenticatedSession) => Promise<T>) =>
-      tanstackAuth.withSession(handler),
-  };
-}
-
-/** Build route-friendly auth mutation handlers from a TanStack auth instance. */
-export function createTanStackStartAuthHandlers(
-  tanstackAuth: TanStackStartAuth
-): TanStackStartAuthHandlers {
-  return {
-    signInWithEmail: async (input) => tanstackAuth.signIn(input),
-    signOut: async () => tanstackAuth.signOut(),
   };
 }
 
@@ -908,34 +887,31 @@ export function createTanStackStartAuthApiHandler(
 export function createTanStackStartConvexFetchers(
   options: TanStackStartConvexFetchersOptions
 ): TanStackStartConvexFetchers {
-  const publicConvex = new ConvexHttpClient(options.convexUrl);
-  const withAuthenticatedConvexClient = async <T>(
-    runner: (client: ConvexHttpClient) => Promise<T>
-  ): Promise<T> => {
-    const { token } = await options.tanstackAuth.requireSession();
-    const convex = new ConvexHttpClient(options.convexUrl);
-    convex.setAuth(token);
-    return runner(convex);
-  };
+  const sharedFetchers = createConvexFetchers<void>({
+    convexUrl: options.convexUrl,
+    resolveAuthToken: async () => {
+      return (await options.tanstackAuth.requireSession()).token;
+    },
+  });
 
   return {
     fetchQuery: async (fn, args) => {
-      return publicConvex.query(fn, args);
+      return sharedFetchers.fetchQuery(fn, args);
     },
     fetchMutation: async (fn, args) => {
-      return publicConvex.mutation(fn, args);
+      return sharedFetchers.fetchMutation(fn, args);
     },
     fetchAction: async (fn, args) => {
-      return publicConvex.action(fn, args);
+      return sharedFetchers.fetchAction(fn, args);
     },
     fetchAuthQuery: async (fn, args) => {
-      return withAuthenticatedConvexClient((convex) => convex.query(fn, args));
+      return sharedFetchers.fetchAuthQuery(undefined, fn, args);
     },
     fetchAuthMutation: async (fn, args) => {
-      return withAuthenticatedConvexClient((convex) => convex.mutation(fn, args));
+      return sharedFetchers.fetchAuthMutation(undefined, fn, args);
     },
     fetchAuthAction: async (fn, args) => {
-      return withAuthenticatedConvexClient((convex) => convex.action(fn, args));
+      return sharedFetchers.fetchAuthAction(undefined, fn, args);
     },
   };
 }
@@ -946,7 +922,7 @@ export function createTanStackStartConvexFetchers(
  * This removes transport boilerplate in app code while keeping session logic
  * fully based on Convex functions.
  */
-export function createTanStackStartConvexAuth(
+function createTanStackStartConvexAuth(
   options: TanStackStartConvexAuthOptions
 ): TanStackStartAuth {
   const coreActions = resolveCoreActions(options.convexFunctions);
@@ -1064,3 +1040,6 @@ export function createTanStackAuthServer(
     handler,
   };
 }
+
+export * from "./tanstack-start-client";
+export * from "./tanstack-start-client-plugins";
