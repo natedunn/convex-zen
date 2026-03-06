@@ -5,18 +5,14 @@
 File: `packages/convex-zen/src/client/tanstack-start.ts`
 
 - `createTanStackAuthServer(options)`
-- `createTanStackStartAuth(options)`
-- `createTanStackStartConvexAuth(options)`
 - `createTanStackStartAuthApiHandler(options)`
 - `createTanStackStartConvexFetchers(options)`
 
 File: `packages/convex-zen/src/client/tanstack-start-client.ts`
 
 - `createTanStackAuthClient(options)`
-- `createTanStackQueryAuthClient(options)` (dependency-free query helper wrapper)
-- `createTanStackStartReactAuthClient(serverFns)`
+- `createTanStackAuthClient(options)` (includes dependency-free query/mutation/action helpers on plugin + core methods)
 - `authClient.getToken()`, `authClient.clearToken()`, `authClient.connectConvexAuth(...)`
-- `connectConvexZen(authClient, convexClient)` (idempotent bridge helper)
 
 File: `packages/convex-zen/src/client/tanstack-start-plugins.ts`
 
@@ -73,11 +69,11 @@ export const {
 
 ```ts
 // src/lib/auth-client.ts
-import { createTanStackQueryAuthClient } from "convex-zen/tanstack-start-client";
+import { createTanStackAuthClient } from "convex-zen/tanstack-start";
 import { api } from "../../convex/_generated/api";
 import { authMeta } from "../../convex/auth/metaGenerated";
 
-export const authClient = createTanStackQueryAuthClient({
+export const authClient = createTanStackAuthClient({
   convexFunctions: api.auth,
   meta: authMeta,
 });
@@ -85,7 +81,7 @@ export const authClient = createTanStackQueryAuthClient({
 
 ```ts
 // Optional: runtime-first setup (recommended for direct convexQuery usage)
-export const authClient = createTanStackQueryAuthClient({
+export const authClient = createTanStackAuthClient({
   convexFunctions: api.auth,
   meta: authMeta,
   runtime: {
@@ -102,11 +98,10 @@ export const authClient = createTanStackQueryAuthClient({
 ```ts
 // Optional: bridge direct Convex auth for convexQuery(...) usage
 import { ConvexReactClient } from "convex/react";
-import { connectConvexZen } from "convex-zen/tanstack-start-client";
 import { authClient } from "./auth-client";
 
 export const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL);
-export const disconnectConvexAuth = connectConvexZen(authClient, convex);
+export const disconnectConvexAuth = authClient.connectConvexAuth(convex);
 ```
 
 ## Auth runtime modes
@@ -127,11 +122,10 @@ Use one of these patterns per app/page.
 ```ts
 // src/router.tsx
 import { ConvexReactClient } from "convex/react";
-import { connectConvexZen } from "convex-zen/tanstack-start-client";
 import { authClient } from "./auth-client";
 
 export const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL);
-connectConvexZen(authClient, convex);
+authClient.connectConvexAuth(convex);
 ```
 
 - Route-backed helpers:
@@ -175,7 +169,7 @@ which is the easiest authenticated SSR path when you do not need manual client s
 
 ## Query helper primitives (dependency-free)
 
-`createTanStackQueryAuthClient(...)` keeps route-backed auth (`getSession`, `signIn`, `signOut`)
+`createTanStackAuthClient(...)` keeps route-backed auth (`getSession`, `signIn`, `signOut`)
 and augments plugin/core methods with framework-agnostic query/mutation/action helpers.
 
 Core wrappers from `api.auth.core.*` are also auto-exposed as route methods at
@@ -183,7 +177,7 @@ Core wrappers from `api.auth.core.*` are also auto-exposed as route methods at
 Generated session invalidation wrapper is `core.invalidateSession(...)`; built-in
 client sign-out remains `authClient.signOut()`.
 Core helpers are auto-attached for generated core function names. If you add custom
-core wrappers, pass `coreMeta` to `createTanStackQueryAuthClient(...)` for helper
+core wrappers, pass `coreMeta` to `createTanStackAuthClient(...)` for helper
 kind mapping.
 Root-mirrored core methods share those helpers too (for example `authClient.signUp.mutate(...)`).
 
@@ -212,7 +206,6 @@ For authenticated current-user reads in HttpOnly-cookie mode, prefer:
 Direct Convex query options (for example `convexQuery(api.auth.core.currentUser, {})`)
 run unauthenticated by default unless you connect a Convex client token bridge
 with `authClient.connectConvexAuth(convexClient)`.
-`connectConvexZen(authClient, convexClient)` is an idempotent wrapper around that call.
 `authClient.currentUser.query()` uses a dedicated query key prefix (`convexAuthQuery`)
 so it is not overridden by `ConvexQueryClient` subscriptions for `convexQuery(...)`.
 
@@ -235,7 +228,7 @@ By default, each tab keeps token cache in memory and does not sync with other ta
 To opt in, enable `tokenSync` on the auth client:
 
 ```ts
-export const authClient = createTanStackQueryAuthClient({
+export const authClient = createTanStackAuthClient({
   convexFunctions: api.auth,
   meta: authMeta,
   tokenSync: {

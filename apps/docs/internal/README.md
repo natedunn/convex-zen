@@ -23,3 +23,4 @@ Read in order:
 4. `apps/docs/internal/04-convex-function-auth-data.md`
 5. `apps/docs/internal/05-react-context.md`
 6. `apps/docs/internal/06-convex-generate-plan.md`
+7. `apps/docs/internal/07-open-followups.md`

@@ -14,8 +14,6 @@ File: `packages/convex-zen/src/client/react.ts`
 Exports:
 
 - `ConvexZenAuthProvider`
-- `useConvexZenAuth`
-- `useAuth` (alias)
 - `useSession`
 
 ## Purpose
@@ -31,9 +29,8 @@ Current demo integration:
 - `initialSession` is sourced from root route SSR `beforeLoad`
 - `authClient` includes `getSession`, `signIn.email`, and `signOut`
 - `authClient` can expose plugin methods via auto mode (for example `authClient.plugin.admin.*`)
-- client boilerplate can be generated with:
-  - `createTanStackAuthClient(...)` for route methods only
-  - `createTanStackQueryAuthClient(...)` for dependency-free query/mutation/action helpers on plugin + core methods
+- client boilerplate is generated with:
+  - `createTanStackAuthClient(...)` (route methods + dependency-free query/mutation/action helpers on plugin + core methods)
 - TanStack Query + Convex client providers are wired at the router level in `apps/tanstack/src/router.tsx`
 
 The provider expects a small client interface:
@@ -53,7 +50,7 @@ That means:
 ## Example
 
 ```ts
-import { ConvexZenAuthProvider, useAuth } from "convex-zen/react";
+import { ConvexZenAuthProvider, useSession } from "convex-zen/react";
 
 function AppRoot() {
   return (
@@ -64,7 +61,7 @@ function AppRoot() {
 }
 
 function Profile() {
-  const { status, session, refresh } = useAuth();
+  const { status, session, refresh } = useSession();
   if (status === "loading") return <p>Loading...</p>;
   if (!session) return <p>Signed out</p>;
 

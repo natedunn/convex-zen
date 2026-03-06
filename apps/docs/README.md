@@ -16,7 +16,10 @@ Read in order:
 5. `apps/docs/internal/04-convex-function-auth-data.md`
 6. `apps/docs/internal/05-react-context.md`
 7. `apps/docs/internal/06-convex-generate-plan.md`
+8. `apps/docs/internal/07-open-followups.md`
 
 ## External docs
 
 1. `apps/docs/external/tanstack-start-installation.md`
+2. `apps/docs/external/next-installation.md`
+3. `apps/docs/external/next-server-patterns.md`

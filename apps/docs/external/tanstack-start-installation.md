@@ -119,11 +119,11 @@ export const { handler, getSession } = authServer;
 Create `src/lib/auth-client.ts`:
 
 ```ts
-import { createTanStackQueryAuthClient } from "convex-zen/tanstack-start-client";
+import { createTanStackAuthClient } from "convex-zen/tanstack-start";
 import { api } from "../../convex/_generated/api";
 import { authMeta } from "../../convex/auth/metaGenerated";
 
-export const authClient = createTanStackQueryAuthClient({
+export const authClient = createTanStackAuthClient({
 	convexFunctions: api.auth,
 	meta: authMeta,
 });
@@ -151,7 +151,6 @@ Update `src/router.tsx` so the Convex client is connected to the auth client:
 
 ```ts
 import { ConvexReactClient } from "convex/react";
-import { connectConvexZen } from "convex-zen/tanstack-start-client";
 import { authClient } from "./lib/auth-client";
 
 function createRouterContext() {
@@ -160,7 +159,7 @@ function createRouterContext() {
 	);
 
 	// Binds Convex requests to the current auth token/session.
-	connectConvexZen(authClient, convex);
+	authClient.connectConvexAuth(convex);
 
 	return { convex };
 }
