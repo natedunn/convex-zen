@@ -1,12 +1,14 @@
 import {
 	createFileRoute,
 	redirect,
+	Link,
 	useNavigate,
 	useRouter,
 } from "@tanstack/react-router";
 import { useSession } from "convex-zen/react";
 import { authClient } from "../lib/auth-client";
 import { useQuery } from "@tanstack/react-query";
+import { SessionCard } from "@convex-zen/playground-ui";
 
 export const Route = createFileRoute("/dashboard")({
 	beforeLoad: ({ context }) => {
@@ -19,15 +21,7 @@ export const Route = createFileRoute("/dashboard")({
 
 function DashboardPage() {
 	const { status, session } = useSession();
-
 	const { data: user } = useQuery(authClient.currentUser.query());
-
-	const { data: users } = useQuery(
-		authClient.plugin.admin.listUsers.query({
-			limit: 5,
-		}),
-	);
-
 	const navigate = useNavigate();
 	const router = useRouter();
 
@@ -39,65 +33,49 @@ function DashboardPage() {
 
 	if (status === "loading") {
 		return (
-			<div>
-				<h1>Dashboard</h1>
-				<p>Loading…</p>
+			<div className="card">
+				<h2>Dashboard</h2>
+				<p className="loading-text">Loading...</p>
 			</div>
 		);
 	}
 
 	if (!session) {
 		return (
-			<div>
-				<h1>Dashboard</h1>
-				<p style={{ color: "#64748b" }}>You are not signed in.</p>
-				<button
-					className="btn-primary"
-					style={{ marginTop: "1rem" }}
-					onClick={() => void navigate({ to: "/signin" })}
-				>
-					Sign In
-				</button>
+			<div className="card">
+				<h2>Dashboard</h2>
+				<p className="muted">You are not signed in.</p>
+				<div className="actions">
+					<button
+						className="btn-primary"
+						onClick={() => void navigate({ to: "/signin" })}
+					>
+						Sign In
+					</button>
+				</div>
 			</div>
 		);
 	}
 
 	return (
-		<div>
-			<h1>Dashboard</h1>
+		<>
+			<h2 className="page-title">Dashboard</h2>
 
-			<div className="card">
-				<h2>Session</h2>
-				<p>
-					<span className="tag tag-green">Active</span>
-				</p>
-				<p
-					style={{
-						fontSize: "0.875rem",
-						color: "#64748b",
-						marginTop: "0.5rem",
-					}}
-				>
-					User ID: <code>{session.userId}</code>
-				</p>
-				<p style={{ fontSize: "0.875rem", color: "#64748b" }}>
-					Session ID: <code>{session.sessionId}</code>
-				</p>
-				<p style={{ fontSize: "0.875rem", color: "#64748b" }}>
-					User email: {user?.email ?? "MISSING"}
-				</p>
-			</div>
+			<SessionCard
+				userId={session.userId}
+				sessionId={session.sessionId}
+				email={user?.email}
+				onSignOut={() => void handleSignOut()}
+			/>
 
-			<p
-				style={{ color: "#64748b", fontSize: "0.875rem", marginBottom: "1rem" }}
-			>
+			<p className="muted">
 				Session tokens are stored in an HttpOnly cookie and never exposed to
 				client code.
 			</p>
 
-			<button className="btn-danger" onClick={() => void handleSignOut()}>
-				Sign Out
-			</button>
-		</div>
+			<div className="flow-links">
+				<Link to="/">Back to diagnostics</Link>
+			</div>
+		</>
 	);
 }

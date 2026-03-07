@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useConvexMutation } from "@convex-dev/react-query";
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
@@ -45,20 +45,20 @@ function SignUpPage() {
 
   if (status === "verify") {
     return (
-      <div>
-        <h1>Check your email</h1>
-        <p style={{ color: "#64748b" }}>
+      <div className="card">
+        <h2>Check your email</h2>
+        <p className="muted">
           A verification code was sent to <strong>{email}</strong>.
         </p>
-        <p style={{ color: "#64748b", fontSize: "0.875rem" }}>
-          💡 In dev mode, the code is printed to the Convex server console.
+        <p className="muted">
+          In local dev mode, the code is printed in the Convex server logs.
         </p>
-        <div style={{ marginTop: "1rem", display: "flex", gap: "0.75rem" }}>
+        <div className="actions">
           <button
             className="btn-primary"
             onClick={() => void navigate({ to: "/verify", search: { email } })}
           >
-            Enter code →
+            Enter Verification Code
           </button>
           <button
             className="btn-secondary"
@@ -71,50 +71,83 @@ function SignUpPage() {
     );
   }
 
+  if (status === "done") {
+    return (
+      <div className="card">
+        <h2>Account created</h2>
+        <p className="muted">Your account is ready. Continue to sign in.</p>
+        <div className="actions">
+          <button
+            className="btn-primary"
+            onClick={() => void navigate({ to: "/signin" })}
+          >
+            Go to Sign In
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div>
-      <h1>Create account</h1>
+    <div className="card">
+      <h2>Create account</h2>
+      <p className="muted">Create a new email/password user.</p>
+
+      <hr className="card-divider" />
+
       <form onSubmit={(e) => void handleSubmit(e)}>
-        <label>Name (optional)</label>
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Your name"
-          autoComplete="name"
-        />
+        <div className="field">
+          <label>Name (optional)</label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Your name"
+            autoComplete="name"
+          />
+        </div>
 
-        <label>Email</label>
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@example.com"
-          required
-          autoComplete="email"
-        />
+        <div className="field">
+          <label>Email</label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+            required
+            autoComplete="email"
+          />
+        </div>
 
-        <label>Password</label>
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="At least 8 characters"
-          required
-          minLength={8}
-          autoComplete="new-password"
-        />
+        <div className="field">
+          <label>Password</label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="At least 8 characters"
+            required
+            minLength={8}
+            autoComplete="new-password"
+          />
+        </div>
 
-        {error && <p className="error">{error}</p>}
+        {error && <p className="text-error">{error}</p>}
 
-        <button
-          type="submit"
-          className="btn-primary"
-          disabled={status === "loading"}
-        >
-          {status === "loading" ? "Creating…" : "Create account"}
-        </button>
+        <div className="actions">
+          <button
+            type="submit"
+            className="btn-primary"
+            disabled={status === "loading"}
+          >
+            {status === "loading" ? "Creating..." : "Create Account"}
+          </button>
+        </div>
       </form>
+
+      <div className="flow-links">
+        <Link to="/signin">Already have an account?</Link>
+      </div>
     </div>
   );
 }

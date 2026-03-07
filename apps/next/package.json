@@ -9,6 +9,7 @@
     "convex:dev": "convex dev"
   },
   "dependencies": {
+    "@convex-zen/playground-ui": "workspace:*",
     "convex": "^1.32.0",
     "convex-zen": "workspace:*",
     "next": "^15.1.0",

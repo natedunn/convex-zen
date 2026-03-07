@@ -1,6 +1,7 @@
 import {
 	createFileRoute,
 	redirect,
+	Link,
 	useNavigate,
 	useRouter,
 } from "@tanstack/react-router";
@@ -40,53 +41,54 @@ function SignInPage() {
 	};
 
 	return (
-		<div>
-			<h1>Sign in</h1>
+		<div className="card">
+			<h2>Sign in</h2>
+			<p className="muted">Authenticate with email and password.</p>
+
+			<hr className="card-divider" />
+
 			<form onSubmit={(e) => void handleSubmit(e)}>
-				<label>Email</label>
-				<input
-					type="email"
-					value={email}
-					onChange={(e) => setEmail(e.target.value)}
-					placeholder="you@example.com"
-					required
-					autoComplete="email"
-				/>
+				<div className="field">
+					<label>Email</label>
+					<input
+						type="email"
+						value={email}
+						onChange={(e) => setEmail(e.target.value)}
+						placeholder="you@example.com"
+						required
+						autoComplete="email"
+					/>
+				</div>
 
-				<label>Password</label>
-				<input
-					type="password"
-					value={password}
-					onChange={(e) => setPassword(e.target.value)}
-					placeholder="Your password"
-					required
-					autoComplete="current-password"
-				/>
+				<div className="field">
+					<label>Password</label>
+					<input
+						type="password"
+						value={password}
+						onChange={(e) => setPassword(e.target.value)}
+						placeholder="Your password"
+						required
+						autoComplete="current-password"
+					/>
+				</div>
 
-				{error && <p className="error">{error}</p>}
+				{error && <p className="text-error">{error}</p>}
 
-				<button
-					type="submit"
-					className="btn-primary"
-					disabled={status === "loading"}
-				>
-					{status === "loading" ? "Signing in…" : "Sign in"}
-				</button>
+				<div className="actions">
+					<button
+						type="submit"
+						className="btn-primary"
+						disabled={status === "loading"}
+					>
+						{status === "loading" ? "Signing in..." : "Sign In"}
+					</button>
+				</div>
 			</form>
 
-			<p style={{ marginTop: "1rem", fontSize: "0.875rem", color: "#64748b" }}>
-				Forgot your password?{" "}
-				<a
-					href="/reset"
-					style={{ color: "#4f46e5" }}
-					onClick={(e) => {
-						e.preventDefault();
-						void navigate({ to: "/reset" });
-					}}
-				>
-					Reset it
-				</a>
-			</p>
+			<div className="flow-links">
+				<Link to="/reset">Forgot password?</Link>
+				<Link to="/signup">Create account</Link>
+			</div>
 		</div>
 	);
 }
