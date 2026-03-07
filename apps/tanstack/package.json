@@ -14,6 +14,7 @@
 		"convex:dev": "convex dev"
 	},
 	"dependencies": {
+		"@convex-zen/playground-ui": "workspace:*",
 		"@convex-dev/react-query": "^0.1.0",
 		"@tanstack/react-query": "^5.90.21",
 		"@tanstack/react-router": "^1.162.1",

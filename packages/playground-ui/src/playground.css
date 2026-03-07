@@ -1,0 +1,482 @@
+:root {
+  color-scheme: light;
+  font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --cz-primary: #23395d;
+  --cz-accent: #4f46e5;
+  --cz-text: #1e293b;
+  --cz-muted: #64748b;
+  --cz-success: #16a34a;
+  --cz-danger: #dc2626;
+  --cz-surface: #ffffff;
+  --cz-border: #e2e8f0;
+  --cz-input-border: #cbd5e1;
+  --cz-radius: 12px;
+  --cz-content-width: 540px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  color: var(--cz-text);
+  background: linear-gradient(145deg, #f0f4ff 0%, #f5f3ff 40%, #ecfeff 100%);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--cz-accent);
+  transition: opacity 0.15s;
+}
+
+a:hover {
+  opacity: 0.8;
+}
+
+h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0.5rem 0 0.25rem;
+  letter-spacing: -0.01em;
+}
+
+h2 {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem;
+  letter-spacing: -0.01em;
+}
+
+p {
+  line-height: 1.55;
+  margin: 0.5rem 0;
+}
+
+code {
+  font-family: "IBM Plex Mono", "SF Mono", "Fira Code", monospace;
+  font-size: 0.85em;
+  background: #f1f5f9;
+  border: 1px solid var(--cz-border);
+  border-radius: 5px;
+  padding: 0.1em 0.35em;
+}
+
+/* ---- Layout ---- */
+
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem 1.25rem 3rem;
+  gap: 1.5rem;
+}
+
+.site-header {
+  width: min(var(--cz-content-width), 100%);
+}
+
+.site-hero {
+  margin-bottom: 0;
+}
+
+.site-main {
+  width: min(var(--cz-content-width), 100%);
+}
+
+/* ---- Framework badge ---- */
+
+.framework-badge {
+  margin: 0 0 0.25rem;
+  width: fit-content;
+  border: 1px solid #c7d2fe;
+  color: #4338ca;
+  background: #eef2ff;
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* ---- Muted text ---- */
+
+.muted {
+  color: var(--cz-muted);
+  font-size: 0.9rem;
+}
+
+/* ---- Navigation ---- */
+
+.site-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--cz-border);
+}
+
+.site-nav a {
+  text-decoration: none;
+  border: 1px solid #e0e7ff;
+  border-radius: 7px;
+  padding: 0.3rem 0.65rem;
+  background: #fafaff;
+  color: #4338ca;
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+
+.site-nav a:hover {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+  opacity: 1;
+}
+
+.site-nav a[data-status="active"],
+.site-nav a[data-active] {
+  font-weight: 700;
+  background: #e0e7ff;
+  border-color: #c7d2fe;
+}
+
+/* ---- Card ---- */
+
+.card {
+  background: var(--cz-surface);
+  border: 1px solid var(--cz-border);
+  border-radius: var(--cz-radius);
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 0.875rem;
+  box-shadow:
+    0 1px 3px rgba(15, 23, 42, 0.04),
+    0 4px 12px rgba(15, 23, 42, 0.03);
+}
+
+.card .card {
+  background: #f8fafc;
+  border-color: #edf2f7;
+  box-shadow: none;
+}
+
+/* ---- Section divider inside cards ---- */
+
+.card-divider {
+  border: 0;
+  border-top: 1px solid var(--cz-border);
+  margin: 1.25rem 0;
+}
+
+/* ---- Form ---- */
+
+.field {
+  display: grid;
+  gap: 0.3rem;
+  margin-bottom: 0.875rem;
+}
+
+label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #475569;
+  letter-spacing: 0.01em;
+}
+
+input {
+  display: block;
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--cz-input-border);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  color: var(--cz-text);
+  background: var(--cz-surface);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+input::placeholder {
+  color: #94a3b8;
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--cz-accent);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+/* ---- Actions ---- */
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+  align-items: center;
+}
+
+/* ---- Buttons ---- */
+
+button {
+  border: 0;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+  line-height: 1.4;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--cz-primary);
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #1b2f4c;
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.18);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn-secondary {
+  background: #f1f5f9;
+  color: var(--cz-text);
+  border: 1px solid var(--cz-border);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+}
+
+.btn-secondary:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn-danger {
+  background: var(--cz-danger);
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(220, 38, 38, 0.15);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #b91c1c;
+  box-shadow: 0 2px 4px rgba(220, 38, 38, 0.2);
+}
+
+.btn-danger:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+/* ---- Tags ---- */
+
+.tag {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.tag-success {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.tag-danger {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.tag-neutral {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+/* ---- Text states ---- */
+
+.text-error {
+  color: var(--cz-danger);
+  font-weight: 600;
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+}
+
+.text-success {
+  color: var(--cz-success);
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+}
+
+/* ---- Pre / code ---- */
+
+pre {
+  margin: 1rem 0 0;
+  border-radius: 10px;
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 1rem 1.125rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: "IBM Plex Mono", "SF Mono", "Fira Code", monospace;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  border: 1px solid #1e293b;
+}
+
+pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+}
+
+/* ---- Details ---- */
+
+details {
+  margin-top: 0.75rem;
+}
+
+summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--cz-accent);
+  user-select: none;
+}
+
+summary:hover {
+  opacity: 0.8;
+}
+
+/* ---- Flow links ---- */
+
+.flow-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin: 0.75rem 0;
+}
+
+.flow-links a {
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.825rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  background: #f5f3ff;
+  border: 1px solid #ede9fe;
+  color: var(--cz-accent);
+  transition: all 0.15s;
+}
+
+.flow-links a:hover {
+  background: #ede9fe;
+  border-color: #ddd6fe;
+  opacity: 1;
+}
+
+/* ---- Admin ---- */
+
+.user-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.user-row-tags {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.user-row-actions {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.user-row-actions button {
+  font-size: 0.78rem;
+  padding: 0.25rem 0.65rem;
+}
+
+.ban-reason {
+  font-size: 0.75rem;
+  color: var(--cz-danger);
+  margin-top: 0.35rem;
+  font-style: italic;
+}
+
+/* ---- Session detail rows ---- */
+
+.session-detail {
+  font-size: 0.8rem;
+  color: var(--cz-muted);
+  margin: 0.2rem 0;
+  line-height: 1.7;
+}
+
+.session-detail code {
+  font-size: 0.78rem;
+}
+
+/* ---- Page title ---- */
+
+.page-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin: 0 0 1rem;
+}
+
+/* ---- Section label ---- */
+
+.section-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--cz-muted);
+  margin: 0 0 0.5rem;
+}
+
+/* ---- Skeleton/placeholder ---- */
+
+.loading-text {
+  color: var(--cz-muted);
+  font-style: italic;
+}

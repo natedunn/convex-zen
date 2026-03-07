@@ -6,20 +6,10 @@ import { useEffect, useState } from "react";
 import type { FunctionArgs } from "convex/server";
 import { api } from "../../convex/_generated/api";
 import { authClient } from "../lib/auth-client";
-
-type User = {
-	_id: string;
-	email: string;
-	name?: string;
-	emailVerified: boolean;
-	role?: string;
-	banned?: boolean;
-	banReason?: string;
-	createdAt: number;
-};
+import { UserRow, type UserRowData } from "@convex-zen/playground-ui";
 
 type AdminListUsersResponse = {
-	users: User[];
+	users: UserRowData[];
 	cursor: string | null;
 	isDone: boolean;
 };
@@ -67,9 +57,9 @@ export const Route = createFileRoute("/admin")({
 	errorComponent: ({ error }) => {
 		const message = error instanceof Error ? error.message : "Unknown error";
 		return (
-			<div>
-				<h1>Admin</h1>
-				<p className="error">Could not load admin page: {message}</p>
+			<div className="card">
+				<h2>Admin</h2>
+				<p className="text-error">Could not load admin page: {message}</p>
 			</div>
 		);
 	},
@@ -148,158 +138,68 @@ function AdminPage() {
 
 	if (status === "loading") {
 		return (
-			<div>
-				<h1>Admin</h1>
-				<p>Loading…</p>
+			<div className="card">
+				<h2>Admin</h2>
+				<p className="loading-text">Loading...</p>
 			</div>
 		);
 	}
 
 	if (!session) {
 		return (
-			<div>
-				<h1>Admin</h1>
-				<p style={{ color: "#64748b" }}>
-					You must be signed in to access this page.
-				</p>
-				<button
-					className="btn-primary"
-					style={{ marginTop: "1rem" }}
-					onClick={() => void navigate({ to: "/signin" })}
-				>
-					Sign In
-				</button>
+			<div className="card">
+				<h2>Admin</h2>
+				<p className="muted">You must be signed in to access this page.</p>
+				<div className="actions">
+					<button
+						className="btn-primary"
+						onClick={() => void navigate({ to: "/signin" })}
+					>
+						Sign In
+					</button>
+				</div>
 			</div>
 		);
 	}
 
 	return (
-		<div>
-			<h1>Admin</h1>
-			{error ? <p className="error">{error}</p> : null}
+		<>
+			<h2 className="page-title">Admin</h2>
+			{error ? <p className="text-error">{error}</p> : null}
 
-			<div
-				style={{
-					display: "flex",
-					justifyContent: "space-between",
-					alignItems: "center",
-					marginBottom: "0.75rem",
-				}}
-			>
-				<h2 style={{ margin: 0 }}>Users ({users.length})</h2>
-			</div>
+			<p className="section-label">Users ({users.length})</p>
 
 			{users.length === 0 ? (
-				<p style={{ color: "#64748b" }}>No users found.</p>
+				<div className="card">
+					<p className="muted">No users found.</p>
+				</div>
 			) : (
 				users.map((user) => (
-					<div key={user._id} className="card">
-						<div
-							style={{
-								display: "flex",
-								justifyContent: "space-between",
-								alignItems: "flex-start",
-							}}
-						>
-							<div>
-								<strong>{user.email}</strong>
-								{user.name && (
-									<span style={{ color: "#64748b", marginLeft: "0.5rem" }}>
-										({user.name})
-									</span>
-								)}
-								<div
-									style={{
-										marginTop: "0.25rem",
-										fontSize: "0.75rem",
-										color: "#64748b",
-									}}
-								>
-									<code>{user._id}</code>
-								</div>
-							</div>
-							<div
-								style={{ display: "flex", gap: "0.375rem", flexWrap: "wrap" }}
-							>
-								{user.emailVerified ? (
-									<span className="tag tag-green">verified</span>
-								) : (
-									<span className="tag tag-gray">unverified</span>
-								)}
-								{user.role && <span className="tag tag-gray">{user.role}</span>}
-								{user.banned && <span className="tag tag-red">banned</span>}
-							</div>
-						</div>
-
-						<div
-							style={{
-								display: "flex",
-								gap: "0.5rem",
-								marginTop: "0.75rem",
-								flexWrap: "wrap",
-							}}
-						>
-							{!user.banned && (
-								<button
-									className="btn-danger"
-									style={{ fontSize: "0.8125rem", padding: "0.25rem 0.75rem" }}
-									onClick={() => {
-										const reason = window.prompt("Ban reason:");
-										if (reason) {
-											banUserMutation.mutate({
-												userId: user._id,
-												reason,
-											});
-										}
-									}}
-								>
-									Ban
-								</button>
-							)}
-							{user.banned && (
-								<button
-									className="btn-secondary"
-									style={{ fontSize: "0.8125rem", padding: "0.25rem 0.75rem" }}
-									onClick={() => {
-										unbanUserMutation.mutate({
-											userId: user._id,
-										});
-									}}
-								>
-									Unban
-								</button>
-							)}
-							<button
-								className="btn-secondary"
-								style={{ fontSize: "0.8125rem", padding: "0.25rem 0.75rem" }}
-								onClick={() => {
-									const role = window.prompt("New role:", user.role ?? "user");
-									if (role) {
-										setRoleMutation.mutate({
-											userId: user._id,
-											role,
-										});
-									}
-								}}
-							>
-								Set role
-							</button>
-						</div>
-
-						{user.banReason && (
-							<p
-								style={{
-									fontSize: "0.75rem",
-									color: "#dc2626",
-									marginTop: "0.25rem",
-								}}
-							>
-								Ban reason: {user.banReason}
-							</p>
-						)}
-					</div>
+					<UserRow
+						key={user._id}
+						user={user}
+						onBan={(id) => {
+							const reason = window.prompt("Ban reason:");
+							if (reason) {
+								banUserMutation.mutate({ userId: id, reason });
+							}
+						}}
+						onUnban={(id) => {
+							unbanUserMutation.mutate({ userId: id });
+						}}
+						onSetRole={(id) => {
+							const currentUser = users.find((u) => u._id === id);
+							const role = window.prompt(
+								"New role:",
+								currentUser?.role ?? "user",
+							);
+							if (role) {
+								setRoleMutation.mutate({ userId: id, role });
+							}
+						}}
+					/>
 				))
 			)}
-		</div>
+		</>
 	);
 }

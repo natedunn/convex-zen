@@ -1,23 +1,89 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { isAuthenticated } from "@/lib/auth-server";
-import { redirect } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { authClient } from "@/lib/auth-client";
+import { SessionCard } from "@convex-zen/playground-ui";
 
-export const dynamic = "force-dynamic";
+type Session = {
+  userId: string;
+  sessionId: string;
+} | null;
 
-export default async function DashboardPage() {
-	if (!(await isAuthenticated("/dashboard"))) {
-		redirect("/");
-	}
+export default function DashboardPage() {
+  const router = useRouter();
+  const [session, setSession] = useState<Session>(null);
+  const [email, setEmail] = useState<string | undefined>();
+  const [loading, setLoading] = useState(true);
+  const [signingOut, setSigningOut] = useState(false);
 
-	return (
-		<main>
-			<section className="panel">
-				<h1>Protected Dashboard</h1>
-					<p>Access granted. Authenticated cookie session detected.</p>
-				<p>
-					<Link href="/">Back to auth playground</Link>
-				</p>
-			</section>
-		</main>
-	);
+  const loadSession = async () => {
+    setLoading(true);
+    try {
+      const s = await authClient.getSession();
+      if (!s) {
+        router.replace("/signin");
+        return;
+      }
+      setSession(s);
+      try {
+        const user = await authClient.currentUser();
+        setEmail(user?.email);
+      } catch {
+        // email is best-effort
+      }
+    } catch {
+      router.replace("/signin");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadSession();
+  }, []);
+
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    try {
+      await authClient.signOut();
+      router.replace("/");
+    } catch {
+      setSigningOut(false);
+    }
+  };
+
+  if (loading || !session) {
+    return (
+      <div className="card">
+        <h2>Dashboard</h2>
+        <p className="loading-text">Loading...</p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <h2 className="page-title">Dashboard</h2>
+
+      <SessionCard
+        userId={session.userId}
+        sessionId={session.sessionId}
+        email={email}
+        onSignOut={handleSignOut}
+        onRefresh={() => void loadSession()}
+        signingOut={signingOut}
+      />
+
+      <p className="muted">
+        Session tokens are stored in an HttpOnly cookie and never exposed to
+        client code.
+      </p>
+
+      <div className="flow-links">
+        <Link href="/">Back to diagnostics</Link>
+      </div>
+    </>
+  );
 }

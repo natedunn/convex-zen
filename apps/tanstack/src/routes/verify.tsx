@@ -41,17 +41,15 @@ function VerifyPage() {
 
   if (status === "done") {
     return (
-      <div>
-        <h1>Email verified!</h1>
-        <p style={{ color: "#64748b" }}>
-          Your email has been verified. You can now sign in.
-        </p>
-        <div style={{ marginTop: "1rem" }}>
+      <div className="card">
+        <h2>Email verified</h2>
+        <p className="muted">You can now sign in with your account.</p>
+        <div className="actions">
           <button
             className="btn-primary"
             onClick={() => void navigate({ to: "/signin" })}
           >
-            Sign In →
+            Go to Sign In
           </button>
         </div>
       </div>
@@ -59,37 +57,42 @@ function VerifyPage() {
   }
 
   return (
-    <div>
-      <h1>Verify your email</h1>
-      <p style={{ color: "#64748b" }}>
-        Enter the verification code sent to{" "}
-        <strong>{email ?? "your email"}</strong>.
+    <div className="card">
+      <h2>Verify your email</h2>
+      <p className="muted">
+        Submit the code sent to <strong>{email ?? "your email"}</strong>.
       </p>
-      <p style={{ color: "#64748b", fontSize: "0.875rem" }}>
-        💡 In dev mode, the code is printed to the Convex server console.
+      <p className="muted">
+        In local dev mode, the code is printed in the Convex server logs.
       </p>
+
+      <hr className="card-divider" />
+
       <form onSubmit={(e) => void handleSubmit(e)}>
-        <label>Verification code</label>
-        <input
-          type="text"
-          value={code}
-          onChange={(e) => setCode(e.target.value.toUpperCase())}
-          placeholder="XXXXXXXX"
-          required
-          maxLength={8}
-          style={{ letterSpacing: "0.2em", fontFamily: "monospace" }}
-          autoComplete="one-time-code"
-        />
+        <div className="field">
+          <label>Verification code</label>
+          <input
+            type="text"
+            value={code}
+            onChange={(e) => setCode(e.target.value.toUpperCase())}
+            placeholder="XXXXXXXX"
+            required
+            maxLength={8}
+            autoComplete="one-time-code"
+          />
+        </div>
 
-        {error && <p className="error">{error}</p>}
+        {error && <p className="text-error">{error}</p>}
 
-        <button
-          type="submit"
-          className="btn-primary"
-          disabled={status === "loading"}
-        >
-          {status === "loading" ? "Verifying…" : "Verify email"}
-        </button>
+        <div className="actions">
+          <button
+            type="submit"
+            className="btn-primary"
+            disabled={status === "loading"}
+          >
+            {status === "loading" ? "Verifying..." : "Verify Email"}
+          </button>
+        </div>
       </form>
     </div>
   );
