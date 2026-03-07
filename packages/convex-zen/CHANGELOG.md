@@ -1,3 +1,11 @@
+# [1.3.0](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.2.0...convex-zen-v1.3.0) (2026-03-07)
+
+
+### Features
+
+* **examples:** align Next.js and TanStack apps for full parity ([67a5913](https://github.com/natedunn/convex-zen/commit/67a5913bd0e50ea7eb08f612a3c066c29a2e148a))
+* **playground-ui:** add shared presentational package for example apps ([fa67ea3](https://github.com/natedunn/convex-zen/commit/fa67ea30d5b3dcd61ed230cde58c44d870b84f19))
+
 # [1.2.0](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.1.0...convex-zen-v1.2.0) (2026-03-06)
 
 
