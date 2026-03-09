@@ -1,3 +1,15 @@
+# [1.4.0](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.3.0...convex-zen-v1.4.0) (2026-03-09)
+
+
+### Bug Fixes
+
+* **auth:** create credentials during oauth password reset ([0cf28a5](https://github.com/natedunn/convex-zen/commit/0cf28a57ddd53f8ca702894d7920fce0a0989e73))
+
+
+### Features
+
+* **auth:** add route-backed oauth support ([c1a9125](https://github.com/natedunn/convex-zen/commit/c1a9125060ffc792fd52569dfb2fd797bf79e8ce))
+
 # [1.3.0](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.2.0...convex-zen-v1.3.0) (2026-03-07)
 
 
