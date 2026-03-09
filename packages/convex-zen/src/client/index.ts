@@ -881,7 +881,15 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 }
 
 // Named exports for convenience
-export { discordProvider, googleProvider, githubProvider } from "./providers";
+export {
+	buildOAuthAuthorizationUrl,
+	discordProvider,
+	defineOAuthProvider,
+	exchangeOAuthAuthorizationCode,
+	githubProvider,
+	googleProvider,
+	requireOAuthVerifiedEmail,
+} from "./providers";
 export { adminPlugin } from "./plugins/admin";
 export { SessionPrimitives, createSessionPrimitives } from "./primitives";
 export { createRouteAuthRuntimeAdapter } from "./framework-adapter";
@@ -901,17 +909,24 @@ export {
 	resolveNextTrustedOriginsFromEnv,
 } from "./next";
 export type {
+	BuiltInOAuthProviderId,
+	BuildOAuthAuthorizationUrlArgs,
 	ConvexAuthPlugin,
 	EmailProvider,
 	DiscordProviderOptions,
+	ExchangeOAuthAuthorizationCodeArgs,
 	GithubProviderOptions,
 	GoogleProviderOptions,
+	OAuthProfile,
+	OAuthProviderDefinition,
 	OAuthCallbackInput,
 	OAuthCallbackResult,
 	OAuthProviderConfig,
 	OAuthProviderId,
+	OAuthProviderRuntime,
 	OAuthStartOptions,
 	OAuthStartResult,
+	OAuthTokenResponse,
 	AdminPluginConfig,
 } from "../types";
 export type {

@@ -18,6 +18,7 @@
   "include": [
     "src/types.ts",
     "src/client/**/*",
+    "src/oauth/**/*",
     "src/component/convex.config.ts",
     "src/cli/**/*"
   ],

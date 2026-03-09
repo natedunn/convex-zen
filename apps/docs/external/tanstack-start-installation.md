@@ -175,6 +175,98 @@ await authClient.signIn.oauth("google", {
 });
 ```
 
+## Experimental custom OAuth providers
+
+## Custom OAuth providers
+
+`convex-zen` also exposes a fully functional custom provider API. The built-in
+providers (`googleProvider`, `githubProvider`, `discordProvider`) use the same
+runtime contract internally, so they are the canonical reference implementations
+for custom providers.
+
+Define custom providers in `convex/zen.config.ts` so their runtimes register when
+the Convex auth modules load:
+
+```ts
+import {
+	ConvexZen,
+	buildOAuthAuthorizationUrl,
+	defineOAuthProvider,
+	exchangeOAuthAuthorizationCode,
+	requireOAuthVerifiedEmail,
+} from "convex-zen";
+
+const acmeProvider = defineOAuthProvider({
+	id: "acme",
+	createConfig: (config: {
+		clientId: string;
+		clientSecret: string;
+		tenant: string;
+	}) => ({
+		id: "acme",
+		clientId: config.clientId,
+		clientSecret: config.clientSecret,
+		trustVerifiedEmail: true,
+		authorizationUrl: "https://acme.example/oauth/authorize",
+		tokenUrl: "https://acme.example/oauth/token",
+		userInfoUrl: "https://acme.example/api/me",
+		scopes: ["profile", "email"],
+		runtimeConfig: {
+			tenant: config.tenant,
+		},
+	}),
+	runtime: {
+		buildAuthorizationUrl: (provider, args) =>
+			buildOAuthAuthorizationUrl(provider, args),
+		exchangeAuthorizationCode: async (provider, args) =>
+			await exchangeOAuthAuthorizationCode(provider, args),
+		fetchProfile: async (provider, tokens) => {
+			const response = await fetch(provider.userInfoUrl, {
+				headers: {
+					Authorization: `Bearer ${tokens.accessToken}`,
+				},
+			});
+			const profile = await response.json();
+			return {
+				accountId: profile.id,
+				email: profile.email,
+				emailVerified: profile.email_verified === true,
+				name: profile.name,
+				image: profile.avatar_url,
+			};
+		},
+		requireVerifiedEmail: (profile) =>
+			requireOAuthVerifiedEmail(profile),
+	},
+});
+
+export const authOptions = {
+	providers: [
+		acmeProvider({
+			clientId: process.env.ACME_CLIENT_ID!,
+			clientSecret: process.env.ACME_CLIENT_SECRET!,
+			tenant: "workspace-1",
+		}),
+	],
+};
+```
+
+You can start the route-backed browser flow with the custom id:
+
+```ts
+await authClient.signIn.oauth("acme", {
+	redirectTo: "/dashboard",
+	errorRedirectTo: "/signin",
+});
+```
+
+Custom providers are intended for real use, but the provider contract may still
+evolve before it is declared stable. Check the changelog when upgrading.
+
+Custom providers do not trust verified email claims by default. Set
+`trustVerifiedEmail: true` only when the provider guarantees verified emails you
+are comfortable using for new-user creation and automatic email-based linking.
+
 Create `src/routes/api.auth.$.tsx`:
 
 ```tsx

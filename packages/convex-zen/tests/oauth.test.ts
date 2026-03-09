@@ -3,10 +3,15 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import schema from "../src/component/schema";
 import { internal } from "../src/component/_generated/api";
 import {
+  buildOAuthAuthorizationUrl,
+  defineOAuthProvider,
   discordProvider,
+  exchangeOAuthAuthorizationCode,
   githubProvider,
   googleProvider,
+  requireOAuthVerifiedEmail,
 } from "../src/client/providers";
+import type { OAuthProviderConfig } from "../src/types";
 
 const modules = import.meta.glob("../src/component/**/*.*s");
 
@@ -23,6 +28,114 @@ const githubConfig = githubProvider({
 const discordConfig = discordProvider({
   clientId: "discord-client-id",
   clientSecret: "discord-client-secret",
+});
+
+const acmeProvider = defineOAuthProvider<
+  { clientId: string; clientSecret: string; tenant: string },
+  OAuthProviderConfig
+>({
+  id: "acme",
+  createConfig: (config) => ({
+    id: "acme",
+    clientId: config.clientId,
+    clientSecret: config.clientSecret,
+    trustVerifiedEmail: true,
+    authorizationUrl: "https://acme.example/oauth/authorize",
+    tokenUrl: "https://acme.example/oauth/token",
+    userInfoUrl: "https://acme.example/api/me",
+    scopes: ["profile", "email"],
+    runtimeConfig: {
+      tenant: config.tenant,
+    },
+  }),
+  runtime: {
+    buildAuthorizationUrl: (provider, args) =>
+      buildOAuthAuthorizationUrl(provider, {
+        ...args,
+        authorizationParams: {
+          tenant:
+            typeof (provider.runtimeConfig as { tenant?: unknown } | undefined)
+              ?.tenant === "string"
+              ? ((provider.runtimeConfig as { tenant: string }).tenant as string)
+              : undefined,
+        },
+      }),
+    exchangeAuthorizationCode: async (provider, args) =>
+      await exchangeOAuthAuthorizationCode(provider, args),
+    fetchProfile: async (provider, tokens) => {
+      const tenant =
+        typeof (provider.runtimeConfig as { tenant?: unknown } | undefined)
+          ?.tenant === "string"
+          ? ((provider.runtimeConfig as { tenant: string }).tenant as string)
+          : undefined;
+      const response = await fetch(provider.userInfoUrl, {
+        headers: {
+          Authorization: `Bearer ${tokens.accessToken}`,
+          ...(tenant ? { "X-Tenant": tenant } : {}),
+        },
+      });
+      if (!response.ok) {
+        throw new Error(`User info fetch failed: ${response.status}`);
+      }
+      const profile = (await response.json()) as {
+        id?: string;
+        email?: string;
+        verified_email?: boolean;
+        display_name?: string;
+        avatar_url?: string;
+      };
+      if (!profile.id) {
+        throw new Error("Could not determine provider user ID");
+      }
+      return {
+        accountId: profile.id,
+        email: profile.email,
+        emailVerified: profile.verified_email === true,
+        name: profile.display_name,
+        image: profile.avatar_url,
+      };
+    },
+    requireVerifiedEmail: (profile) => requireOAuthVerifiedEmail(profile),
+  },
+});
+
+const acmeConfig = acmeProvider({
+  clientId: "acme-client-id",
+  clientSecret: "acme-client-secret",
+  tenant: "workspace-1",
+});
+
+const acmeUntrustedProvider = defineOAuthProvider<
+  { clientId: string; clientSecret: string },
+  OAuthProviderConfig
+>({
+  id: "acme-untrusted",
+  createConfig: (config) => ({
+    id: "acme-untrusted",
+    clientId: config.clientId,
+    clientSecret: config.clientSecret,
+    authorizationUrl: "https://acme.example/oauth/authorize",
+    tokenUrl: "https://acme.example/oauth/token",
+    userInfoUrl: "https://acme.example/api/me",
+    scopes: ["profile", "email"],
+  }),
+  runtime: {
+    buildAuthorizationUrl: (provider, args) =>
+      buildOAuthAuthorizationUrl(provider, args),
+    exchangeAuthorizationCode: async (provider, args) =>
+      await exchangeOAuthAuthorizationCode(provider, args),
+    fetchProfile: async () => ({
+      accountId: "acme-untrusted-user",
+      email: "oauth@example.com",
+      emailVerified: true,
+      name: "Acme User",
+    }),
+  },
+});
+
+const acmeUntrustedConfig = acmeUntrustedProvider({
+  clientId: "acme-untrusted-client-id",
+  clientSecret: "acme-untrusted-client-secret",
 });
 
 function createJsonResponse(body: unknown, status = 200): Response {
@@ -61,6 +174,7 @@ function mockFetch(profile: {
       "https://oauth2.googleapis.com/token",
       "https://github.com/login/oauth/access_token",
       "https://discord.com/api/oauth2/token",
+      "https://acme.example/oauth/token",
     ];
     if (tokenUrls.some((u) => url.startsWith(u))) {
       return Promise.resolve(
@@ -525,6 +639,56 @@ describe("oauth", () => {
           state,
         })
       ).rejects.toThrow("OAuth provider scopes must not be empty");
+    });
+
+    it("supports custom providers through the shared runtime contract", async () => {
+      const t = convexTest(schema, modules);
+      const { state } = await initiateOAuth(t, acmeConfig);
+
+      mockFetch({
+        id: "acme-user-123",
+        email: "acme@example.com",
+        verified_email: true,
+        display_name: "Acme User",
+        avatar_url: "https://acme.example/avatar.png",
+      });
+
+      const result = (await t.action(internal.providers.oauth.handleCallback, {
+        provider: acmeConfig,
+        code: "acme-code",
+        state,
+      })) as { sessionToken: string; userId: string };
+
+      expect(result.sessionToken).toBeTruthy();
+      expect(result.userId).toBeTruthy();
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        "https://acme.example/api/me",
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: "Bearer mock-access-token",
+            "X-Tenant": "workspace-1",
+          }),
+        })
+      );
+    });
+
+    it("requires custom providers to opt in before trusting verified email claims", async () => {
+      const t = convexTest(schema, modules);
+      const { state } = await initiateOAuth(t, acmeUntrustedConfig);
+      mockFetch({
+        id: "acme-untrusted-user",
+        email: "oauth@example.com",
+        verified_email: true,
+        display_name: "Acme User",
+      });
+
+      await expect(
+        t.action(internal.providers.oauth.handleCallback, {
+          provider: acmeUntrustedConfig,
+          code: "acme-code",
+          state,
+        })
+      ).rejects.toThrow("trusted email linking");
     });
   });
 });

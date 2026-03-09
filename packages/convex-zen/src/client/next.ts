@@ -1041,7 +1041,7 @@ function readCookie(request: Request, name: string): string | null {
 }
 
 function isOAuthProviderId(value: string): value is OAuthProviderId {
-  return value === "google" || value === "github" || value === "discord";
+  return value.trim().length > 0;
 }
 
 function asPublicMutationRef(
@@ -1206,6 +1206,9 @@ function mapOAuthErrorCode(error: unknown): string {
   }
   if (message.includes("provider mismatch")) {
     return "oauth_invalid_state";
+  }
+  if (message.includes("trusted email linking")) {
+    return "oauth_link_required";
   }
   if (message.includes("verified email")) {
     return "oauth_unverified_email";
