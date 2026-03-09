@@ -297,7 +297,20 @@ export async function resetPasswordWithCode(
 
   const account = await findAccount(ctx.db, "credential", normalizedEmail);
   if (!account) {
-    throw new Error("Account not found");
+    const user = await findUserByEmail(ctx.db, normalizedEmail);
+    if (!user) {
+      throw new Error("Account not found");
+    }
+
+    await insertAccount(ctx.db, {
+      userId: user._id,
+      providerId: "credential",
+      accountId: normalizedEmail,
+      passwordHash,
+    });
+
+    await invalidateAllUserSessions(ctx.db, user._id);
+    return { status: "valid" as const };
   }
 
   await ctx.db.patch(account._id, {

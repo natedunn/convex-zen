@@ -441,5 +441,65 @@ describe("emailPassword", () => {
         })
       ).rejects.toThrow("Password must be at least 12 characters long");
     });
+
+    it("creates a credential account for an oauth-only user during reset", async () => {
+      const t = convexTest(schema, modules);
+
+      await t.run(async (ctx) => {
+        const userId = await ctx.db.insert("users", {
+          email: "oauth-reset@example.com",
+          emailVerified: true,
+          name: "OAuth Reset User",
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        });
+        await ctx.db.insert("accounts", {
+          userId,
+          providerId: "github",
+          accountId: "github-user-1",
+          accessToken: "encrypted-token",
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        });
+      });
+
+      const resetResult = (await t.mutation(
+        internal.providers.emailPassword.requestPasswordReset,
+        { email: "oauth-reset@example.com" }
+      )) as { status: string; resetCode: string | null };
+
+      expect(resetResult.status).toBe("sent");
+      expect(resetResult.resetCode).toBeTruthy();
+
+      const applyResult = (await t.mutation(
+        internal.providers.emailPassword.resetPassword,
+        {
+          email: "oauth-reset@example.com",
+          code: resetResult.resetCode!,
+          newPassword: "CredentialPassword123!",
+        }
+      )) as { status: string };
+
+      expect(applyResult.status).toBe("valid");
+
+      const credentialAccount = await t.run(async (ctx) => {
+        return ctx.db
+          .query("accounts")
+          .withIndex("by_provider_accountId", (q) =>
+            q.eq("providerId", "credential").eq("accountId", "oauth-reset@example.com")
+          )
+          .unique();
+      });
+
+      expect(credentialAccount).not.toBeNull();
+      expect(credentialAccount!.passwordHash).toBeTruthy();
+
+      const signInResult = (await t.mutation(internal.providers.emailPassword.signIn, {
+        email: "oauth-reset@example.com",
+        password: "CredentialPassword123!",
+      })) as { sessionToken: string };
+
+      expect(signInResult.sessionToken).toBeTruthy();
+    });
   });
 });
