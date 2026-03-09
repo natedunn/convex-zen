@@ -10,4 +10,13 @@ export const oauthProviderConfigValidator = v.object({
   tokenUrl: v.string(),
   userInfoUrl: v.string(),
   scopes: v.array(v.string()),
+  accessType: v.optional(v.union(v.literal("offline"), v.literal("online"))),
+  prompt: v.optional(
+    v.union(
+      v.literal("none"),
+      v.literal("consent"),
+      v.literal("select_account")
+    )
+  ),
+  hostedDomain: v.optional(v.string()),
 });

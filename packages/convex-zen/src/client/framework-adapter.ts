@@ -9,6 +9,7 @@ import {
 } from "./auth-runtime";
 import type { SessionInfo, SignInInput } from "./primitives";
 import type { ReactAuthClient } from "./react";
+import type { OAuthProviderId, OAuthStartResult } from "../types";
 
 type MaybePromise<T> = T | Promise<T>;
 
@@ -60,7 +61,17 @@ export interface RouteAuthRuntimeAdapterClient extends ReactAuthClient {
   signOut: () => Promise<void>;
   signIn: {
     email: (input: SignInInput) => Promise<SessionInfo>;
+    oauth: (
+      providerId: OAuthProviderId,
+      options?: RouteAuthOAuthSignInOptions
+    ) => Promise<OAuthStartResult | null>;
   };
+}
+
+export interface RouteAuthOAuthSignInOptions {
+  redirect?: boolean;
+  redirectTo?: string;
+  errorRedirectTo?: string;
 }
 
 interface RouteAuthSessionResponse {
@@ -359,6 +370,45 @@ export function createRouteAuthRuntimeAdapter(
     await runtime.onSignedOut();
   };
 
+  const signInWithOAuth = async (
+    providerId: OAuthProviderId,
+    oauthOptions: RouteAuthOAuthSignInOptions = {}
+  ): Promise<OAuthStartResult | null> => {
+    const searchParams = new URLSearchParams();
+    if (oauthOptions.redirectTo) {
+      searchParams.set("redirectTo", oauthOptions.redirectTo);
+    }
+    if (oauthOptions.errorRedirectTo) {
+      searchParams.set("errorRedirectTo", oauthOptions.errorRedirectTo);
+    }
+
+    const shouldRedirect = oauthOptions.redirect !== false;
+    const routePath = `sign-in/${providerId}`;
+    if (shouldRedirect) {
+      const requestUrl = await resolveRequestUrl(
+        searchParams.size > 0
+          ? `${routePath}?${searchParams.toString()}`
+          : routePath
+      );
+      if (typeof window === "undefined") {
+        throw new Error(
+          "OAuth redirect sign-in requires a browser environment. Pass { redirect: false } to get the authorization URL."
+        );
+      }
+      window.location.assign(requestUrl);
+      return null;
+    }
+
+    searchParams.set("mode", "json");
+    return await requestJson<OAuthStartResult>(
+      `${routePath}?${searchParams.toString()}`,
+      {
+        method: "GET",
+      },
+      { fallback: `Could not start OAuth sign-in for ${providerId}` }
+    );
+  };
+
   const connectConvexAuth = (convexClient: ConvexAuthClientLike): (() => void) => {
     return runtime.mountConvex(convexClient);
   };
@@ -371,6 +421,7 @@ export function createRouteAuthRuntimeAdapter(
     signOut,
     signIn: {
       email: signInWithEmail,
+      oauth: signInWithOAuth,
     },
   };
 }

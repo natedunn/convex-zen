@@ -37,4 +37,9 @@ pnpm -C apps/next dev:direct
 
 - `/api/auth/[...auth]` is backed by `createNextAuthServer(...)`.
 - Convex functions live in `apps/next/convex`.
-- `/dashboard` is protected with `isAuthenticated` and redirects to `/` when unauthenticated.
+- Core auth flow pages:
+  - `/signup`
+  - `/verify`
+  - `/signin`
+  - `/reset`
+- `/dashboard` is protected with `isAuthenticated` and redirects to `/signin` when unauthenticated.

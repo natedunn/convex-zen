@@ -1,6 +1,10 @@
 import type { SessionInfo, SignInInput } from "./primitives";
 import type { ReactAuthClient } from "./react";
 import type {
+  OAuthProviderId,
+  OAuthStartResult,
+} from "../types";
+import type {
   FunctionArgs,
   FunctionReference,
   FunctionReturnType,
@@ -333,7 +337,7 @@ export const DEFAULT_GENERATED_CORE_META = {
   invalidateSession: "mutation",
   validateSession: "mutation",
   currentUser: "query",
-  getOAuthUrl: "action",
+  getOAuthUrl: "mutation",
   handleOAuthCallback: "action",
 } as const satisfies TanStackAuthCoreMeta;
 
@@ -442,6 +446,12 @@ export interface TanStackAuthRuntimeClientOptions {
   debug?: boolean;
 }
 
+export interface TanStackOAuthSignInOptions {
+  redirect?: boolean;
+  redirectTo?: string;
+  errorRedirectTo?: string;
+}
+
 export interface TanStackStartAuthApiClient extends ReactAuthClient {
   getToken: (options?: { forceRefresh?: boolean }) => Promise<string | null>;
   clearToken: () => void;
@@ -451,6 +461,10 @@ export interface TanStackStartAuthApiClient extends ReactAuthClient {
   signOut: () => Promise<void>;
   signIn: {
     email: (input: SignInInput) => Promise<SessionInfo>;
+    oauth: (
+      providerId: OAuthProviderId,
+      options?: TanStackOAuthSignInOptions
+    ) => Promise<OAuthStartResult | null>;
   };
 }
 
@@ -968,6 +982,46 @@ function createTanStackRouteAuthClient<
     await runtime.onSignedOut();
   };
 
+  const signInWithOAuth = async (
+    providerId: OAuthProviderId,
+    oauthOptions: TanStackOAuthSignInOptions = {}
+  ): Promise<OAuthStartResult | null> => {
+    const searchParams = new URLSearchParams();
+    if (oauthOptions.redirectTo) {
+      searchParams.set("redirectTo", oauthOptions.redirectTo);
+    }
+    if (oauthOptions.errorRedirectTo) {
+      searchParams.set("errorRedirectTo", oauthOptions.errorRedirectTo);
+    }
+
+    const shouldRedirect = oauthOptions.redirect !== false;
+    const routePath = `sign-in/${providerId}`;
+
+    if (shouldRedirect) {
+      const requestUrl = await resolveRequestUrl(
+        searchParams.size > 0
+          ? `${routePath}?${searchParams.toString()}`
+          : routePath
+      );
+      if (typeof window === "undefined") {
+        throw new Error(
+          "OAuth redirect sign-in requires a browser environment. Pass { redirect: false } to get the authorization URL."
+        );
+      }
+      window.location.assign(requestUrl);
+      return null;
+    }
+
+    searchParams.set("mode", "json");
+    return await requestJson<OAuthStartResult>(
+      `${routePath}?${searchParams.toString()}`,
+      {
+        method: "GET",
+      },
+      { fallback: `Could not start OAuth sign-in for ${providerId}` }
+    );
+  };
+
   const connectConvexAuth = (convexClient: ConvexAuthClientLike): (() => void) => {
     return runtime.mountConvex(convexClient);
   };
@@ -980,6 +1034,7 @@ function createTanStackRouteAuthClient<
     signOut,
     signIn: {
       email: signInWithEmail,
+      oauth: signInWithOAuth,
     },
   };
 

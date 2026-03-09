@@ -222,7 +222,7 @@ describe("createTanStackAuthClient", () => {
 
   it("adds helpers on generated core functions", async () => {
     const signUpRef = mutationRef("core.signUp");
-    const getOAuthUrlRef = actionRef("core.getOAuthUrl");
+    const getOAuthUrlRef = mutationRef("core.getOAuthUrl");
     const currentUserRef = queryRef("core.currentUser");
     const fetchImpl = vi.fn(async () => {
       return new Response(JSON.stringify({ id: "user_1" }), {
@@ -267,24 +267,16 @@ describe("createTanStackAuthClient", () => {
       password: "password123",
     });
 
-    const actionOptions = authClient.core.getOAuthUrl.query({
-      providerId: "google",
-    });
-    const rootActionOptions = authClient.getOAuthUrl.query({
-      providerId: "google",
-    });
-    expect(actionOptions.queryKey[0]).toBe("convexAction");
-    expect(rootActionOptions.queryKey[0]).toBe("convexAction");
-    const actionExecutor = {
-      action: vi.fn(async () => ({ url: "https://idp.example.com" })),
+    const oauthMutationExecutor = {
+      mutation: vi.fn(async () => ({ authorizationUrl: "https://idp.example.com" })),
     };
-    await authClient.core.getOAuthUrl.runAction(actionExecutor, {
+    await authClient.core.getOAuthUrl.mutate(oauthMutationExecutor, {
       providerId: "google",
     });
-    await authClient.getOAuthUrl.runAction(actionExecutor, {
+    await authClient.getOAuthUrl.mutate(oauthMutationExecutor, {
       providerId: "google",
     });
-    expect(actionExecutor.action).toHaveBeenCalledWith(getOAuthUrlRef, {
+    expect(oauthMutationExecutor.mutation).toHaveBeenCalledWith(getOAuthUrlRef, {
       providerId: "google",
     });
 

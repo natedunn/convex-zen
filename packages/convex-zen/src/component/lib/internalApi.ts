@@ -48,10 +48,11 @@ export const internal = anyApi as unknown as {
       updatePasswordHash: InternalMutation;
     };
     oauth: {
-      getAuthorizationUrl: InternalAction;
+      getAuthorizationUrl: InternalMutation;
       handleCallback: InternalAction;
       storeOAuthState: InternalMutation;
       consumeOAuthState: InternalMutation;
+      cleanup: InternalMutation;
     };
   };
   plugins: {

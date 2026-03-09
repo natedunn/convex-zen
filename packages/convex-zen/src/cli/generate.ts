@@ -127,7 +127,8 @@ function hasOAuthProviders(authSource: string): boolean {
   return (
     /\bproviders\s*:\s*\[/.test(authSource) ||
     /\bgoogleProvider\s*\(/.test(authSource) ||
-    /\bgithubProvider\s*\(/.test(authSource)
+    /\bgithubProvider\s*\(/.test(authSource) ||
+    /\bdiscordProvider\s*\(/.test(authSource)
   );
 }
 
@@ -141,13 +142,21 @@ function renderCoreFile(options: {
   const authImportPath = options.authImportPath;
   const oauthExports = options.includeOAuth
     ? `
-export const getOAuthUrl = action({
+export const getOAuthUrl = mutation({
   args: {
     providerId: v.string(),
+    callbackUrl: v.optional(v.string()),
+    redirectTo: v.optional(v.string()),
+    errorRedirectTo: v.optional(v.string()),
     redirectUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    return auth.getOAuthUrl(ctx, args.providerId, args.redirectUrl);
+    return auth.getOAuthUrl(ctx, args.providerId as "google" | "github" | "discord", {
+      callbackUrl: args.callbackUrl,
+      redirectTo: args.redirectTo,
+      errorRedirectTo: args.errorRedirectTo,
+      redirectUrl: args.redirectUrl,
+    });
   },
 });
 
@@ -156,12 +165,16 @@ export const handleOAuthCallback = action({
     providerId: v.string(),
     code: v.string(),
     state: v.string(),
+    callbackUrl: v.optional(v.string()),
     redirectUrl: v.optional(v.string()),
     ipAddress: v.optional(v.string()),
     userAgent: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    return auth.handleCallback(ctx, args);
+    return auth.handleCallback(ctx, {
+      ...args,
+      providerId: args.providerId as "google" | "github" | "discord",
+    });
   },
 });
 `

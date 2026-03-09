@@ -4,9 +4,9 @@ import { auth } from "./zen.config";
 const http = httpRouter();
 
 /**
- * OAuth callback routes.
- * These receive the redirect from Google/GitHub after the user authorizes.
- * The handler extracts the code + state and calls handleOAuthCallback.
+ * Optional low-level Convex HTTP routes for manual/custom OAuth flows.
+ * Next.js apps should prefer the built-in `/api/auth/sign-in/:provider`
+ * and `/api/auth/callback/:provider` routes from createNextAuthServer(...).
  */
 auth.registerRoutes(http);
 

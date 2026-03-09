@@ -2,7 +2,11 @@ import { convexTest } from "convex-test";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import schema from "../src/component/schema";
 import { internal } from "../src/component/_generated/api";
-import { googleProvider, githubProvider } from "../src/client/providers";
+import {
+  discordProvider,
+  githubProvider,
+  googleProvider,
+} from "../src/client/providers";
 
 const modules = import.meta.glob("../src/component/**/*.*s");
 
@@ -16,6 +20,20 @@ const githubConfig = githubProvider({
   clientSecret: "gh-client-secret",
 });
 
+const discordConfig = discordProvider({
+  clientId: "discord-client-id",
+  clientSecret: "discord-client-secret",
+});
+
+function createJsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+    },
+  });
+}
+
 /** Mock global fetch for OAuth HTTP calls. */
 function mockFetch(profile: {
   id?: string;
@@ -25,27 +43,66 @@ function mockFetch(profile: {
   picture?: string;
   avatar_url?: string;
   login?: string;
+  global_name?: string;
+  username?: string;
+  avatar?: string;
+  discriminator?: string;
+  email_verified?: boolean;
+  verified?: boolean;
 }) {
-  const mockFn = vi.fn().mockImplementation((url: string) => {
+  const mockFn = vi.fn().mockImplementation((input: string | URL | Request) => {
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
     const tokenUrls = [
       "https://oauth2.googleapis.com/token",
       "https://github.com/login/oauth/access_token",
+      "https://discord.com/api/oauth2/token",
     ];
     if (tokenUrls.some((u) => url.startsWith(u))) {
-      return Promise.resolve({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            access_token: "mock-access-token",
-            refresh_token: "mock-refresh-token",
-            expires_in: 3600,
-          }),
-      });
+      return Promise.resolve(
+        createJsonResponse({
+          access_token: "mock-access-token",
+          refresh_token: "mock-refresh-token",
+          expires_in: 3600,
+        })
+      );
     }
-    return Promise.resolve({
-      ok: true,
-      json: () => Promise.resolve(profile),
-    });
+
+    if (url.startsWith("https://api.github.com/user/emails")) {
+      return Promise.resolve(
+        createJsonResponse([
+          {
+            email: profile.email,
+            primary: true,
+            verified: profile.verified ?? true,
+          },
+        ])
+      );
+    }
+
+    if (url.startsWith("https://api.github.com/user")) {
+      return Promise.resolve(createJsonResponse(profile));
+    }
+
+    if (url.startsWith("https://discord.com/api/users/@me")) {
+      return Promise.resolve(
+        createJsonResponse({
+          ...profile,
+          verified: profile.verified ?? true,
+        })
+      );
+    }
+
+    return Promise.resolve(
+      createJsonResponse({
+        ...profile,
+        email_verified: profile.email_verified ?? true,
+      })
+    );
   });
 
   vi.spyOn(globalThis, "fetch").mockImplementation(
@@ -69,7 +126,7 @@ describe("oauth", () => {
     it("generates authorization URL with state and PKCE", async () => {
       const t = convexTest(schema, modules);
 
-      const result = (await t.action(
+      const result = (await t.mutation(
         internal.providers.oauth.getAuthorizationUrl,
         {
           provider: googleConfig,
@@ -90,7 +147,7 @@ describe("oauth", () => {
     it("stores oauth state in database", async () => {
       const t = convexTest(schema, modules);
 
-      await t.action(internal.providers.oauth.getAuthorizationUrl, {
+      await t.mutation(internal.providers.oauth.getAuthorizationUrl, {
         provider: googleConfig,
       });
 
@@ -108,10 +165,10 @@ describe("oauth", () => {
       const t = convexTest(schema, modules);
 
       const [r1, r2] = (await Promise.all([
-        t.action(internal.providers.oauth.getAuthorizationUrl, {
+        t.mutation(internal.providers.oauth.getAuthorizationUrl, {
           provider: googleConfig,
         }),
-        t.action(internal.providers.oauth.getAuthorizationUrl, {
+        t.mutation(internal.providers.oauth.getAuthorizationUrl, {
           provider: googleConfig,
         }),
       ])) as [{ authorizationUrl: string }, { authorizationUrl: string }];
@@ -130,10 +187,36 @@ describe("oauth", () => {
       };
 
       await expect(
-        t.action(internal.providers.oauth.getAuthorizationUrl, {
+        t.mutation(internal.providers.oauth.getAuthorizationUrl, {
           provider: insecureProvider,
         })
       ).rejects.toThrow("OAuth provider URLs must use HTTPS");
+    });
+
+    it("rejects non-relative redirect targets", async () => {
+      const t = convexTest(schema, modules);
+
+      await expect(
+        t.mutation(internal.providers.oauth.getAuthorizationUrl, {
+          provider: googleConfig,
+          redirectTo: "https://evil.example/steal",
+        })
+      ).rejects.toThrow("redirectTo must be a relative path");
+    });
+
+    it("cleans up expired oauth states", async () => {
+      const t = convexTest(schema, modules);
+
+      await t.mutation(internal.providers.oauth.getAuthorizationUrl, {
+        provider: googleConfig,
+      });
+
+      vi.advanceTimersByTime(11 * 60 * 1000);
+
+      await t.mutation(internal.providers.oauth.cleanup, {});
+
+      const states = await t.run(async (ctx) => ctx.db.query("oauthStates").collect());
+      expect(states).toHaveLength(0);
     });
   });
 
@@ -142,7 +225,7 @@ describe("oauth", () => {
       t: ReturnType<typeof convexTest>,
       provider = googleConfig
     ) {
-      const result = (await t.action(
+      const result = (await t.mutation(
         internal.providers.oauth.getAuthorizationUrl,
         { provider }
       )) as { authorizationUrl: string };
@@ -194,6 +277,14 @@ describe("oauth", () => {
       expect(account!.accessToken).toBeTruthy();
       expect(account!.accessToken).not.toBe("mock-access-token");
       expect(account!.accessToken!.startsWith("enc:v1:")).toBe(true);
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        "https://www.googleapis.com/oauth2/v3/userinfo",
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: "Bearer mock-access-token",
+          }),
+        })
+      );
     });
 
     it("reuses existing account on subsequent login", async () => {
@@ -377,6 +468,46 @@ describe("oauth", () => {
       })) as { sessionToken: string };
 
       expect(result.sessionToken).toBeTruthy();
+    });
+
+    it("works with Discord provider", async () => {
+      const t = convexTest(schema, modules);
+
+      const { state } = await initiateOAuth(t, discordConfig);
+      mockFetch({
+        id: "discord-123",
+        email: "discord@example.com",
+        username: "discord-user",
+        global_name: "Discord User",
+        avatar: "avatarhash",
+      });
+
+      const result = (await t.action(internal.providers.oauth.handleCallback, {
+        provider: discordConfig,
+        code: "discord-code",
+        state,
+      })) as { sessionToken: string };
+
+      expect(result.sessionToken).toBeTruthy();
+    });
+
+    it("rejects unverified provider email", async () => {
+      const t = convexTest(schema, modules);
+      const { state } = await initiateOAuth(t);
+
+      mockFetch({
+        sub: "google-unverified",
+        email: "unverified@example.com",
+        email_verified: false,
+      });
+
+      await expect(
+        t.action(internal.providers.oauth.handleCallback, {
+          provider: googleConfig,
+          code: "code",
+          state,
+        })
+      ).rejects.toThrow("verified email");
     });
 
     it("rejects callback provider config with empty scopes", async () => {

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import type { FunctionReference } from "convex/server";
 import { createSessionPrimitives } from "../src/client/primitives";
 import {
   createNextAuthApiHandler,
@@ -418,6 +419,152 @@ describe("next server auth helpers", () => {
       })
     );
     expect(allowed.status).toBe(200);
+  });
+
+  it("starts OAuth via GET /api/auth/sign-in/:provider in json mode", async () => {
+    const fetchMutation = vi.fn(async () => ({
+      authorizationUrl:
+        "https://accounts.google.com/o/oauth2/v2/auth?state=oauth-state-123",
+    }));
+    const auth = {
+      getSession: vi.fn(async () => null),
+      getToken: vi.fn(async () => null),
+      signIn: vi.fn(),
+      establishSession: vi.fn(),
+      signOut: vi.fn(),
+    };
+    const getOAuthUrlRef = {} as FunctionReference<"mutation", "public">;
+    const handleOAuthCallbackRef = {} as FunctionReference<"action", "public">;
+    const handler = createNextAuthApiHandler({
+      nextAuth: auth,
+      convexFunctions: {
+        core: {
+          getOAuthUrl: getOAuthUrlRef,
+          handleOAuthCallback: handleOAuthCallbackRef,
+        },
+      },
+      fetchers: { fetchAction: vi.fn(), fetchMutation },
+    });
+
+    const response = await handler(
+      new Request(
+        "http://localhost/api/auth/sign-in/google?mode=json&redirectTo=%2Fdashboard&errorRedirectTo=%2Fsignin",
+        { method: "GET" }
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(fetchMutation).toHaveBeenCalledWith(getOAuthUrlRef, {
+      providerId: "google",
+      callbackUrl: "http://localhost/api/auth/callback/google",
+      redirectTo: "/dashboard",
+      errorRedirectTo: "/signin",
+    });
+    await expect(response.json()).resolves.toEqual({
+      authorizationUrl:
+        "https://accounts.google.com/o/oauth2/v2/auth?state=oauth-state-123",
+    });
+    expect(response.headers.get("set-cookie")).toContain("cz_oauth_state=");
+  });
+
+  it("rejects unsafe OAuth redirect targets", async () => {
+    const handler = createNextAuthApiHandler({
+      nextAuth: {
+        getSession: vi.fn(async () => null),
+        getToken: vi.fn(async () => null),
+        signIn: vi.fn(),
+        establishSession: vi.fn(),
+        signOut: vi.fn(),
+      },
+      convexFunctions: {
+        core: {
+          getOAuthUrl: {} as FunctionReference<"mutation", "public">,
+          handleOAuthCallback: {} as FunctionReference<"action", "public">,
+        },
+      },
+      fetchers: { fetchAction: vi.fn(), fetchMutation: vi.fn() },
+    });
+
+    const response = await handler(
+      new Request(
+        "http://localhost/api/auth/sign-in/google?mode=json&redirectTo=https%3A%2F%2Fevil.example%2Fsteal",
+        { method: "GET" }
+      )
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "OAuth redirect targets must be relative paths",
+    });
+  });
+
+  it("completes OAuth callbacks and establishes the normal session cookie", async () => {
+    const fetchAction = vi.fn(async () => ({
+      sessionToken: "raw-session-token",
+      redirectTo: "/dashboard",
+    }));
+    const auth = {
+      getSession: vi.fn(async () => null),
+      getToken: vi.fn(async () => null),
+      signIn: vi.fn(),
+      establishSession: vi.fn(async () => ({
+        session: { userId: "u_demo", sessionId: "s_oauth" },
+        token: "encoded-session-token",
+        setCookie: "cz_session=encoded-session-token; Path=/; HttpOnly; SameSite=lax",
+      })),
+      signOut: vi.fn(),
+    };
+    const getOAuthUrlRef = {} as FunctionReference<"mutation", "public">;
+    const handleOAuthCallbackRef = {} as FunctionReference<"action", "public">;
+    const stateCookie = encodeURIComponent(
+      JSON.stringify({
+        state: "oauth-state-123",
+        providerId: "google",
+        redirectTo: "/dashboard",
+        errorRedirectTo: "/signin",
+      })
+    );
+    const handler = createNextAuthApiHandler({
+      nextAuth: auth,
+      trustedProxy: true,
+      convexFunctions: {
+        core: {
+          getOAuthUrl: getOAuthUrlRef,
+          handleOAuthCallback: handleOAuthCallbackRef,
+        },
+      },
+      fetchers: { fetchAction, fetchMutation: vi.fn() },
+    });
+
+    const response = await handler(
+      new Request(
+        "http://localhost/api/auth/callback/google?code=oauth-code&state=oauth-state-123",
+        {
+          method: "GET",
+          headers: {
+            cookie: `cz_oauth_state=${stateCookie}`,
+            "user-agent": "oauth-test-agent",
+            "x-forwarded-for": "203.0.113.8",
+          },
+        }
+      )
+    );
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe("http://localhost/dashboard");
+    expect(fetchAction).toHaveBeenCalledWith(handleOAuthCallbackRef, {
+      providerId: "google",
+      code: "oauth-code",
+      state: "oauth-state-123",
+      callbackUrl: "http://localhost/api/auth/callback/google",
+      ipAddress: "203.0.113.8",
+      userAgent: "oauth-test-agent",
+    });
+    expect(auth.establishSession).toHaveBeenCalledWith("raw-session-token");
+    const setCookieHeader = response.headers.get("set-cookie");
+    expect(setCookieHeader).toContain("cz_session=encoded-session-token");
+    expect(setCookieHeader).toContain("cz_oauth_state=");
+    expect(setCookieHeader).toContain("Max-Age=0");
   });
 
   it("createNextServerAuthWithHandler wires a ready-to-use handler", async () => {
