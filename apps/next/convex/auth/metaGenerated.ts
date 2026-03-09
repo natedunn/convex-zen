@@ -2,6 +2,8 @@
 export const authMeta = {
   core: {
     currentUser: "query",
+    getOAuthUrl: "mutation",
+    handleOAuthCallback: "action",
     invalidateSession: "mutation",
     requestPasswordReset: "mutation",
     resetPassword: "mutation",

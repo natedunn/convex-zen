@@ -1,6 +1,21 @@
-import { describe, expect, it, vi } from "vitest";
+import type { FunctionReference } from "convex/server";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createTanStackStartAuthApiHandler } from "../src/client/tanstack-start";
 import type { SessionInfo, SignInInput } from "../src/client/primitives";
+
+const oauthCookieStore = new Map<string, string>();
+const setCookieMock = vi.fn((name: string, value: string) => {
+  oauthCookieStore.set(name, value);
+});
+const deleteCookieMock = vi.fn((name: string) => {
+  oauthCookieStore.delete(name);
+});
+
+vi.mock("@tanstack/react-start/server", () => ({
+  getCookie: (name: string) => oauthCookieStore.get(name),
+  setCookie: setCookieMock,
+  deleteCookie: deleteCookieMock,
+}));
 
 function makeSession(): SessionInfo {
   return { userId: "user_1", sessionId: "session_1" };
@@ -11,6 +26,7 @@ function createAuthMocks() {
     getSession: vi.fn(async () => null),
     getToken: vi.fn(async () => null),
     signIn: vi.fn(async (_input: SignInInput) => makeSession()),
+    establishSession: vi.fn(async () => makeSession()),
     signOut: vi.fn(async () => {}),
   };
 }
@@ -28,6 +44,12 @@ function makeSignInRequest(headers: Record<string, string> = {}): Request {
     }),
   });
 }
+
+beforeEach(() => {
+  oauthCookieStore.clear();
+  setCookieMock.mockClear();
+  deleteCookieMock.mockClear();
+});
 
 describe("createTanStackStartAuthApiHandler client IP handling", () => {
   it("does not trust forwarded IP headers by default", async () => {
@@ -233,5 +255,138 @@ describe("createTanStackStartAuthApiHandler token route", () => {
     const response = await handler(new Request("https://app.test/api/auth/token"));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ token: "opaque_token" });
+  });
+});
+
+describe("createTanStackStartAuthApiHandler oauth routes", () => {
+  it("starts OAuth via GET /api/auth/sign-in/:provider in json mode", async () => {
+    const auth = createAuthMocks();
+    const fetchMutation = vi.fn(async () => ({
+      authorizationUrl:
+        "https://accounts.google.com/o/oauth2/v2/auth?state=oauth-state-123",
+    }));
+    const getOAuthUrlRef = {} as FunctionReference<"mutation", "public">;
+    const handleOAuthCallbackRef = {} as FunctionReference<"action", "public">;
+    const handler = createTanStackStartAuthApiHandler({
+      tanstackAuth: auth,
+      convexFunctions: {
+        core: {
+          getOAuthUrl: getOAuthUrlRef,
+          handleOAuthCallback: handleOAuthCallbackRef,
+        },
+      },
+      fetchers: { fetchAction: vi.fn(), fetchMutation },
+    });
+
+    const response = await handler(
+      new Request(
+        "https://app.test/api/auth/sign-in/google?mode=json&redirectTo=%2Fdashboard&errorRedirectTo=%2Fsignin"
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(fetchMutation).toHaveBeenCalledWith(getOAuthUrlRef, {
+      providerId: "google",
+      callbackUrl: "https://app.test/api/auth/callback/google",
+      redirectTo: "/dashboard",
+      errorRedirectTo: "/signin",
+    });
+    expect(await response.json()).toEqual({
+      authorizationUrl:
+        "https://accounts.google.com/o/oauth2/v2/auth?state=oauth-state-123",
+    });
+    expect(setCookieMock).toHaveBeenCalledWith(
+      "cz_oauth_state",
+      expect.any(String),
+      expect.objectContaining({
+        path: "/api/auth",
+        httpOnly: true,
+        maxAge: 600,
+      })
+    );
+  });
+
+  it("rejects unsafe OAuth redirect targets", async () => {
+    const auth = createAuthMocks();
+    const handler = createTanStackStartAuthApiHandler({
+      tanstackAuth: auth,
+      convexFunctions: {
+        core: {
+          getOAuthUrl: {} as FunctionReference<"mutation", "public">,
+          handleOAuthCallback: {} as FunctionReference<"action", "public">,
+        },
+      },
+      fetchers: { fetchAction: vi.fn(), fetchMutation: vi.fn() },
+    });
+
+    const response = await handler(
+      new Request(
+        "https://app.test/api/auth/sign-in/google?mode=json&redirectTo=https%3A%2F%2Fevil.example%2Fsteal"
+      )
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "OAuth redirect targets must be relative paths",
+    });
+  });
+
+  it("completes OAuth callbacks and establishes the session", async () => {
+    const auth = createAuthMocks();
+    const fetchAction = vi.fn(async () => ({
+      sessionToken: "raw-session-token",
+      redirectTo: "/dashboard",
+    }));
+    const getOAuthUrlRef = {} as FunctionReference<"mutation", "public">;
+    const handleOAuthCallbackRef = {} as FunctionReference<"action", "public">;
+    const handler = createTanStackStartAuthApiHandler({
+      tanstackAuth: auth,
+      trustedProxy: true,
+      convexFunctions: {
+        core: {
+          getOAuthUrl: getOAuthUrlRef,
+          handleOAuthCallback: handleOAuthCallbackRef,
+        },
+      },
+      fetchers: { fetchAction, fetchMutation: vi.fn() },
+    });
+
+    const stateCookieValue = JSON.stringify({
+      state: "oauth-state-123",
+      providerId: "google",
+      redirectTo: "/dashboard",
+      errorRedirectTo: "/signin",
+    });
+    oauthCookieStore.set("cz_oauth_state", stateCookieValue);
+
+    const response = await handler(
+      new Request(
+        "https://app.test/api/auth/callback/google?code=oauth-code&state=oauth-state-123",
+        {
+          headers: {
+            cookie: `cz_oauth_state=${encodeURIComponent(stateCookieValue)}`,
+            "user-agent": "oauth-test-agent",
+            "x-forwarded-for": "203.0.113.8",
+          },
+        }
+      )
+    );
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe(
+      "https://app.test/dashboard"
+    );
+    expect(fetchAction).toHaveBeenCalledWith(handleOAuthCallbackRef, {
+      providerId: "google",
+      code: "oauth-code",
+      state: "oauth-state-123",
+      callbackUrl: "https://app.test/api/auth/callback/google",
+      ipAddress: "203.0.113.8",
+      userAgent: "oauth-test-agent",
+    });
+    expect(auth.establishSession).toHaveBeenCalledWith("raw-session-token");
+    expect(deleteCookieMock).toHaveBeenCalledWith("cz_oauth_state", {
+      path: "/api/auth",
+    });
   });
 });

@@ -52,7 +52,12 @@ export default defineSchema({});
 Create `convex/zen.config.ts`:
 
 ```ts
-import { ConvexZen } from "convex-zen";
+import {
+  ConvexZen,
+  discordProvider,
+  githubProvider,
+  googleProvider,
+} from "convex-zen";
 import { adminPlugin } from "convex-zen/plugins/admin";
 import { components } from "./_generated/api";
 
@@ -65,6 +70,20 @@ export const authOptions = {
       console.log(`Password reset email -> ${to}: ${code}`);
     },
   },
+  providers: [
+    githubProvider({
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+    }),
+    googleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    }),
+    discordProvider({
+      clientId: process.env.DISCORD_CLIENT_ID!,
+      clientSecret: process.env.DISCORD_CLIENT_SECRET!,
+    }),
+  ],
   requireEmailVerified: true,
   plugins: [adminPlugin({ defaultRole: "user", adminRole: "admin" })],
 };
@@ -96,6 +115,24 @@ npx convex-zen generate
 ```
 
 This creates generated wrappers used by the Next adapter (for example `convex/auth/core.ts` and `convex/auth/metaGenerated.ts`).
+
+If you enable OAuth, register these callback URLs with the provider consoles:
+
+- `http://localhost:3000/api/auth/callback/google`
+- `http://localhost:3000/api/auth/callback/github`
+- `http://localhost:3000/api/auth/callback/discord`
+- Portless dev example: `http://next.convex-zen.localhost:1355/api/auth/callback/:provider`
+
+Set provider secrets in Convex, not `.env.local`:
+
+```bash
+pnpm exec convex env set GITHUB_CLIENT_ID "<value>"
+pnpm exec convex env set GITHUB_CLIENT_SECRET "<value>"
+pnpm exec convex env set GOOGLE_CLIENT_ID "<value>"
+pnpm exec convex env set GOOGLE_CLIENT_SECRET "<value>"
+pnpm exec convex env set DISCORD_CLIENT_ID "<value>"
+pnpm exec convex env set DISCORD_CLIENT_SECRET "<value>"
+```
 
 ## 7. Wire Next server + client auth
 
@@ -132,6 +169,15 @@ import { authMeta } from "../../convex/auth/metaGenerated";
 export const authClient = createNextAuthClient({
   convexFunctions: api.auth,
   meta: authMeta,
+});
+```
+
+Route-backed OAuth is available through `authClient.signIn.oauth(...)`, for example:
+
+```ts
+await authClient.signIn.oauth("google", {
+  redirectTo: "/dashboard",
+  errorRedirectTo: "/signin",
 });
 ```
 

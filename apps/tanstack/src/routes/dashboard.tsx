@@ -5,9 +5,9 @@ import {
 	useNavigate,
 	useRouter,
 } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { useSession } from "convex-zen/react";
 import { authClient } from "../lib/auth-client";
-import { useQuery } from "@tanstack/react-query";
 import { SessionCard } from "@convex-zen/playground-ui";
 
 export const Route = createFileRoute("/dashboard")({
@@ -21,9 +21,37 @@ export const Route = createFileRoute("/dashboard")({
 
 function DashboardPage() {
 	const { status, session } = useSession();
-	const { data: user } = useQuery(authClient.currentUser.query());
 	const navigate = useNavigate();
 	const router = useRouter();
+	const [user, setUser] = useState<{ email?: string } | null>(null);
+
+	useEffect(() => {
+		let cancelled = false;
+
+		if (!session) {
+			setUser(null);
+			return () => {
+				cancelled = true;
+			};
+		}
+
+		void authClient
+			.currentUser()
+			.then((currentUser) => {
+				if (!cancelled) {
+					setUser(currentUser);
+				}
+			})
+			.catch(() => {
+				if (!cancelled) {
+					setUser(null);
+				}
+			});
+
+		return () => {
+			cancelled = true;
+		};
+	}, [session]);
 
 	const handleSignOut = async () => {
 		await authClient.signOut();

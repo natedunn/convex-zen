@@ -83,19 +83,25 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         Name
       >;
       getAuthorizationUrl: FunctionReference<
-        "action",
+        "mutation",
         "internal",
         {
+          callbackUrl?: string;
+          errorRedirectTo?: string;
           provider: {
+            accessType?: "offline" | "online";
             authorizationUrl: string;
             clientId: string;
             clientSecret: string;
+            hostedDomain?: string;
             id: string;
+            prompt?: "none" | "consent" | "select_account";
             scopes: Array<string>;
             tokenEncryptionSecret?: string;
             tokenUrl: string;
             userInfoUrl: string;
           };
+          redirectTo?: string;
           redirectUrl?: string;
         },
         any,
@@ -119,14 +125,18 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "action",
         "internal",
         {
+          callbackUrl?: string;
           code: string;
           defaultRole?: string;
           ipAddress?: string;
           provider: {
+            accessType?: "offline" | "online";
             authorizationUrl: string;
             clientId: string;
             clientSecret: string;
+            hostedDomain?: string;
             id: string;
+            prompt?: "none" | "consent" | "select_account";
             scopes: Array<string>;
             tokenEncryptionSecret?: string;
             tokenUrl: string;

@@ -19,6 +19,7 @@ import {
   type SignInOutput,
 } from "./primitives";
 import type { ReactAuthClient } from "./react";
+import type { OAuthProviderId } from "../types";
 import {
   type TanStackAuthCoreMeta,
   type TanStackAuthMeta,
@@ -107,6 +108,7 @@ export interface NextServerAuth {
   getSession: (request: Request) => Promise<SessionInfo | null>;
   getToken: (request: Request) => Promise<string | null>;
   signIn: (input: SignInInput) => Promise<NextSignInResult>;
+  establishSession: (sessionToken: string) => Promise<NextSignInResult>;
   signOut: (request: Request) => Promise<NextSignOutResult>;
   requireSession: (request: Request) => Promise<AuthenticatedSession>;
   withSession: <T>(
@@ -229,12 +231,18 @@ export type NextClientIpResolver = (
 ) => string | undefined;
 
 export interface NextAuthApiHandlerOptions {
-  nextAuth: Pick<NextServerAuth, "getSession" | "getToken" | "signIn" | "signOut">;
+  nextAuth: Pick<
+    NextServerAuth,
+    "getSession" | "getToken" | "signIn" | "establishSession" | "signOut"
+  >;
   basePath?: string;
   plugins?: readonly NextAuthApiPlugin[];
   trustedOrigins?: NextTrustedOriginsConfig;
   trustedProxy?: NextTrustedProxyConfig;
   getClientIp?: NextClientIpResolver;
+  convexFunctions?: Record<string, unknown>;
+  coreMeta?: NextAuthCoreMeta;
+  fetchers?: Pick<NextConvexFetchers, "fetchAction" | "fetchMutation">;
 }
 
 export interface NextAuthServerOptions
@@ -267,7 +275,10 @@ export interface NextConvexAuthOptions {
 
 export interface NextConvexAuthServerOptions
   extends NextConvexAuthOptions,
-    Omit<NextAuthApiHandlerOptions, "nextAuth" | "plugins"> {
+    Omit<
+      NextAuthApiHandlerOptions,
+      "nextAuth" | "plugins" | "convexFunctions" | "coreMeta" | "fetchers"
+    > {
   plugins?: NextAuthApiPluginSelection;
   pluginMeta?: NextAuthPluginMeta;
   coreMeta?: NextAuthCoreMeta;
@@ -358,6 +369,27 @@ export interface NextRequestFromHeadersOptions {
 interface NextAuthErrorPayload {
   error?: string;
 }
+
+type NextOAuthActionRefs = {
+  getOAuthUrl: FunctionReference<"mutation", "public">;
+  handleOAuthCallback: FunctionReference<"action", "public">;
+};
+
+type NextOAuthStateCookiePayload = {
+  state: string;
+  providerId: OAuthProviderId;
+  redirectTo: string;
+  errorRedirectTo: string;
+};
+
+type NextOAuthCallbackResult = {
+  sessionToken?: unknown;
+  redirectTo?: unknown;
+  redirectUrl?: unknown;
+};
+
+const NEXT_OAUTH_STATE_COOKIE_NAME = "cz_oauth_state";
+const NEXT_OAUTH_STATE_COOKIE_MAX_AGE_SECONDS = 10 * 60;
 
 /**
  * Build a Request from forwarded host/proto headers (useful in Next server components).
@@ -1008,6 +1040,254 @@ function readCookie(request: Request, name: string): string | null {
   return cookies.get(name) ?? null;
 }
 
+function isOAuthProviderId(value: string): value is OAuthProviderId {
+  return value === "google" || value === "github" || value === "discord";
+}
+
+function asPublicMutationRef(
+  value: unknown
+): FunctionReference<"mutation", "public"> | null {
+  return hasFunctionRefCandidate(value)
+    ? (value as FunctionReference<"mutation", "public">)
+    : null;
+}
+
+function asPublicActionRef(
+  value: unknown
+): FunctionReference<"action", "public"> | null {
+  return hasFunctionRefCandidate(value)
+    ? (value as FunctionReference<"action", "public">)
+    : null;
+}
+
+function resolveOAuthActionRefs(
+  convexFunctions: Record<string, unknown> | undefined
+): NextOAuthActionRefs | null {
+  if (!convexFunctions) {
+    return null;
+  }
+
+  const getOAuthUrl = asPublicMutationRef(
+    resolveNamedConvexFunctionRef(
+      convexFunctions as NextConvexActionRefs,
+      "getOAuthUrl",
+      "core"
+    )
+  );
+  const handleOAuthCallback = asPublicActionRef(
+    resolveNamedConvexFunctionRef(
+      convexFunctions as NextConvexActionRefs,
+      "handleOAuthCallback",
+      "core"
+    )
+  );
+
+  if (!getOAuthUrl || !handleOAuthCallback) {
+    return null;
+  }
+
+  return {
+    getOAuthUrl,
+    handleOAuthCallback,
+  };
+}
+
+function buildNextOAuthCallbackUrl(
+  request: Request,
+  basePath: string,
+  providerId: OAuthProviderId
+): string {
+  const requestUrl = new URL(request.url);
+  return new URL(`${basePath}/callback/${providerId}`, requestUrl).toString();
+}
+
+function parseOAuthStateCookie(
+  request: Request
+): NextOAuthStateCookiePayload | null {
+  const rawCookie = readCookie(request, NEXT_OAUTH_STATE_COOKIE_NAME);
+  if (!rawCookie) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(rawCookie) as {
+      state?: unknown;
+      providerId?: unknown;
+      redirectTo?: unknown;
+      errorRedirectTo?: unknown;
+    };
+    if (
+      typeof parsed.state !== "string" ||
+      typeof parsed.providerId !== "string" ||
+      !isOAuthProviderId(parsed.providerId) ||
+      typeof parsed.redirectTo !== "string" ||
+      typeof parsed.errorRedirectTo !== "string"
+    ) {
+      return null;
+    }
+
+    return {
+      state: parsed.state,
+      providerId: parsed.providerId,
+      redirectTo: parsed.redirectTo,
+      errorRedirectTo: parsed.errorRedirectTo,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function serializeOAuthStateCookie(
+  basePath: string,
+  payload: NextOAuthStateCookiePayload
+): string {
+  return serializeCookie(
+    NEXT_OAUTH_STATE_COOKIE_NAME,
+    JSON.stringify(payload),
+    resolveCookieOptions({
+      path: basePath,
+      maxAge: NEXT_OAUTH_STATE_COOKIE_MAX_AGE_SECONDS,
+    })
+  );
+}
+
+function clearOAuthStateCookie(basePath: string): string {
+  return serializeCookie(NEXT_OAUTH_STATE_COOKIE_NAME, "", {
+    path: basePath,
+    httpOnly: true,
+    sameSite: "lax",
+    secure: isProductionRuntime(),
+    maxAge: 0,
+  });
+}
+
+function appendSetCookieHeaders(headers: Headers, cookies: readonly string[]): void {
+  for (const cookie of cookies) {
+    headers.append("set-cookie", cookie);
+  }
+}
+
+function createRedirectResponse(
+  request: Request,
+  location: string,
+  setCookies: readonly string[] = []
+): Response {
+  const headers = new Headers({
+    location: new URL(location, request.url).toString(),
+  });
+  appendSetCookieHeaders(headers, setCookies);
+  return new Response(null, {
+    status: 302,
+    headers,
+  });
+}
+
+function appendOAuthErrorParams(
+  target: URL,
+  error: string,
+  providerId: OAuthProviderId,
+  description?: string
+): URL {
+  target.searchParams.set("error", error);
+  target.searchParams.set("provider", providerId);
+  if (description) {
+    target.searchParams.set("error_description", description);
+  }
+  return target;
+}
+
+function mapOAuthErrorCode(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return "oauth_callback_error";
+  }
+  const message = error.message.toLowerCase();
+  if (message.includes("invalid or expired oauth state")) {
+    return "oauth_invalid_state";
+  }
+  if (message.includes("provider mismatch")) {
+    return "oauth_invalid_state";
+  }
+  if (message.includes("verified email")) {
+    return "oauth_unverified_email";
+  }
+  if (message.includes("email") && message.includes("not found")) {
+    return "oauth_email_not_found";
+  }
+  if (message.includes("token exchange")) {
+    return "oauth_token_exchange_failed";
+  }
+  if (message.includes("profile")) {
+    return "oauth_profile_fetch_failed";
+  }
+  return "oauth_callback_error";
+}
+
+function parseAuthorizationUrlState(authorizationUrl: string): string | null {
+  try {
+    const state = new URL(authorizationUrl).searchParams.get("state");
+    return state && state.length > 0 ? state : null;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeRedirectTarget(
+  request: Request,
+  target: string | null | undefined,
+  fallback = "/"
+): string {
+  const resolvedTarget =
+    typeof target === "string" && target.length > 0 ? target : fallback;
+  if (resolvedTarget.startsWith("/") && !resolvedTarget.startsWith("//")) {
+    return new URL(resolvedTarget, request.url).toString();
+  }
+  return new URL(fallback, request.url).toString();
+}
+
+function isSafeRedirectTarget(target: string | null | undefined): boolean {
+  if (typeof target !== "string" || target.length === 0) {
+    return true;
+  }
+  return target.startsWith("/") && !target.startsWith("//");
+}
+
+function createOAuthErrorRedirectResponse(args: {
+  request: Request;
+  providerId: OAuthProviderId;
+  error: string;
+  description?: string | undefined;
+  target?: string | undefined;
+  clearStateCookie?: boolean;
+  basePath: string;
+}): Response {
+  const redirectTarget = new URL(
+    normalizeRedirectTarget(args.request, args.target),
+    args.request.url
+  );
+  appendOAuthErrorParams(
+    redirectTarget,
+    args.error,
+    args.providerId,
+    args.description
+  );
+
+  const cookies = args.clearStateCookie
+    ? [clearOAuthStateCookie(args.basePath)]
+    : [];
+  return createRedirectResponse(
+    args.request,
+    redirectTarget.toString(),
+    cookies
+  );
+}
+
+function parseOAuthCallbackResult(value: unknown): NextOAuthCallbackResult | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  return value as NextOAuthCallbackResult;
+}
+
 function normalizeBasePath(path: string): string {
   const normalized = path.trim();
   if (normalized === "") {
@@ -1450,7 +1730,7 @@ const NEXT_DEFAULT_GENERATED_CORE_META = {
   invalidateSession: "mutation",
   validateSession: "mutation",
   currentUser: "query",
-  getOAuthUrl: "action",
+  getOAuthUrl: "mutation",
   handleOAuthCallback: "action",
 } as const satisfies TanStackAuthCoreMeta;
 
@@ -2179,6 +2459,28 @@ export function createNextServerAuth(options: NextServerAuthOptions): NextServer
     };
   };
 
+  const establishSession = async (
+    sessionToken: string
+  ): Promise<NextSignInResult> => {
+    const session = await options.primitives.getSessionFromToken(sessionToken);
+    if (!session) {
+      throw new Error("Invalid session token");
+    }
+
+    const cookieToken = sessionTokenCodec
+      ? await sessionTokenCodec.encode({
+          userId: session.userId,
+          sessionToken,
+        })
+      : sessionToken;
+
+    return {
+      session,
+      token: cookieToken,
+      setCookie: serializeCookie(cookieName, cookieToken, cookieOptions),
+    };
+  };
+
   const signOut = async (request: Request): Promise<NextSignOutResult> => {
     const token = readCookie(request, cookieName);
     let sessionToken = token;
@@ -2214,6 +2516,7 @@ export function createNextServerAuth(options: NextServerAuthOptions): NextServer
     getSession,
     getToken,
     signIn,
+    establishSession,
     signOut,
     requireSession,
     withSession,
@@ -2228,9 +2531,13 @@ export function createNextAuthApiHandler(
 ): (request: Request) => Promise<Response> {
   const basePath = normalizeBasePath(options.basePath ?? "/api/auth");
   const plugins = options.plugins ?? [];
+  const oauthActions = resolveOAuthActionRefs(options.convexFunctions);
+  const fetchMutation = options.fetchers?.fetchMutation;
+  const fetchAction = options.fetchers?.fetchAction;
 
   return async (request: Request): Promise<Response> => {
-    const action = resolveActionFromPath(new URL(request.url).pathname, basePath);
+    const requestUrl = new URL(request.url);
+    const action = resolveActionFromPath(requestUrl.pathname, basePath);
     if (!action) {
       return json({ error: "Not found" }, 404);
     }
@@ -2244,6 +2551,197 @@ export function createNextAuthApiHandler(
     };
 
     try {
+      const actionSegments = action.split("/");
+      const oauthAction = actionSegments[0];
+      const providerSegment = actionSegments[1];
+      if (
+        request.method === "GET" &&
+        actionSegments.length === 2 &&
+        providerSegment &&
+        isOAuthProviderId(providerSegment) &&
+        (oauthAction === "sign-in" || oauthAction === "callback")
+      ) {
+        if (!fetchMutation || !fetchAction || !oauthActions) {
+          if (oauthAction === "callback") {
+            const stateCookie = parseOAuthStateCookie(request);
+            return createOAuthErrorRedirectResponse({
+              request,
+              providerId: providerSegment,
+              error: "oauth_callback_error",
+              target: stateCookie?.errorRedirectTo ?? stateCookie?.redirectTo,
+              clearStateCookie: true,
+              basePath,
+            });
+          }
+          return json({ error: "OAuth routes are not configured" }, 404);
+        }
+
+        if (oauthAction === "sign-in") {
+          const redirectTo = requestUrl.searchParams.get("redirectTo") ?? "/";
+          const errorRedirectTo =
+            requestUrl.searchParams.get("errorRedirectTo") ?? redirectTo;
+          if (
+            !isSafeRedirectTarget(redirectTo) ||
+            !isSafeRedirectTarget(errorRedirectTo)
+          ) {
+            return json(
+              {
+                error: "OAuth redirect targets must be relative paths",
+              },
+              400
+            );
+          }
+          const callbackUrl = buildNextOAuthCallbackUrl(
+            request,
+            basePath,
+            providerSegment
+          );
+          const startResult = await fetchMutation(oauthActions.getOAuthUrl, {
+            providerId: providerSegment,
+            callbackUrl,
+            redirectTo,
+            errorRedirectTo,
+          });
+          if (
+            !isRecord(startResult) ||
+            typeof startResult.authorizationUrl !== "string"
+          ) {
+            throw new Error("Invalid OAuth start response");
+          }
+
+          const state = parseAuthorizationUrlState(startResult.authorizationUrl);
+          if (!state) {
+            throw new Error("OAuth authorization URL is missing state");
+          }
+
+          const stateCookie = serializeOAuthStateCookie(basePath, {
+            state,
+            providerId: providerSegment,
+            redirectTo,
+            errorRedirectTo,
+          });
+
+          if (requestUrl.searchParams.get("mode") === "json") {
+            return jsonNoStore(
+              { authorizationUrl: startResult.authorizationUrl },
+              200,
+              { "set-cookie": stateCookie }
+            );
+          }
+
+          return createRedirectResponse(
+            request,
+            startResult.authorizationUrl,
+            [stateCookie]
+          );
+        }
+
+        const stateCookie = parseOAuthStateCookie(request);
+        const errorRedirectTarget =
+          stateCookie?.errorRedirectTo ?? stateCookie?.redirectTo;
+        const providerError = requestUrl.searchParams.get("error");
+        if (providerError) {
+          return createOAuthErrorRedirectResponse({
+            request,
+            providerId: providerSegment,
+            error:
+              providerError === "access_denied"
+                ? "oauth_access_denied"
+                : "oauth_callback_error",
+            description:
+              requestUrl.searchParams.get("error_description") ?? providerError,
+            target: errorRedirectTarget,
+            clearStateCookie: true,
+            basePath,
+          });
+        }
+
+        const state = requestUrl.searchParams.get("state");
+        if (
+          !stateCookie ||
+          stateCookie.providerId !== providerSegment ||
+          typeof state !== "string" ||
+          state !== stateCookie.state
+        ) {
+          return createOAuthErrorRedirectResponse({
+            request,
+            providerId: providerSegment,
+            error: "oauth_invalid_state",
+            target: errorRedirectTarget,
+            clearStateCookie: true,
+            basePath,
+          });
+        }
+
+        const code = requestUrl.searchParams.get("code");
+        if (!code) {
+          return createOAuthErrorRedirectResponse({
+            request,
+            providerId: providerSegment,
+            error: "oauth_callback_error",
+            description: "Missing OAuth authorization code",
+            target: errorRedirectTarget,
+            clearStateCookie: true,
+            basePath,
+          });
+        }
+
+        try {
+          const requestIp = resolveClientIp(request, options);
+          const requestUserAgent = request.headers.get("user-agent") ?? undefined;
+          const callbackResult = parseOAuthCallbackResult(
+            await fetchAction(oauthActions.handleOAuthCallback, {
+              providerId: providerSegment,
+              code,
+              state,
+              callbackUrl: buildNextOAuthCallbackUrl(
+                request,
+                basePath,
+                providerSegment
+              ),
+              ...(requestIp !== undefined ? { ipAddress: requestIp } : {}),
+              ...(requestUserAgent !== undefined
+                ? { userAgent: requestUserAgent }
+                : {}),
+            })
+          );
+          if (typeof callbackResult?.sessionToken !== "string") {
+            throw new Error("Invalid OAuth callback response");
+          }
+
+          const established = await options.nextAuth.establishSession(
+            callbackResult.sessionToken
+          );
+          const redirectTarget =
+            (typeof callbackResult.redirectTo === "string"
+              ? callbackResult.redirectTo
+              : null) ??
+            (typeof callbackResult.redirectUrl === "string"
+              ? callbackResult.redirectUrl
+              : null) ??
+            stateCookie.redirectTo;
+
+          return createRedirectResponse(
+            request,
+            normalizeRedirectTarget(request, redirectTarget),
+            [
+              established.setCookie,
+              clearOAuthStateCookie(basePath),
+            ]
+          );
+        } catch (error) {
+          return createOAuthErrorRedirectResponse({
+            request,
+            providerId: providerSegment,
+            error: mapOAuthErrorCode(error),
+            description: isProductionRuntime() ? undefined : toErrorMessage(error),
+            target: errorRedirectTarget,
+            clearStateCookie: true,
+            basePath,
+          });
+        }
+      }
+
       if (
         request.method !== "GET" &&
         !(await isAllowedOriginRequest(request, options.trustedOrigins))
@@ -2375,6 +2873,11 @@ export function createNextServerAuthWithHandler(
     ...(options.getClientIp !== undefined
       ? { getClientIp: options.getClientIp }
       : {}),
+    ...(options.convexFunctions !== undefined
+      ? { convexFunctions: options.convexFunctions }
+      : {}),
+    ...(options.coreMeta !== undefined ? { coreMeta: options.coreMeta } : {}),
+    ...(options.fetchers !== undefined ? { fetchers: options.fetchers } : {}),
   });
 
   return {
@@ -2741,6 +3244,9 @@ export function createNextAuthServer(
   const handler = createNextAuthApiHandler({
     nextAuth,
     plugins,
+    convexFunctions: options.convexFunctions as Record<string, unknown>,
+    fetchers,
+    ...(coreMeta !== undefined ? { coreMeta } : {}),
     ...(options.basePath !== undefined ? { basePath: options.basePath } : {}),
     ...(mergedTrustedOrigins !== undefined
       ? { trustedOrigins: mergedTrustedOrigins }

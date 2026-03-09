@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 
+type OAuthProviderId = "google" | "github" | "discord";
+
 export default function SignInPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -52,10 +54,53 @@ export default function SignInPage() {
     }
   };
 
+  const onOAuthSignIn = async (providerId: OAuthProviderId) => {
+    setError(null);
+    setStatus("loading");
+    try {
+      await authClient.signIn.oauth(providerId, {
+        redirectTo: "/dashboard",
+        errorRedirectTo: "/signin",
+      });
+    } catch (signInError) {
+      setError(
+        signInError instanceof Error ? signInError.message : "Sign in failed"
+      );
+      setStatus("idle");
+    }
+  };
+
   return (
     <div className="card">
       <h2>Sign in</h2>
-      <p className="muted">Authenticate with email and password.</p>
+      <p className="muted">Authenticate with email/password or OAuth.</p>
+
+      <div className="actions">
+        <button
+          type="button"
+          className="btn-secondary"
+          disabled={status !== "idle"}
+          onClick={() => void onOAuthSignIn("google")}
+        >
+          Continue with Google
+        </button>
+        <button
+          type="button"
+          className="btn-secondary"
+          disabled={status !== "idle"}
+          onClick={() => void onOAuthSignIn("github")}
+        >
+          Continue with GitHub
+        </button>
+        <button
+          type="button"
+          className="btn-secondary"
+          disabled={status !== "idle"}
+          onClick={() => void onOAuthSignIn("discord")}
+        >
+          Continue with Discord
+        </button>
+      </div>
 
       <hr className="card-divider" />
 

@@ -26,6 +26,7 @@ import {
   type SignInOutput,
 } from "./primitives";
 import { createConvexFetchers } from "./convex-fetchers";
+import type { OAuthProviderId } from "../types";
 
 type SetCookieOptions = Exclude<Parameters<typeof setCookieFn>[2], undefined>;
 type DeleteCookieOptions = Exclude<
@@ -41,6 +42,27 @@ type TanStackStartServerModule = {
   setCookie: typeof setCookieFn;
   deleteCookie: typeof deleteCookieFn;
 };
+
+type TanStackStartOAuthActionRefs = {
+  getOAuthUrl: FunctionReference<"mutation", "public">;
+  handleOAuthCallback: FunctionReference<"action", "public">;
+};
+
+type TanStackStartOAuthStateCookiePayload = {
+  state: string;
+  providerId: OAuthProviderId;
+  redirectTo: string;
+  errorRedirectTo: string;
+};
+
+type TanStackStartOAuthCallbackResult = {
+  sessionToken?: unknown;
+  redirectTo?: unknown;
+  redirectUrl?: unknown;
+};
+
+const TANSTACK_OAUTH_STATE_COOKIE_NAME = "cz_oauth_state";
+const TANSTACK_OAUTH_STATE_COOKIE_MAX_AGE_SECONDS = 10 * 60;
 
 // Keep this dynamic to avoid bundling TanStack server internals into client code.
 async function loadTanStackStartServerModule(): Promise<TanStackStartServerModule> {
@@ -132,6 +154,7 @@ export interface TanStackStartAuth {
   getSession: () => Promise<SessionInfo | null>;
   getToken: () => Promise<string | null>;
   signIn: (input: SignInInput) => Promise<SessionInfo>;
+  establishSession: (sessionToken: string) => Promise<SessionInfo>;
   signOut: () => Promise<void>;
   requireSession: () => Promise<AuthenticatedSession>;
   withSession: <T>(
@@ -142,13 +165,16 @@ export interface TanStackStartAuth {
 export interface TanStackStartAuthApiHandlerOptions {
   tanstackAuth: Pick<
     TanStackStartAuth,
-    "getSession" | "getToken" | "signIn" | "signOut"
+    "getSession" | "getToken" | "signIn" | "establishSession" | "signOut"
   >;
   basePath?: string;
   plugins?: readonly TanStackStartAuthApiPlugin[];
   trustedOrigins?: TrustedOriginsConfig;
   trustedProxy?: TrustedProxyConfig;
   getClientIp?: ClientIpResolver;
+  convexFunctions?: Record<string, unknown>;
+  coreMeta?: TanStackAuthCoreMeta;
+  fetchers?: Pick<TanStackStartConvexFetchers, "fetchAction" | "fetchMutation">;
 }
 
 export type TrustedOriginsConfig =
@@ -193,7 +219,13 @@ export interface TanStackStartAuthApiPluginFactoryContext {
 
 type TanStackAuthForPluginFactory = Pick<
   TanStackStartAuth,
-  "getSession" | "getToken" | "signIn" | "signOut" | "requireSession" | "withSession"
+  | "getSession"
+  | "getToken"
+  | "signIn"
+  | "establishSession"
+  | "signOut"
+  | "requireSession"
+  | "withSession"
 >;
 
 export interface TanStackStartAuthApiPluginFactory {
@@ -400,6 +432,244 @@ function normalizeBasePath(path: string): string {
     return withLeadingSlash.slice(0, -1);
   }
   return withLeadingSlash;
+}
+
+function parseCookieHeader(cookieHeader: string | null): Map<string, string> {
+  const parsed = new Map<string, string>();
+  if (!cookieHeader) {
+    return parsed;
+  }
+
+  const parts = cookieHeader.split(";");
+  for (const part of parts) {
+    const [rawName, ...valueParts] = part.trim().split("=");
+    if (!rawName || valueParts.length === 0) {
+      continue;
+    }
+    const rawValue = valueParts.join("=");
+    try {
+      parsed.set(rawName, decodeURIComponent(rawValue));
+    } catch {
+      parsed.set(rawName, rawValue);
+    }
+  }
+
+  return parsed;
+}
+
+function readCookie(request: Request, name: string): string | null {
+  const cookies = parseCookieHeader(request.headers.get("cookie"));
+  return cookies.get(name) ?? null;
+}
+
+function isOAuthProviderId(value: string): value is OAuthProviderId {
+  return value === "google" || value === "github" || value === "discord";
+}
+
+function resolveOAuthActionRefs(
+  convexFunctions: Record<string, unknown> | undefined
+): TanStackStartOAuthActionRefs | null {
+  if (!convexFunctions) {
+    return null;
+  }
+
+  const getOAuthUrl = resolveNamedConvexFunctionRef(
+    convexFunctions as TanStackStartConvexActionRefs,
+    "getOAuthUrl",
+    "core"
+  );
+  const handleOAuthCallback = resolveNamedConvexFunctionRef(
+    convexFunctions as TanStackStartConvexActionRefs,
+    "handleOAuthCallback",
+    "core"
+  );
+  if (!hasFunctionRefCandidate(getOAuthUrl) || !hasFunctionRefCandidate(handleOAuthCallback)) {
+    return null;
+  }
+
+  return {
+    getOAuthUrl: getOAuthUrl as FunctionReference<"mutation", "public">,
+    handleOAuthCallback: handleOAuthCallback as FunctionReference<
+      "action",
+      "public"
+    >,
+  };
+}
+
+function buildTanStackOAuthCallbackUrl(
+  request: Request,
+  basePath: string,
+  providerId: OAuthProviderId
+): string {
+  return new URL(`${basePath}/callback/${providerId}`, request.url).toString();
+}
+
+function parseOAuthStateCookie(
+  request: Request
+): TanStackStartOAuthStateCookiePayload | null {
+  const rawCookie = readCookie(request, TANSTACK_OAUTH_STATE_COOKIE_NAME);
+  if (!rawCookie) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(rawCookie) as {
+      state?: unknown;
+      providerId?: unknown;
+      redirectTo?: unknown;
+      errorRedirectTo?: unknown;
+    };
+    if (
+      typeof parsed.state !== "string" ||
+      typeof parsed.providerId !== "string" ||
+      !isOAuthProviderId(parsed.providerId) ||
+      typeof parsed.redirectTo !== "string" ||
+      typeof parsed.errorRedirectTo !== "string"
+    ) {
+      return null;
+    }
+
+    return {
+      state: parsed.state,
+      providerId: parsed.providerId,
+      redirectTo: parsed.redirectTo,
+      errorRedirectTo: parsed.errorRedirectTo,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function setOAuthStateCookie(
+  basePath: string,
+  payload: TanStackStartOAuthStateCookiePayload
+): Promise<void> {
+  const { setCookie } = await loadTanStackStartServerModule();
+  setCookie(TANSTACK_OAUTH_STATE_COOKIE_NAME, JSON.stringify(payload), {
+    ...resolveCookieOptions({
+      path: basePath,
+      maxAge: TANSTACK_OAUTH_STATE_COOKIE_MAX_AGE_SECONDS,
+    }),
+  });
+}
+
+async function clearOAuthStateCookie(basePath: string): Promise<void> {
+  const { deleteCookie } = await loadTanStackStartServerModule();
+  deleteCookie(TANSTACK_OAUTH_STATE_COOKIE_NAME, {
+    path: basePath,
+  });
+}
+
+function createRedirectResponse(request: Request, location: string): Response {
+  return new Response(null, {
+    status: 302,
+    headers: {
+      location: new URL(location, request.url).toString(),
+    },
+  });
+}
+
+function appendOAuthErrorParams(
+  target: URL,
+  error: string,
+  providerId: OAuthProviderId,
+  description?: string
+): URL {
+  target.searchParams.set("error", error);
+  target.searchParams.set("provider", providerId);
+  if (description) {
+    target.searchParams.set("error_description", description);
+  }
+  return target;
+}
+
+function mapOAuthErrorCode(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return "oauth_callback_error";
+  }
+  const message = error.message.toLowerCase();
+  if (message.includes("invalid or expired oauth state")) {
+    return "oauth_invalid_state";
+  }
+  if (message.includes("provider mismatch")) {
+    return "oauth_invalid_state";
+  }
+  if (message.includes("verified email")) {
+    return "oauth_unverified_email";
+  }
+  if (message.includes("email") && message.includes("not found")) {
+    return "oauth_email_not_found";
+  }
+  if (message.includes("token exchange")) {
+    return "oauth_token_exchange_failed";
+  }
+  if (message.includes("profile")) {
+    return "oauth_profile_fetch_failed";
+  }
+  return "oauth_callback_error";
+}
+
+function parseAuthorizationUrlState(authorizationUrl: string): string | null {
+  try {
+    const state = new URL(authorizationUrl).searchParams.get("state");
+    return state && state.length > 0 ? state : null;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeRedirectTarget(
+  request: Request,
+  target: string | null | undefined,
+  fallback = "/"
+): string {
+  const resolvedTarget =
+    typeof target === "string" && target.length > 0 ? target : fallback;
+  if (resolvedTarget.startsWith("/") && !resolvedTarget.startsWith("//")) {
+    return new URL(resolvedTarget, request.url).toString();
+  }
+  return new URL(fallback, request.url).toString();
+}
+
+function isSafeRedirectTarget(target: string | null | undefined): boolean {
+  if (typeof target !== "string" || target.length === 0) {
+    return true;
+  }
+  return target.startsWith("/") && !target.startsWith("//");
+}
+
+async function createOAuthErrorRedirectResponse(args: {
+  request: Request;
+  providerId: OAuthProviderId;
+  error: string;
+  description?: string | undefined;
+  target?: string | undefined;
+  clearStateCookie?: boolean;
+  basePath: string;
+}): Promise<Response> {
+  if (args.clearStateCookie) {
+    await clearOAuthStateCookie(args.basePath);
+  }
+  const redirectTarget = new URL(
+    normalizeRedirectTarget(args.request, args.target),
+    args.request.url
+  );
+  appendOAuthErrorParams(
+    redirectTarget,
+    args.error,
+    args.providerId,
+    args.description
+  );
+  return createRedirectResponse(args.request, redirectTarget.toString());
+}
+
+function parseOAuthCallbackResult(
+  value: unknown
+): TanStackStartOAuthCallbackResult | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  return value as TanStackStartOAuthCallbackResult;
 }
 
 function resolveActionFromPath(pathname: string, basePath: string): string | null {
@@ -716,6 +986,23 @@ function createTanStackStartAuth(
     return established.session;
   };
 
+  const establishSession = async (sessionToken: string) => {
+    const { setCookie } = await loadTanStackStartServerModule();
+    const session = await options.primitives.getSessionFromToken(sessionToken);
+    if (!session) {
+      throw new Error("Invalid session token");
+    }
+
+    const cookieToken = sessionTokenCodec
+      ? await sessionTokenCodec.encode({
+          userId: session.userId,
+          sessionToken,
+        })
+      : sessionToken;
+    setCookie(cookieName, cookieToken, cookieOptions);
+    return session;
+  };
+
   const signOut = async () => {
     const { deleteCookie } = await loadTanStackStartServerModule();
     const token = await getCookieToken();
@@ -749,6 +1036,7 @@ function createTanStackStartAuth(
     getSession,
     getToken,
     signIn,
+    establishSession,
     signOut,
     requireSession,
     withSession,
@@ -769,9 +1057,13 @@ export function createTanStackStartAuthApiHandler(
 ): (request: Request) => Promise<Response> {
   const basePath = normalizeBasePath(options.basePath ?? "/api/auth");
   const plugins = options.plugins ?? [];
+  const oauthActions = resolveOAuthActionRefs(options.convexFunctions);
+  const fetchMutation = options.fetchers?.fetchMutation;
+  const fetchAction = options.fetchers?.fetchAction;
 
   return async (request: Request): Promise<Response> => {
-    const action = resolveActionFromPath(new URL(request.url).pathname, basePath);
+    const requestUrl = new URL(request.url);
+    const action = resolveActionFromPath(requestUrl.pathname, basePath);
     if (!action) {
       return json({ error: "Not found" }, 404);
     }
@@ -784,6 +1076,187 @@ export function createTanStackStartAuthApiHandler(
     };
 
     try {
+      const actionSegments = action.split("/");
+      const oauthAction = actionSegments[0];
+      const providerSegment = actionSegments[1];
+      if (
+        request.method === "GET" &&
+        actionSegments.length === 2 &&
+        providerSegment &&
+        isOAuthProviderId(providerSegment) &&
+        (oauthAction === "sign-in" || oauthAction === "callback")
+      ) {
+        if (!fetchMutation || !fetchAction || !oauthActions) {
+          if (oauthAction === "callback") {
+            const stateCookie = parseOAuthStateCookie(request);
+            return await createOAuthErrorRedirectResponse({
+              request,
+              providerId: providerSegment,
+              error: "oauth_callback_error",
+              target: stateCookie?.errorRedirectTo ?? stateCookie?.redirectTo,
+              clearStateCookie: true,
+              basePath,
+            });
+          }
+          return json({ error: "OAuth routes are not configured" }, 404);
+        }
+
+        if (oauthAction === "sign-in") {
+          const redirectTo = requestUrl.searchParams.get("redirectTo") ?? "/";
+          const errorRedirectTo =
+            requestUrl.searchParams.get("errorRedirectTo") ?? redirectTo;
+          if (
+            !isSafeRedirectTarget(redirectTo) ||
+            !isSafeRedirectTarget(errorRedirectTo)
+          ) {
+            return json(
+              {
+                error: "OAuth redirect targets must be relative paths",
+              },
+              400
+            );
+          }
+          const callbackUrl = buildTanStackOAuthCallbackUrl(
+            request,
+            basePath,
+            providerSegment
+          );
+          const startResult = await fetchMutation(oauthActions.getOAuthUrl, {
+            providerId: providerSegment,
+            callbackUrl,
+            redirectTo,
+            errorRedirectTo,
+          });
+          if (
+            !isRecord(startResult) ||
+            typeof startResult.authorizationUrl !== "string"
+          ) {
+            throw new Error("Invalid OAuth start response");
+          }
+
+          const state = parseAuthorizationUrlState(startResult.authorizationUrl);
+          if (!state) {
+            throw new Error("OAuth authorization URL is missing state");
+          }
+
+          await setOAuthStateCookie(basePath, {
+            state,
+            providerId: providerSegment,
+            redirectTo,
+            errorRedirectTo,
+          });
+
+          if (requestUrl.searchParams.get("mode") === "json") {
+            return jsonNoStore({
+              authorizationUrl: startResult.authorizationUrl,
+            });
+          }
+
+          return createRedirectResponse(request, startResult.authorizationUrl);
+        }
+
+        const stateCookie = parseOAuthStateCookie(request);
+        const errorRedirectTarget =
+          stateCookie?.errorRedirectTo ?? stateCookie?.redirectTo;
+        const providerError = requestUrl.searchParams.get("error");
+        if (providerError) {
+          return await createOAuthErrorRedirectResponse({
+            request,
+            providerId: providerSegment,
+            error:
+              providerError === "access_denied"
+                ? "oauth_access_denied"
+                : "oauth_callback_error",
+            description:
+              requestUrl.searchParams.get("error_description") ?? providerError,
+            target: errorRedirectTarget,
+            clearStateCookie: true,
+            basePath,
+          });
+        }
+
+        const state = requestUrl.searchParams.get("state");
+        if (
+          !stateCookie ||
+          stateCookie.providerId !== providerSegment ||
+          typeof state !== "string" ||
+          state !== stateCookie.state
+        ) {
+          return await createOAuthErrorRedirectResponse({
+            request,
+            providerId: providerSegment,
+            error: "oauth_invalid_state",
+            target: errorRedirectTarget,
+            clearStateCookie: true,
+            basePath,
+          });
+        }
+
+        const code = requestUrl.searchParams.get("code");
+        if (!code) {
+          return await createOAuthErrorRedirectResponse({
+            request,
+            providerId: providerSegment,
+            error: "oauth_callback_error",
+            description: "Missing OAuth authorization code",
+            target: errorRedirectTarget,
+            clearStateCookie: true,
+            basePath,
+          });
+        }
+
+        const requestIp = resolveClientIp(request, options);
+        const requestUserAgent = request.headers.get("user-agent") ?? undefined;
+        try {
+          const callbackResult = parseOAuthCallbackResult(
+            await fetchAction(oauthActions.handleOAuthCallback, {
+              providerId: providerSegment,
+              code,
+              state,
+              callbackUrl: buildTanStackOAuthCallbackUrl(
+                request,
+                basePath,
+                providerSegment
+              ),
+              ...(requestIp !== undefined ? { ipAddress: requestIp } : {}),
+              ...(requestUserAgent !== undefined
+                ? { userAgent: requestUserAgent }
+                : {}),
+            })
+          );
+          if (typeof callbackResult?.sessionToken !== "string") {
+            throw new Error("Invalid OAuth callback response");
+          }
+
+          await options.tanstackAuth.establishSession(
+            callbackResult.sessionToken
+          );
+          const redirectTarget =
+            (typeof callbackResult.redirectTo === "string"
+              ? callbackResult.redirectTo
+              : null) ??
+            (typeof callbackResult.redirectUrl === "string"
+              ? callbackResult.redirectUrl
+              : null) ??
+            stateCookie.redirectTo;
+          await clearOAuthStateCookie(basePath);
+          return createRedirectResponse(
+            request,
+            normalizeRedirectTarget(request, redirectTarget)
+          );
+        } catch (error) {
+          return await createOAuthErrorRedirectResponse({
+            request,
+            providerId: providerSegment,
+            error: mapOAuthErrorCode(error),
+            description: isProductionRuntime() ? undefined : toErrorMessage(error),
+            target: errorRedirectTarget,
+            clearStateCookie: true,
+            basePath,
+          });
+        }
+      }
+
       if (
         request.method !== "GET" &&
         !(await isAllowedOriginRequest(request, options.trustedOrigins))
@@ -1009,6 +1482,9 @@ export function createTanStackAuthServer(
   const authApiHandlerOptions: TanStackStartAuthApiHandlerOptions = {
     tanstackAuth,
     plugins: authApiPlugins,
+    convexFunctions: options.convexFunctions as Record<string, unknown>,
+    fetchers,
+    ...(coreMeta !== undefined ? { coreMeta } : {}),
   };
   if (options.authApiBasePath !== undefined) {
     authApiHandlerOptions.basePath = options.authApiBasePath;
@@ -1028,6 +1504,7 @@ export function createTanStackAuthServer(
     getSession: tanstackAuth.getSession,
     getToken: tanstackAuth.getToken,
     signIn: tanstackAuth.signIn,
+    establishSession: tanstackAuth.establishSession,
     signOut: tanstackAuth.signOut,
     requireSession: tanstackAuth.requireSession,
     withSession: tanstackAuth.withSession,

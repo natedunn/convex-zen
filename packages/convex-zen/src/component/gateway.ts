@@ -210,15 +210,23 @@ export const invalidateAllSessions = mutation({
 
 // ─── OAuth ─────────────────────────────────────────────────────────────────
 
-export const getAuthorizationUrl = action({
+export const getAuthorizationUrl = mutation({
   args: {
     provider: oauthProviderConfigValidator,
+    callbackUrl: v.optional(v.string()),
+    redirectTo: v.optional(v.string()),
+    errorRedirectTo: v.optional(v.string()),
     redirectUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) =>
     await getAuthorizationUrlForProvider(ctx, {
       provider: args.provider,
-      redirectUrl: args.redirectUrl,
+      options: {
+        callbackUrl: args.callbackUrl,
+        redirectTo: args.redirectTo,
+        errorRedirectTo: args.errorRedirectTo,
+        redirectUrl: args.redirectUrl,
+      },
     }),
 });
 
@@ -227,6 +235,7 @@ export const handleCallback = action({
     provider: oauthProviderConfigValidator,
     code: v.string(),
     state: v.string(),
+    callbackUrl: v.optional(v.string()),
     redirectUrl: v.optional(v.string()),
     ipAddress: v.optional(v.string()),
     userAgent: v.optional(v.string()),
@@ -237,6 +246,7 @@ export const handleCallback = action({
       provider: args.provider,
       code: args.code,
       state: args.state,
+      callbackUrl: args.callbackUrl,
       redirectUrl: args.redirectUrl,
       ipAddress: args.ipAddress,
       userAgent: args.userAgent,

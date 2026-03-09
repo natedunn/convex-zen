@@ -1,7 +1,11 @@
 import type {
 	EmailProvider,
 	ConvexAuthPlugin,
+	OAuthCallbackInput,
+	OAuthCallbackResult,
 	OAuthProviderConfig,
+	OAuthStartOptions,
+	OAuthStartResult,
 	AdminPluginConfig,
 	AdminListUsersResult,
 } from "../types";
@@ -518,21 +522,31 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 
 	/**
 	 * Get an OAuth authorization URL for the given provider.
-	 * Call from a Convex action.
+	 * Call from a Convex mutation.
 	 */
 	async getOAuthUrl(
-		ctx: RunsActions,
+		ctx: RunsMutations,
 		providerId: string,
-		redirectUrl?: string,
-	): Promise<{ authorizationUrl: string }> {
+		options?: string | OAuthStartOptions,
+	): Promise<OAuthStartResult> {
 		const provider = this.providerMap.get(providerId);
 		if (!provider) {
 			throw new Error(`OAuth provider "${providerId}" not configured`);
 		}
-		return ctx.runAction(this.fn("gateway:getAuthorizationUrl"), {
+		const resolvedOptions =
+			typeof options === "string"
+				? {
+						callbackUrl: options,
+						redirectUrl: options,
+					}
+				: options;
+		return ctx.runMutation(this.fn("gateway:getAuthorizationUrl"), {
 			provider,
-			redirectUrl,
-		}) as Promise<{ authorizationUrl: string }>;
+			callbackUrl: resolvedOptions?.callbackUrl,
+			redirectTo: resolvedOptions?.redirectTo,
+			errorRedirectTo: resolvedOptions?.errorRedirectTo,
+			redirectUrl: resolvedOptions?.redirectUrl,
+		}) as Promise<OAuthStartResult>;
 	}
 
 	/**
@@ -541,15 +555,8 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 	 */
 	async handleCallback(
 		ctx: RunsActions,
-		args: {
-			code: string;
-			state: string;
-			providerId: string;
-			ipAddress?: string;
-			userAgent?: string;
-			redirectUrl?: string;
-		},
-	): Promise<{ sessionToken: string; userId: string; redirectUrl?: string }> {
+		args: OAuthCallbackInput,
+	): Promise<OAuthCallbackResult> {
 		const provider = this.providerMap.get(args.providerId);
 		if (!provider) {
 			throw new Error(`OAuth provider "${args.providerId}" not configured`);
@@ -558,15 +565,12 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 			provider,
 			code: args.code,
 			state: args.state,
+			callbackUrl: args.callbackUrl,
 			redirectUrl: args.redirectUrl,
 			ipAddress: args.ipAddress,
 			userAgent: args.userAgent,
 			defaultRole: this.resolveDefaultRole(),
-		}) as Promise<{
-			sessionToken: string;
-			userId: string;
-			redirectUrl?: string;
-		}>;
+		}) as Promise<OAuthCallbackResult>;
 	}
 
 	/**
@@ -877,7 +881,7 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 }
 
 // Named exports for convenience
-export { googleProvider, githubProvider } from "./providers";
+export { discordProvider, googleProvider, githubProvider } from "./providers";
 export { adminPlugin } from "./plugins/admin";
 export { SessionPrimitives, createSessionPrimitives } from "./primitives";
 export { createRouteAuthRuntimeAdapter } from "./framework-adapter";
@@ -899,7 +903,15 @@ export {
 export type {
 	ConvexAuthPlugin,
 	EmailProvider,
+	DiscordProviderOptions,
+	GithubProviderOptions,
+	GoogleProviderOptions,
+	OAuthCallbackInput,
+	OAuthCallbackResult,
 	OAuthProviderConfig,
+	OAuthProviderId,
+	OAuthStartOptions,
+	OAuthStartResult,
 	AdminPluginConfig,
 } from "../types";
 export type {

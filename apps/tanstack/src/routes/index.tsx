@@ -179,7 +179,9 @@ function HomePage() {
       <div className="flow-links">
         <Link to="/signup">Create account</Link>
         <Link to="/signin">Sign in page</Link>
-        <Link to="/verify">Verify email</Link>
+        <Link to="/verify" search={{ email: undefined }}>
+          Verify email
+        </Link>
         <Link to="/reset">Reset password</Link>
         <Link to="/dashboard">Dashboard</Link>
         <Link to="/admin">Admin</Link>

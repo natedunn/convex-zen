@@ -65,6 +65,9 @@ export default defineSchema({
     codeVerifier: v.string(),
     provider: v.string(),
     redirectUrl: v.optional(v.string()),
+    callbackUrl: v.optional(v.string()),
+    redirectTo: v.optional(v.string()),
+    errorRedirectTo: v.optional(v.string()),
     expiresAt: v.number(),
     createdAt: v.number(),
   })
