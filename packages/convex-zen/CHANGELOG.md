@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.4.0...convex-zen-v1.5.0) (2026-03-10)
+
+
+### Features
+
+* **auth:** add custom oauth provider api ([fe46dc4](https://github.com/natedunn/convex-zen/commit/fe46dc49da1734e3ecf65bf1d76624de9075fe88))
+
 # [1.4.0](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.3.0...convex-zen-v1.4.0) (2026-03-09)
 
 
