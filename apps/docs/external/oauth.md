@@ -1,6 +1,10 @@
 # OAuth (Convex Zen)
 
-This guide covers the shared OAuth model in `convex-zen` across Next.js and TanStack Start.
+This guide covers the shared OAuth model in `convex-zen` across:
+
+- Next.js
+- TanStack Start
+- Expo
 
 ## Supported built-in providers
 
@@ -56,7 +60,7 @@ pnpm exec convex env set DISCORD_CLIENT_SECRET "<value>"
 
 ## Callback URLs
 
-The built-in browser flow uses:
+The built-in web browser flow uses:
 
 - `GET /api/auth/sign-in/:provider`
 - `GET /api/auth/callback/:provider`
@@ -72,10 +76,11 @@ Examples:
 - Next.js dev: `http://localhost:3000/api/auth/callback/google`
 - TanStack Start dev: `http://localhost:3000/api/auth/callback/google`
 - Portless/custom dev host: `http://your-app.localhost:1355/api/auth/callback/google`
+- Expo deep link: `convexzenexpo://oauth`
 
-## Browser flow
+## Route-backed browser flow
 
-Both framework clients support the route-backed flow:
+Next.js and TanStack Start support the route-backed flow:
 
 ```ts
 await authClient.signIn.oauth("google", {
@@ -93,6 +98,59 @@ Behavior:
 - redirects to `redirectTo` on success
 - redirects to `errorRedirectTo` with error params on failure
 
+## Expo deep-link flow
+
+Expo uses the lower-level Convex OAuth primitives directly instead of `/api/auth/*` routes.
+
+Typical flow:
+
+1. Call `authClient.signIn.oauth("google", { callbackUrl, redirectTo, errorRedirectTo })`.
+2. Open the returned authorization URL with `expo-auth-session` / `expo-web-browser`.
+3. Parse `code` and `state` from the Expo callback URL.
+4. Finish auth with `authClient.completeOAuth(...)`.
+5. Restore the authenticated session locally with the returned session token.
+
+Example:
+
+```ts
+import * as AuthSession from "expo-auth-session";
+import * as WebBrowser from "expo-web-browser";
+
+const callbackUrl = AuthSession.makeRedirectUri({
+  scheme: "convexzenexpo",
+  path: "oauth",
+});
+
+const started = await authClient.signIn.oauth("google", {
+  callbackUrl,
+  redirectTo: "/home",
+  errorRedirectTo: "/sign-in",
+});
+
+const browserResult = await WebBrowser.openAuthSessionAsync(
+  started.authorizationUrl,
+  callbackUrl
+);
+
+if (browserResult.type === "success" && browserResult.url) {
+  const url = new URL(browserResult.url);
+  const code = url.searchParams.get("code");
+  const state = url.searchParams.get("state");
+  if (!code || !state) throw new Error("Missing OAuth callback params");
+
+  await authClient.completeOAuth({
+    providerId: "google",
+    code,
+    state,
+    callbackUrl,
+    redirectTo: "/home",
+    errorRedirectTo: "/sign-in",
+  });
+}
+```
+
+In Expo, `redirectTo` and `errorRedirectTo` are still useful, but they are app-relative markers you handle after the callback rather than browser redirects handled by a server route.
+
 ## Redirect safety
 
 `redirectTo` and `errorRedirectTo` must be relative paths on the current origin.
@@ -109,12 +167,33 @@ Rejected:
 
 ## Lower-level Convex flow
 
-The lower-level flow still exists for custom browser flows such as popups or manual redirects:
+The lower-level flow exists for Expo and for custom web flows such as popups or manual redirects:
 
 - `getOAuthUrl`
 - `handleOAuthCallback`
 
-Use the framework routes unless you specifically need lower-level control.
+Use the framework routes on the web unless you specifically need lower-level control. Use the direct Convex flow on Expo.
+
+## Expo provider console setup
+
+For Expo, register your custom scheme callback in the provider console.
+
+Example Google redirect URI:
+
+- `convexzenexpo://oauth`
+
+Match that scheme to your Expo app config and to `AuthSession.makeRedirectUri(...)`.
+
+## Troubleshooting
+
+- Invalid callback URL
+  - Verify the provider console callback exactly matches your Expo scheme URI or web callback route.
+- Missing `state`
+  - Make sure you pass the same `callbackUrl` into both `signIn.oauth(...)` and `completeOAuth(...)`.
+- Stale session token
+  - `authClient.getSession()` clears invalid persisted tokens automatically; if the user appears signed out after resume, re-run the sign-in flow.
+- Storage adapter mistakes
+  - Expo must persist the token somewhere durable such as `expo-secure-store`; memory storage will not survive app restarts.
 
 ## Built-in email trust
 
