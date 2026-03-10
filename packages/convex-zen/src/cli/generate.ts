@@ -124,12 +124,7 @@ function detectEnabledPlugins(authSource: string): Set<string> {
 }
 
 function hasOAuthProviders(authSource: string): boolean {
-  return (
-    /\bproviders\s*:\s*\[/.test(authSource) ||
-    /\bgoogleProvider\s*\(/.test(authSource) ||
-    /\bgithubProvider\s*\(/.test(authSource) ||
-    /\bdiscordProvider\s*\(/.test(authSource)
-  );
+  return /\bproviders\s*:\s*\[/.test(authSource);
 }
 
 function renderCoreFile(options: {
@@ -151,7 +146,7 @@ export const getOAuthUrl = mutation({
     redirectUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    return auth.getOAuthUrl(ctx, args.providerId as "google" | "github" | "discord", {
+    return auth.getOAuthUrl(ctx, args.providerId, {
       callbackUrl: args.callbackUrl,
       redirectTo: args.redirectTo,
       errorRedirectTo: args.errorRedirectTo,
@@ -171,10 +166,7 @@ export const handleOAuthCallback = action({
     userAgent: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    return auth.handleCallback(ctx, {
-      ...args,
-      providerId: args.providerId as "google" | "github" | "discord",
-    });
+    return auth.handleCallback(ctx, args);
   },
 });
 `

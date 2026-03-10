@@ -162,4 +162,63 @@ export const auth = new ConvexZen({} as Record<string, unknown>, authOptions);
     );
     expect(coreSource).toContain('import { auth } from "../zen.config";');
   });
+
+  it("generates oauth wrappers when providers use the generic provider array", async () => {
+    const cwd = await createTempWorkspace();
+    await writeZenConfigFile(
+      cwd,
+      `
+import { ConvexZen, defineOAuthProvider } from "convex-zen";
+
+const acmeProvider = defineOAuthProvider({
+  id: "acme",
+  createConfig: (config: { clientId: string; clientSecret: string }) => ({
+    id: "acme",
+    clientId: config.clientId,
+    clientSecret: config.clientSecret,
+    authorizationUrl: "https://acme.example/oauth/authorize",
+    tokenUrl: "https://acme.example/oauth/token",
+    userInfoUrl: "https://acme.example/api/me",
+    scopes: ["profile", "email"],
+  }),
+  runtime: {
+    buildAuthorizationUrl: () => "https://acme.example/oauth/authorize",
+    exchangeAuthorizationCode: async () => ({ accessToken: "token" }),
+    fetchProfile: async () => ({
+      accountId: "acme-user",
+      email: "acme@example.com",
+      emailVerified: true,
+    }),
+  },
+});
+
+export const authOptions = {
+  providers: [
+    acmeProvider({
+      clientId: "client-id",
+      clientSecret: "client-secret",
+    }),
+  ],
+};
+
+export const auth = new ConvexZen({} as Record<string, unknown>, authOptions);
+`
+    );
+
+    const result = await generateAuthFunctions({
+      cwd,
+      check: false,
+      verbose: false,
+    });
+
+    expect(result.created).toContain(path.join("convex", "auth", "core.ts"));
+
+    const coreSource = await readFile(
+      path.join(cwd, "convex", "auth", "core.ts"),
+      "utf8"
+    );
+    expect(coreSource).toContain("export const getOAuthUrl = mutation({");
+    expect(coreSource).toContain("return auth.getOAuthUrl(ctx, args.providerId, {");
+    expect(coreSource).toContain("return auth.handleCallback(ctx, args);");
+  });
 });

@@ -4,75 +4,75 @@ import { mutation, query } from "../../_generated/server";
 import { auth } from "../../zen.config";
 
 export const isAdmin = query({
-	args: {},
-	handler: async (ctx) => {
-		if (!auth.admin) {
-			throw new Error("Admin plugin is not enabled");
-		}
-		return auth.admin.isAdmin(ctx);
-	},
+  args: {},
+  handler: async (ctx) => {
+    if (!auth.admin) {
+      throw new Error("Admin plugin is not enabled");
+    }
+    return auth.admin.isAdmin(ctx);
+  },
 });
 
 export const listUsers = query({
-	args: {
-		limit: v.optional(v.number()),
-		cursor: v.optional(v.string()),
-	},
-	handler: async (ctx, args) => {
-		if (!auth.admin) {
-			throw new Error("Admin plugin is not enabled");
-		}
-		return auth.admin.listUsers(ctx, args);
-	},
+  args: {
+    limit: v.optional(v.number()),
+    cursor: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    if (!auth.admin) {
+      throw new Error("Admin plugin is not enabled");
+    }
+    return auth.admin.listUsers(ctx, args);
+  },
 });
 
 export const banUser = mutation({
-	args: {
-		userId: v.string(),
-		reason: v.optional(v.string()),
-		expiresAt: v.optional(v.number()),
-	},
-	handler: async (ctx, args) => {
-		if (!auth.admin) {
-			throw new Error("Admin plugin is not enabled");
-		}
-		return auth.admin.banUser(ctx, args);
-	},
+  args: {
+    userId: v.string(),
+    reason: v.optional(v.string()),
+    expiresAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    if (!auth.admin) {
+      throw new Error("Admin plugin is not enabled");
+    }
+    return auth.admin.banUser(ctx, args);
+  },
 });
 
 export const unbanUser = mutation({
-	args: {
-		userId: v.string(),
-	},
-	handler: async (ctx, args) => {
-		if (!auth.admin) {
-			throw new Error("Admin plugin is not enabled");
-		}
-		return auth.admin.unbanUser(ctx, args);
-	},
+  args: {
+    userId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    if (!auth.admin) {
+      throw new Error("Admin plugin is not enabled");
+    }
+    return auth.admin.unbanUser(ctx, args);
+  },
 });
 
 export const setRole = mutation({
-	args: {
-		userId: v.string(),
-		role: v.string(),
-	},
-	handler: async (ctx, args) => {
-		if (!auth.admin) {
-			throw new Error("Admin plugin is not enabled");
-		}
-		return auth.admin.setRole(ctx, args);
-	},
+  args: {
+    userId: v.string(),
+    role: v.string(),
+  },
+  handler: async (ctx, args) => {
+    if (!auth.admin) {
+      throw new Error("Admin plugin is not enabled");
+    }
+    return auth.admin.setRole(ctx, args);
+  },
 });
 
 export const deleteUser = mutation({
-	args: {
-		userId: v.string(),
-	},
-	handler: async (ctx, args) => {
-		if (!auth.admin) {
-			throw new Error("Admin plugin is not enabled");
-		}
-		return auth.admin.deleteUser(ctx, args);
-	},
+  args: {
+    userId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    if (!auth.admin) {
+      throw new Error("Admin plugin is not enabled");
+    }
+    return auth.admin.deleteUser(ctx, args);
+  },
 });

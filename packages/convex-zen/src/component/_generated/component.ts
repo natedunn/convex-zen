@@ -96,9 +96,11 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             hostedDomain?: string;
             id: string;
             prompt?: "none" | "consent" | "select_account";
+            runtimeConfig?: any;
             scopes: Array<string>;
             tokenEncryptionSecret?: string;
             tokenUrl: string;
+            trustVerifiedEmail?: boolean;
             userInfoUrl: string;
           };
           redirectTo?: string;
@@ -137,9 +139,11 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             hostedDomain?: string;
             id: string;
             prompt?: "none" | "consent" | "select_account";
+            runtimeConfig?: any;
             scopes: Array<string>;
             tokenEncryptionSecret?: string;
             tokenUrl: string;
+            trustVerifiedEmail?: boolean;
             userInfoUrl: string;
           };
           redirectUrl?: string;
