@@ -110,6 +110,8 @@ export const handleOAuthCallback = action({
     code: v.string(),
     state: v.string(),
     callbackUrl: v.optional(v.string()),
+    redirectTo: v.optional(v.string()),
+    errorRedirectTo: v.optional(v.string()),
     redirectUrl: v.optional(v.string()),
     ipAddress: v.optional(v.string()),
     userAgent: v.optional(v.string()),
@@ -118,4 +120,3 @@ export const handleOAuthCallback = action({
     return auth.handleCallback(ctx, args);
   },
 });
-

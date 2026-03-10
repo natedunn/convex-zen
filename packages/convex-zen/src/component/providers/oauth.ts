@@ -212,6 +212,8 @@ export async function handleOAuthCallbackForProvider(
     code: string;
     state: string;
     callbackUrl?: string;
+    redirectTo?: string;
+    errorRedirectTo?: string;
     redirectUrl?: string;
     ipAddress?: string;
     userAgent?: string;
@@ -300,8 +302,9 @@ export async function handleOAuthCallbackForProvider(
 
   return {
     ...result,
-    redirectTo: stateRecord.redirectTo,
-    redirectUrl: stateRecord.redirectTo,
+    redirectTo: args.redirectTo ?? stateRecord.redirectTo,
+    redirectUrl:
+      args.redirectTo ?? args.redirectUrl ?? stateRecord.redirectTo,
   };
 }
 
