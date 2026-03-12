@@ -70,6 +70,8 @@ const EXPO_RESERVED_CORE_ROOT_METHOD_NAMES = new Set<ReservedExpoAuthClientRootN
   "core",
 ]);
 
+const EXPO_CORE_METHODS_WITH_SESSION_TOKEN_ARG = new Set(["currentUser"]);
+
 export type ExpoAuthFunctionKind = DirectConvexFunctionKind;
 export type ExpoAuthCoreMeta = DirectConvexCoreMeta;
 export type ExpoAuthPluginMeta = DirectConvexPluginMeta;
@@ -446,10 +448,6 @@ export function createExpoAuthClient<
     input?: FunctionArgs<TFunctionRef>
   ): Promise<FunctionReturnType<TFunctionRef>> => {
     const client = new ConvexHttpClient(options.convexUrl);
-    const token = await runtime.getToken();
-    if (token) {
-      client.setAuth(token);
-    }
     const args = (input ?? {}) as FunctionArgs<TFunctionRef>;
     switch (kind) {
       case "query":
@@ -495,12 +493,33 @@ export function createExpoAuthClient<
     ...(options.meta?.plugin !== undefined || options.pluginMeta !== undefined
       ? { pluginMeta: options.meta?.plugin ?? options.pluginMeta }
       : {}),
-    createMethod: (kind, functionRef) => {
+    createMethod: (kind, functionRef, path) => {
       return async (input?: unknown) => {
+        let resolvedInput = input;
+        const functionName = path.startsWith("core.")
+          ? path.slice("core.".length)
+          : null;
+        if (
+          functionName &&
+          EXPO_CORE_METHODS_WITH_SESSION_TOKEN_ARG.has(functionName)
+        ) {
+          const token = await runtime.getToken();
+          if (token) {
+            const baseInput =
+              input && typeof input === "object" ? input : {};
+            const tokenValue = (baseInput as { token?: unknown }).token;
+            if (tokenValue === undefined) {
+              resolvedInput = {
+                ...(baseInput as Record<string, unknown>),
+                token,
+              };
+            }
+          }
+        }
         return callDirectConvexFunction(
           kind,
           functionRef as ExpoPublicFunctionRef,
-          input as FunctionArgs<ExpoPublicFunctionRef>
+          resolvedInput as FunctionArgs<ExpoPublicFunctionRef>
         );
       };
     },

@@ -431,7 +431,7 @@ describe("createExpoAuthClient", () => {
 
     queryHandler.mockImplementation(async (fn: unknown, args: unknown) => {
       if (fn === currentUser) {
-        expect(args).toEqual({});
+        expect(args).toEqual({ token: "token_1" });
         return { _id: "u1", email: "hello@example.com" };
       }
       if (fn === listUsers) {
@@ -477,11 +477,6 @@ describe("createExpoAuthClient", () => {
       page: [{ _id: "u1", email: "hello@example.com" }],
       isDone: true,
     });
-
-    const currentUserClient = convexClientInstances.at(-2);
-    const listUsersClient = convexClientInstances.at(-1);
-    expect(currentUserClient?.setAuth).toHaveBeenCalledWith("token_1");
-    expect(listUsersClient?.setAuth).toHaveBeenCalledWith("token_1");
   });
 
   it("supports flat convexFunctions inputs for generated core methods", async () => {
@@ -501,7 +496,10 @@ describe("createExpoAuthClient", () => {
       }
       return null;
     });
-    queryHandler.mockResolvedValue({ _id: "u1" });
+    queryHandler.mockImplementation(async (_fn: unknown, args: unknown) => {
+      expect(args).toEqual({ token: "token_1" });
+      return { _id: "u1" };
+    });
 
     const client = createExpoAuthClient({
       convexUrl: "https://example.convex.cloud",
@@ -514,6 +512,11 @@ describe("createExpoAuthClient", () => {
       coreMeta: {
         currentUser: "query",
       },
+    });
+
+    await client.signIn.email({
+      email: "hello@example.com",
+      password: "password123",
     });
 
     await expect(client.currentUser({})).resolves.toEqual({ _id: "u1" });

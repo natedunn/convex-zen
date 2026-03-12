@@ -36,7 +36,6 @@ If you want generated `authClient.core.*` methods such as `authClient.currentUse
 
 ```ts
 import * as SecureStore from "expo-secure-store";
-import { ConvexReactClient } from "convex/react";
 import {
   createExpoAuthClient,
   createKeyValueStorageAuthStorage,
@@ -45,8 +44,6 @@ import { api } from "../convex/_generated/api";
 import { authMeta } from "../convex/auth/metaGenerated";
 
 const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL!;
-
-export const convex = new ConvexReactClient(convexUrl);
 
 export const authClient = createExpoAuthClient({
   convexUrl,
@@ -71,15 +68,11 @@ export const authClient = createExpoAuthClient({
 });
 ```
 
-## Bridge Convex React auth
+## Convex React note
 
-`convex-zen/expo` can keep a `ConvexReactClient` authenticated by handing it the current session token:
+The Expo example uses direct auth client calls and does not authenticate a `ConvexReactClient` with the session token.
 
-```ts
-useEffect(() => authClient.connectConvexAuth(convex), []);
-```
-
-This is the Expo equivalent of the cookie-backed web bridge.
+That distinction matters because the Expo session token is not the same thing as a Convex identity JWT. If you want a fully authenticated `ConvexReactClient`, add an identity-JWT bridge instead of passing the raw session token through `setAuth(...)`.
 
 ## Email/password sign-in
 

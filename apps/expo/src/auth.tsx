@@ -12,7 +12,6 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { ConvexProvider, ConvexReactClient } from "convex/react";
 import {
   createExpoAuthClient,
   createKeyValueStorageAuthStorage,
@@ -27,7 +26,6 @@ const convexUrl =
   process.env.EXPO_PUBLIC_CONVEX_URL ?? "https://example.convex.cloud";
 const appScheme = process.env.EXPO_PUBLIC_APP_SCHEME ?? "convexzenexpo";
 
-const convexClient = new ConvexReactClient(convexUrl);
 const authClient = createExpoAuthClient({
   convexUrl,
   convexFunctions: authFunctions,
@@ -112,9 +110,7 @@ export function ExpoAuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const disconnect = authClient.connectConvexAuth(convexClient);
     void refresh();
-    return disconnect;
   }, [refresh]);
 
   const signInWithEmail = useCallback(
@@ -203,11 +199,7 @@ export function ExpoAuthProvider({ children }: { children: ReactNode }) {
     [callbackUrl, currentUser, error, refresh, session, signInWithEmail, signInWithGoogle, signOut, status]
   );
 
-  return (
-    <ConvexProvider client={convexClient}>
-      <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
-    </ConvexProvider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useExpoAuth(): AuthContextValue {
