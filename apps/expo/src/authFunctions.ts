@@ -1,16 +1,19 @@
-import type { FunctionReference } from "convex/server";
+import {
+  makeFunctionReference,
+  type FunctionReference,
+} from "convex/server";
 import type { ExpoAuthMeta } from "convex-zen/expo";
 
 function queryRef(name: string): FunctionReference<"query", "public"> {
-  return { name } as unknown as FunctionReference<"query", "public">;
+  return makeFunctionReference<"query", Record<string, unknown>, unknown>(name);
 }
 
 function mutationRef(name: string): FunctionReference<"mutation", "public"> {
-  return { name } as unknown as FunctionReference<"mutation", "public">;
+  return makeFunctionReference<"mutation", Record<string, unknown>, unknown>(name);
 }
 
 function actionRef(name: string): FunctionReference<"action", "public"> {
-  return { name } as unknown as FunctionReference<"action", "public">;
+  return makeFunctionReference<"action", Record<string, unknown>, unknown>(name);
 }
 
 export const authFunctions = {
