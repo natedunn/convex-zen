@@ -19,6 +19,7 @@ import {
   type ExpoOAuthResult,
 } from "convex-zen/expo";
 import { authFunctions, authMeta } from "./authFunctions";
+import type { OAuthProviderId } from "convex-zen";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -57,6 +58,7 @@ interface AuthContextValue {
     password: string;
   }) => Promise<SessionInfo>;
   signInWithGoogle: () => Promise<ExpoOAuthResult | null>;
+  signInWithGithub: () => Promise<ExpoOAuthResult | null>;
   signOut: () => Promise<void>;
 }
 
@@ -128,11 +130,13 @@ export function ExpoAuthProvider({ children }: { children: ReactNode }) {
     []
   );
 
-  const signInWithGoogle = useCallback(async (): Promise<ExpoOAuthResult | null> => {
+  const signInWithOAuth = useCallback(async (
+    providerId: OAuthProviderId
+  ): Promise<ExpoOAuthResult | null> => {
     const redirectTo = "/home";
     const errorRedirectTo = "/sign-in";
     try {
-      const start = await authClient.signIn.oauth("google", {
+      const start = await authClient.signIn.oauth(providerId, {
         callbackUrl,
         redirectTo,
         errorRedirectTo,
@@ -149,7 +153,7 @@ export function ExpoAuthProvider({ children }: { children: ReactNode }) {
 
       const { code, state } = parseOAuthCallback(browserResult.url);
       const result = await authClient.completeOAuth({
-        providerId: "google",
+        providerId,
         code,
         state,
         callbackUrl,
@@ -167,12 +171,17 @@ export function ExpoAuthProvider({ children }: { children: ReactNode }) {
     } catch (oauthError) {
       startTransition(() => {
         setError(
-          oauthError instanceof Error ? oauthError.message : "Could not complete Google OAuth"
+          oauthError instanceof Error
+            ? oauthError.message
+            : `Could not complete ${providerId} OAuth`
         );
       });
       return null;
     }
   }, [callbackUrl]);
+
+  const signInWithGoogle = useCallback(() => signInWithOAuth("google"), [signInWithOAuth]);
+  const signInWithGithub = useCallback(() => signInWithOAuth("github"), [signInWithOAuth]);
 
   const signOut = useCallback(async () => {
     await authClient.signOut();
@@ -193,10 +202,22 @@ export function ExpoAuthProvider({ children }: { children: ReactNode }) {
       callbackUrl,
       refresh,
       signInWithEmail,
+      signInWithGithub,
       signInWithGoogle,
       signOut,
     }),
-    [callbackUrl, currentUser, error, refresh, session, signInWithEmail, signInWithGoogle, signOut, status]
+    [
+      callbackUrl,
+      currentUser,
+      error,
+      refresh,
+      session,
+      signInWithEmail,
+      signInWithGithub,
+      signInWithGoogle,
+      signOut,
+      status,
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

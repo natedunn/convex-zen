@@ -12,11 +12,20 @@ import {
 import { useExpoAuth } from "../src/auth";
 
 export default function SignInScreen() {
-  const { callbackUrl, error, signInWithEmail, signInWithGoogle, status } =
+  const {
+    callbackUrl,
+    error,
+    signInWithEmail,
+    signInWithGithub,
+    signInWithGoogle,
+    status,
+  } =
     useExpoAuth();
   const [email, setEmail] = useState("hello@example.com");
   const [password, setPassword] = useState("password123");
-  const [pending, setPending] = useState<null | "email" | "google">(null);
+  const [pending, setPending] = useState<null | "email" | "google" | "github">(
+    null
+  );
 
   if (status === "authenticated") {
     return <Redirect href="/home" />;
@@ -84,6 +93,22 @@ export default function SignInScreen() {
           >
             <Text style={styles.secondaryButtonText}>
               {pending === "google" ? "Opening browser..." : "Continue with Google"}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={async () => {
+              setPending("github");
+              try {
+                await signInWithGithub();
+              } finally {
+                setPending(null);
+              }
+            }}
+            style={[styles.tertiaryButton, pending === "github" && styles.buttonDisabled]}
+          >
+            <Text style={styles.tertiaryButtonText}>
+              {pending === "github" ? "Opening browser..." : "Continue with GitHub"}
             </Text>
           </Pressable>
 
@@ -173,6 +198,17 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: {
     color: "#fff7ef",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  tertiaryButton: {
+    alignItems: "center",
+    backgroundColor: "#24292f",
+    borderRadius: 16,
+    paddingVertical: 15,
+  },
+  tertiaryButtonText: {
+    color: "#f6f8fa",
     fontSize: 15,
     fontWeight: "700",
   },
