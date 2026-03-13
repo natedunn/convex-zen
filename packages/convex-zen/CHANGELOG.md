@@ -1,3 +1,19 @@
+# [1.7.0](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.6.0...convex-zen-v1.7.0) (2026-03-13)
+
+
+### Bug Fixes
+
+* **next:** load local env before sibling worktree envs ([5e9a14d](https://github.com/natedunn/convex-zen/commit/5e9a14d669926356537da8e263ac155d58b99f2c))
+* **react:** update error message to mention both useZenSession and useSession hooks ([9b4d05f](https://github.com/natedunn/convex-zen/commit/9b4d05fe68da9ce1a35005e077b93c8a4506bf06))
+* **tanstack-start-client:** remove dead executor vars from createTanStackRouteAuthClient ([50f5555](https://github.com/natedunn/convex-zen/commit/50f5555d3ae88c9f587cbbd7bf99e647ae163695))
+* **tanstack:** load local env before sibling worktree envs ([0e1e0d0](https://github.com/natedunn/convex-zen/commit/0e1e0d037e2eef90e44b8bc08c088289257fa4d6))
+
+
+### Features
+
+* **auth:** add organization plugin with docs and playgrounds ([381d6cd](https://github.com/natedunn/convex-zen/commit/381d6cdef0ae42187567302d4e84d903ca1b94df))
+* **expo:** add Expo client support ([ba75b33](https://github.com/natedunn/convex-zen/commit/ba75b338c3a9ba3a039e4761a07ee59c65c53cf3))
+
 # [1.6.0](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.5.0...convex-zen-v1.6.0) (2026-03-13)
 
 
