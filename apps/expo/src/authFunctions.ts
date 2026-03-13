@@ -27,7 +27,7 @@ export const authFunctions = {
   },
   plugin: {
     admin: {
-      listUsers: queryRef("auth/core:listUsers"),
+      listUsers: queryRef("auth/plugin/admin:listUsers"),
     },
   },
 } as const;
