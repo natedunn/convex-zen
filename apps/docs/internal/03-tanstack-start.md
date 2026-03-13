@@ -187,12 +187,14 @@ Root-mirrored core methods share those helpers too (for example `authClient.sign
   - `.prefetchQuery(queryClientLike, args)`
   - `.ensureQueryData(queryClientLike, args)`
 - Mutation plugin/core methods:
-  - `.mutationFn(convexExecutor)`
-  - `.mutate(convexExecutor, args)`
+  - `.mutationFn()`
+  - `.mutate(args)`
+  - optional override forms: `.mutationFn(convexExecutor)` / `.mutate(convexExecutor, args)`
 - Action plugin/core methods:
   - `.query(args)` / `.queryOptions(args)` / `.suspenseQuery(args)`
-  - `.actionFn(convexExecutor)`
-  - `.runAction(convexExecutor, args)`
+  - `.actionFn()`
+  - `.runAction(args)`
+  - optional override forms: `.actionFn(convexExecutor)` / `.runAction(convexExecutor, args)`
 
 Important: `.query(...)` returns query options (a plain object), not `{ data, status }`.
 Use your framework query hook with those options.

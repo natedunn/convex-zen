@@ -220,6 +220,53 @@ describe("createTanStackAuthClient", () => {
     expect(actionExecutor.action).toHaveBeenNthCalledWith(2, exportAuditRef, {});
   });
 
+  it("uses the connected Convex client as the default mutation and action executor", async () => {
+    const banUserRef = mutationRef("plugin.admin.banUser");
+    const exportAuditRef = actionRef("plugin.admin.exportAudit");
+    const authClient = createTanStackAuthClient({
+      fetch: vi.fn(async () => new Response("{}")),
+      convexFunctions: {
+        plugin: {
+          admin: {
+            banUser: banUserRef,
+            exportAudit: exportAuditRef,
+          },
+        },
+      },
+      pluginMeta: {
+        admin: {
+          banUser: "mutation",
+          exportAudit: "action",
+        },
+      },
+    });
+
+    const convexClient = {
+      setAuth: vi.fn(),
+      clearAuth: vi.fn(),
+      mutation: vi.fn(async () => ({ ok: true })),
+      action: vi.fn(async () => ({ csv: "ok" })),
+    };
+
+    authClient.connectConvexAuth(convexClient);
+
+    const runBanUser = authClient.plugin.admin.banUser.mutationFn();
+    await runBanUser({ userId: "u_3" });
+    await authClient.plugin.admin.banUser.mutate({ userId: "u_4" });
+    expect(convexClient.mutation).toHaveBeenNthCalledWith(1, banUserRef, {
+      userId: "u_3",
+    });
+    expect(convexClient.mutation).toHaveBeenNthCalledWith(2, banUserRef, {
+      userId: "u_4",
+    });
+
+    const runExportAudit = authClient.plugin.admin.exportAudit.actionFn();
+    await runExportAudit({});
+    await authClient.plugin.admin.exportAudit.runAction({});
+    expect(convexClient.action).toHaveBeenNthCalledWith(1, exportAuditRef, {});
+    expect(convexClient.action).toHaveBeenNthCalledWith(2, exportAuditRef, {});
+  });
+
   it("adds helpers on generated core functions", async () => {
     const signUpRef = mutationRef("core.signUp");
     const getOAuthUrlRef = mutationRef("core.getOAuthUrl");
@@ -413,5 +460,34 @@ describe("createTanStackAuthClient", () => {
     const options = authClient.currentUser.query({});
     expect(options.queryKey[0]).toBe("convexAuthQuery");
     expect(options.queryKey[1]).toBe("core.currentUser");
+  });
+
+  it("types organization plugin query and mutation helpers when meta is provided", () => {
+    const authClient = createTanStackAuthClient({
+      fetch: vi.fn(async () => new Response("{}")),
+      convexFunctions: {
+        plugin: {
+          organization: {
+            listAvailablePermissions: queryRef(
+              "plugin.organization.listAvailablePermissions"
+            ),
+            createRole: mutationRef("plugin.organization.createRole"),
+          },
+        },
+      },
+      pluginMeta: {
+        organization: {
+          listAvailablePermissions: "query",
+          createRole: "mutation",
+        },
+      },
+    });
+
+    expectTypeOf(
+      authClient.plugin.organization.listAvailablePermissions.query
+    ).toBeFunction();
+    expectTypeOf(
+      authClient.plugin.organization.createRole.mutationFn
+    ).toBeFunction();
   });
 });

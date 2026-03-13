@@ -21,7 +21,7 @@ export default function AdminPage() {
         return;
       }
       const result = await authClient.plugin.admin.listUsers({ limit: 50 });
-      setUsers((result as { users: UserRowData[] }).users);
+      setUsers(result.users as UserRowData[]);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Could not load users";
       if (message.includes("Unauthorized")) {

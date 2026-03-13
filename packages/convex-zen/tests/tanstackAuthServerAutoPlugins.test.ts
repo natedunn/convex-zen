@@ -166,6 +166,38 @@ describe("createTanStackAuthServer auto plugins", () => {
     expect(response.status).toBe(405);
   });
 
+  it("enables organization plugin routes through generic plugin metadata", async () => {
+    const authServer = createTanStackAuthServer({
+      convexUrl: "https://example.convex.cloud",
+      convexFunctions: {
+        core: {
+          signInWithEmail: mutationRef("signInWithEmail"),
+          validateSession: mutationRef("validateSession"),
+          invalidateSession: mutationRef("invalidateSession"),
+        },
+        plugin: {
+          organization: {
+            listOrganizations: queryRef("listOrganizations"),
+          },
+        },
+      },
+      pluginMeta: {
+        organization: {
+          listOrganizations: "query",
+        },
+      },
+      sessionTokenCodec: passthroughSessionTokenCodec,
+    });
+
+    const response = await authServer.handler(
+      new Request("https://app.test/api/auth/plugin/organization/list-organizations", {
+        method: "GET",
+      })
+    );
+
+    expect(response.status).toBe(405);
+  });
+
   it("throws when auto plugins are enabled without pluginMeta", () => {
     expect(() =>
       createTanStackAuthServer({

@@ -5,7 +5,43 @@ import {
 	googleProvider,
 } from "convex-zen";
 import { adminPlugin } from "convex-zen/plugins/admin";
+import { organizationPlugin } from "convex-zen/plugins/organization";
 import { components } from "./_generated/api";
+
+function readRequiredOAuthEnv(
+	key: "DISCORD_CLIENT_ID" | "DISCORD_CLIENT_SECRET" | "GITHUB_CLIENT_ID" | "GITHUB_CLIENT_SECRET" | "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET"
+): string | null {
+	const value = process.env[key]?.trim();
+	return value && value.length > 0 ? value : null;
+}
+
+const discordClientId = readRequiredOAuthEnv("DISCORD_CLIENT_ID");
+const discordClientSecret = readRequiredOAuthEnv("DISCORD_CLIENT_SECRET");
+const githubClientId = readRequiredOAuthEnv("GITHUB_CLIENT_ID");
+const githubClientSecret = readRequiredOAuthEnv("GITHUB_CLIENT_SECRET");
+const googleClientId = readRequiredOAuthEnv("GOOGLE_CLIENT_ID");
+const googleClientSecret = readRequiredOAuthEnv("GOOGLE_CLIENT_SECRET");
+
+const providers = [
+	discordClientId && discordClientSecret
+		? discordProvider({
+				clientId: discordClientId,
+				clientSecret: discordClientSecret,
+		  })
+		: null,
+	githubClientId && githubClientSecret
+		? githubProvider({
+				clientId: githubClientId,
+				clientSecret: githubClientSecret,
+		  })
+		: null,
+	googleClientId && googleClientSecret
+		? googleProvider({
+				clientId: googleClientId,
+				clientSecret: googleClientSecret,
+		  })
+		: null,
+].filter((provider) => provider !== null);
 
 /**
  * Source of truth for auth setup used by the generator.
@@ -19,22 +55,25 @@ export const authOptions = {
 			console.log(`\n🔑 Password reset email → ${to}\n   Code: ${code}\n`);
 		},
 	},
-	providers: [
-		discordProvider({
-			clientId: process.env["DISCORD_CLIENT_ID"]!,
-			clientSecret: process.env["DISCORD_CLIENT_SECRET"]!,
-		}),
-		githubProvider({
-			clientId: process.env["GITHUB_CLIENT_ID"]!,
-			clientSecret: process.env["GITHUB_CLIENT_SECRET"]!,
-		}),
-		googleProvider({
-			clientId: process.env["GOOGLE_CLIENT_ID"]!,
-			clientSecret: process.env["GOOGLE_CLIENT_SECRET"]!,
+	providers,
+	requireEmailVerified: true,
+	plugins: [
+		adminPlugin({ defaultRole: "user", adminRole: "admin" }),
+		organizationPlugin({
+			accessControl: {
+				billing: ["read"],
+			},
+			roles: {
+				owner: {
+					billing: ["read"],
+				},
+				admin: {
+					billing: ["read"],
+				},
+			},
+			subdomainSuffix: "example.com",
 		}),
 	],
-	requireEmailVerified: true,
-	plugins: [adminPlugin({ defaultRole: "user", adminRole: "admin" })],
 };
 
 export const auth = new ConvexZen(components.convexAuth, authOptions);

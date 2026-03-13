@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, expectTypeOf, it, vi } from "vitest";
 import type { FunctionReference } from "convex/server";
 import {
   createNextAuthClient,
@@ -7,6 +7,10 @@ import {
 
 function queryRef(name: string): FunctionReference<"query", "public"> {
   return { name } as unknown as FunctionReference<"query", "public">;
+}
+
+function mutationRef(name: string): FunctionReference<"mutation", "public"> {
+  return { name } as unknown as FunctionReference<"mutation", "public">;
 }
 
 describe("createNextAuthClient", () => {
@@ -112,6 +116,87 @@ describe("createNextAuthClient", () => {
     const currentUserQuery = authClient.currentUser.query({});
     expect(currentUserQuery.queryKey[0]).toBe("convexAuthQuery");
     await expect(currentUserQuery.queryFn?.({})).resolves.toEqual({ id: "u1" });
+  });
+
+  it("types organization plugin query and mutation helpers when meta is provided", () => {
+    const authClient = createNextAuthClient({
+      fetch: vi.fn(async () => new Response("{}")),
+      convexFunctions: {
+        plugin: {
+          organization: {
+            listAvailablePermissions: queryRef(
+              "plugin.organization.listAvailablePermissions"
+            ),
+            createRole: { name: "plugin.organization.createRole" } as FunctionReference<
+              "mutation",
+              "public"
+            >,
+          },
+        },
+      },
+      meta: {
+        core: {},
+        plugin: {
+          organization: {
+            listAvailablePermissions: "query",
+            createRole: "mutation",
+          },
+        },
+      },
+    });
+
+    expectTypeOf(
+      authClient.plugin.organization.listAvailablePermissions.query
+    ).toBeFunction();
+    expectTypeOf(
+      authClient.plugin.organization.createRole.mutationFn
+    ).toBeFunction();
+  });
+
+  it("uses the connected Convex client as the default mutation executor", async () => {
+    const createRoleRef = mutationRef("plugin.organization.createRole");
+    const authClient = createNextAuthClient({
+      fetch: vi.fn(async () => new Response("{}")),
+      convexFunctions: {
+        plugin: {
+          organization: {
+            createRole: createRoleRef,
+          },
+        },
+      },
+      meta: {
+        core: {},
+        plugin: {
+          organization: {
+            createRole: "mutation",
+          },
+        },
+      },
+    });
+
+    const convexClient = {
+      setAuth: vi.fn(),
+      clearAuth: vi.fn(),
+      mutation: vi.fn(async () => ({ ok: true })),
+    };
+
+    authClient.connectConvexAuth(convexClient);
+
+    const createRole = authClient.plugin.organization.createRole.mutationFn();
+    await createRole({ organizationId: "org_1", name: "Editor" });
+    await authClient.plugin.organization.createRole.mutate({
+      organizationId: "org_2",
+      name: "Billing Admin",
+    });
+
+    expect(convexClient.mutation).toHaveBeenNthCalledWith(1, createRoleRef, {
+      organizationId: "org_1",
+      name: "Editor",
+    });
+    expect(convexClient.mutation).toHaveBeenNthCalledWith(2, createRoleRef, {
+      organizationId: "org_2",
+      name: "Billing Admin",
+    });
   });
 });
 

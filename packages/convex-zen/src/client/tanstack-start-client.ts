@@ -269,25 +269,49 @@ type TanStackActionRouteMethod<
     queryClient: TanStackQueryClientLike,
     input?: FunctionArgs<TFunctionRef>
   ) => Promise<FunctionReturnType<TFunctionRef>>;
-  actionFn: (
-    convex: ConvexActionExecutorLike
-  ) => (input?: FunctionArgs<TFunctionRef>) => Promise<FunctionReturnType<TFunctionRef>>;
-  runAction: (
-    convex: ConvexActionExecutorLike,
-    input?: FunctionArgs<TFunctionRef>
-  ) => Promise<FunctionReturnType<TFunctionRef>>;
+  actionFn: {
+    (): (
+      input?: FunctionArgs<TFunctionRef>
+    ) => Promise<FunctionReturnType<TFunctionRef>>;
+    (
+      convex: ConvexActionExecutorLike
+    ): (
+      input?: FunctionArgs<TFunctionRef>
+    ) => Promise<FunctionReturnType<TFunctionRef>>;
+  };
+  runAction: {
+    (
+      input?: FunctionArgs<TFunctionRef>
+    ): Promise<FunctionReturnType<TFunctionRef>>;
+    (
+      convex: ConvexActionExecutorLike,
+      input?: FunctionArgs<TFunctionRef>
+    ): Promise<FunctionReturnType<TFunctionRef>>;
+  };
 };
 
 type TanStackMutationRouteMethod<
   TFunctionRef extends FunctionReference<"mutation", "public">,
 > = RoutePluginMethod<TFunctionRef> & {
-  mutationFn: (
-    convex: ConvexMutationExecutorLike
-  ) => (input?: FunctionArgs<TFunctionRef>) => Promise<FunctionReturnType<TFunctionRef>>;
-  mutate: (
-    convex: ConvexMutationExecutorLike,
-    input?: FunctionArgs<TFunctionRef>
-  ) => Promise<FunctionReturnType<TFunctionRef>>;
+  mutationFn: {
+    (): (
+      input?: FunctionArgs<TFunctionRef>
+    ) => Promise<FunctionReturnType<TFunctionRef>>;
+    (
+      convex: ConvexMutationExecutorLike
+    ): (
+      input?: FunctionArgs<TFunctionRef>
+    ) => Promise<FunctionReturnType<TFunctionRef>>;
+  };
+  mutate: {
+    (
+      input?: FunctionArgs<TFunctionRef>
+    ): Promise<FunctionReturnType<TFunctionRef>>;
+    (
+      convex: ConvexMutationExecutorLike,
+      input?: FunctionArgs<TFunctionRef>
+    ): Promise<FunctionReturnType<TFunctionRef>>;
+  };
 };
 
 type TanStackMethodForKind<
@@ -680,6 +704,46 @@ function withDefaultArgs<TFunctionRef extends ConvexPluginFunctionRef>(
   return {} as FunctionArgs<TFunctionRef>;
 }
 
+function isMutationExecutor(value: unknown): value is ConvexMutationExecutorLike {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    "mutation" in value &&
+    typeof (value as { mutation?: unknown }).mutation === "function"
+  );
+}
+
+function isActionExecutor(value: unknown): value is ConvexActionExecutorLike {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    "action" in value &&
+    typeof (value as { action?: unknown }).action === "function"
+  );
+}
+
+function resolveMutationExecutor(
+  executor: ConvexMutationExecutorLike | undefined
+): ConvexMutationExecutorLike {
+  if (!executor) {
+    throw new Error(
+      "No Convex mutation executor connected. Call authClient.connectConvexAuth(convex) before using mutationFn() or mutate() without an executor."
+    );
+  }
+  return executor;
+}
+
+function resolveActionExecutor(
+  executor: ConvexActionExecutorLike | undefined
+): ConvexActionExecutorLike {
+  if (!executor) {
+    throw new Error(
+      "No Convex action executor connected. Call authClient.connectConvexAuth(convex) before using actionFn() or runAction() without an executor."
+    );
+  }
+  return executor;
+}
+
 function createConvexQueryOptions<
   TFunctionRef extends FunctionReference<"query", "public">,
 >(
@@ -750,22 +814,42 @@ function attachQueryHelpers<
 
 function attachMutationHelpers<
   TFunctionRef extends FunctionReference<"mutation", "public">,
->(routeMethod: MutableCallable, functionRef: TFunctionRef): void {
+>(
+  routeMethod: MutableCallable,
+  functionRef: TFunctionRef,
+  getDefaultExecutor: () => ConvexMutationExecutorLike | undefined
+): void {
   const mutate = async (
-    convex: ConvexMutationExecutorLike,
-    input?: FunctionArgs<TFunctionRef>
+    inputOrConvex?: FunctionArgs<TFunctionRef> | ConvexMutationExecutorLike,
+    maybeInput?: FunctionArgs<TFunctionRef>
   ): Promise<FunctionReturnType<TFunctionRef>> => {
-    return convex.mutation(functionRef, withDefaultArgs(input));
+    const convex = isMutationExecutor(inputOrConvex)
+      ? inputOrConvex
+      : getDefaultExecutor();
+    const input = isMutationExecutor(inputOrConvex)
+      ? maybeInput
+      : inputOrConvex;
+    return resolveMutationExecutor(convex).mutation(
+      functionRef,
+      withDefaultArgs(input)
+    );
   };
-  routeMethod.mutationFn = (convex: ConvexMutationExecutorLike) => {
-    return async (input?: FunctionArgs<TFunctionRef>) => mutate(convex, input);
+  routeMethod.mutationFn = (convex?: ConvexMutationExecutorLike) => {
+    const executor = resolveMutationExecutor(convex ?? getDefaultExecutor());
+    return async (input?: FunctionArgs<TFunctionRef>) => {
+      return executor.mutation(functionRef, withDefaultArgs(input));
+    };
   };
   routeMethod.mutate = mutate;
 }
 
 function attachActionHelpers<
   TFunctionRef extends FunctionReference<"action", "public">,
->(routeMethod: MutableCallable, functionRef: TFunctionRef): void {
+>(
+  routeMethod: MutableCallable,
+  functionRef: TFunctionRef,
+  getDefaultExecutor: () => ConvexActionExecutorLike | undefined
+): void {
   const queryOptions = (input?: FunctionArgs<TFunctionRef>) =>
     createConvexActionOptions(functionRef, input);
   routeMethod.query = queryOptions;
@@ -786,13 +870,25 @@ function attachActionHelpers<
     );
   };
   const runAction = async (
-    convex: ConvexActionExecutorLike,
-    input?: FunctionArgs<TFunctionRef>
+    inputOrConvex?: FunctionArgs<TFunctionRef> | ConvexActionExecutorLike,
+    maybeInput?: FunctionArgs<TFunctionRef>
   ): Promise<FunctionReturnType<TFunctionRef>> => {
-    return convex.action(functionRef, withDefaultArgs(input));
+    const convex = isActionExecutor(inputOrConvex)
+      ? inputOrConvex
+      : getDefaultExecutor();
+    const input = isActionExecutor(inputOrConvex)
+      ? maybeInput
+      : inputOrConvex;
+    return resolveActionExecutor(convex).action(
+      functionRef,
+      withDefaultArgs(input)
+    );
   };
-  routeMethod.actionFn = (convex: ConvexActionExecutorLike) => {
-    return async (input?: FunctionArgs<TFunctionRef>) => runAction(convex, input);
+  routeMethod.actionFn = (convex?: ConvexActionExecutorLike) => {
+    const executor = resolveActionExecutor(convex ?? getDefaultExecutor());
+    return async (input?: FunctionArgs<TFunctionRef>) => {
+      return executor.action(functionRef, withDefaultArgs(input));
+    };
   };
   routeMethod.runAction = runAction;
 }
@@ -822,9 +918,11 @@ function createTanStackRouteAuthClient<
     throw new Error(
       'createTanStackAuthClient requires "pluginMeta" when plugins is "auto" and convexFunctions is provided. ' +
         "Pass generated authMeta/authPluginMeta (convex/auth/metaGenerated.ts) " +
-        'or disable auto plugins with plugins: [].'
+      'or disable auto plugins with plugins: [].'
     );
   }
+  let defaultMutationExecutor: ConvexMutationExecutorLike | undefined;
+  let defaultActionExecutor: ConvexActionExecutorLike | undefined;
 
   const basePath = normalizeBasePath(options.basePath ?? "/api/auth");
   const credentials = options.credentials ?? "same-origin";
@@ -1023,6 +1121,12 @@ function createTanStackRouteAuthClient<
   };
 
   const connectConvexAuth = (convexClient: ConvexAuthClientLike): (() => void) => {
+    defaultMutationExecutor = isMutationExecutor(convexClient)
+      ? convexClient
+      : undefined;
+    defaultActionExecutor = isActionExecutor(convexClient)
+      ? convexClient
+      : undefined;
     return runtime.mountConvex(convexClient);
   };
 
@@ -1186,12 +1290,6 @@ function createTanStackRouteAuthClient<
  */
 export function createTanStackAuthClient<
   TPlugins extends readonly TanStackStartAuthApiClientPlugin<object>[] = [],
-  TConvexFunctions extends Record<string, unknown> | undefined = undefined,
->(
-  options?: TanStackStartAuthApiClientOptions<TPlugins, TConvexFunctions>
-): TanStackStartAuthApiClientAuto<TPlugins, TConvexFunctions>;
-export function createTanStackAuthClient<
-  TPlugins extends readonly TanStackStartAuthApiClientPlugin<object>[] = [],
   TConvexFunctions extends Record<string, unknown> = Record<string, unknown>,
   TPluginMeta extends TanStackAuthPluginMeta = TanStackAuthPluginMeta,
   TCoreMeta extends TanStackAuthCoreMeta = typeof DEFAULT_GENERATED_CORE_META,
@@ -1203,6 +1301,12 @@ export function createTanStackAuthClient<
     TCoreMeta
   >
 ): TanStackQueryAuthClient<TPlugins, TConvexFunctions, TPluginMeta, TCoreMeta>;
+export function createTanStackAuthClient<
+  TPlugins extends readonly TanStackStartAuthApiClientPlugin<object>[] = [],
+  TConvexFunctions extends Record<string, unknown> | undefined = undefined,
+>(
+  options?: TanStackStartAuthApiClientOptions<TPlugins, TConvexFunctions>
+): TanStackStartAuthApiClientAuto<TPlugins, TConvexFunctions>;
 export function createTanStackAuthClient<
   TPlugins extends readonly TanStackStartAuthApiClientPlugin<object>[] = [],
   TConvexFunctions extends Record<string, unknown> | undefined = undefined,
@@ -1228,6 +1332,18 @@ export function createTanStackAuthClient<
   const authClient = createTanStackRouteAuthClient(
     options as TanStackStartAuthApiClientOptions<TPlugins, TConvexFunctions>
   );
+  let defaultMutationExecutor: ConvexMutationExecutorLike | undefined;
+  let defaultActionExecutor: ConvexActionExecutorLike | undefined;
+  const originalConnectConvexAuth = authClient.connectConvexAuth.bind(authClient);
+  authClient.connectConvexAuth = (convexClient) => {
+    defaultMutationExecutor = isMutationExecutor(convexClient)
+      ? convexClient
+      : undefined;
+    defaultActionExecutor = isActionExecutor(convexClient)
+      ? convexClient
+      : undefined;
+    return originalConnectConvexAuth(convexClient);
+  };
   const queryOptions = options as TanStackQueryAuthClientOptions<
     TPlugins,
     Extract<TConvexFunctions, Record<string, unknown>>,
@@ -1296,13 +1412,15 @@ export function createTanStackAuthClient<
         if (functionKind === "mutation") {
           attachMutationHelpers(
             routeMethod,
-            functionRefCandidate as FunctionReference<"mutation", "public">
+            functionRefCandidate as FunctionReference<"mutation", "public">,
+            () => defaultMutationExecutor
           );
           continue;
         }
         attachActionHelpers(
           routeMethod,
-          functionRefCandidate as FunctionReference<"action", "public">
+          functionRefCandidate as FunctionReference<"action", "public">,
+          () => defaultActionExecutor
         );
       }
     }
@@ -1346,13 +1464,15 @@ export function createTanStackAuthClient<
       if (functionKind === "mutation") {
         attachMutationHelpers(
           coreMethod,
-          functionRefCandidate as FunctionReference<"mutation", "public">
+          functionRefCandidate as FunctionReference<"mutation", "public">,
+          () => defaultMutationExecutor
         );
         continue;
       }
       attachActionHelpers(
         coreMethod,
-        functionRefCandidate as FunctionReference<"action", "public">
+        functionRefCandidate as FunctionReference<"action", "public">,
+        () => defaultActionExecutor
       );
     }
   }

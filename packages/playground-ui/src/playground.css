@@ -189,7 +189,8 @@ label {
   letter-spacing: 0.01em;
 }
 
-input {
+input,
+select {
   display: block;
   width: 100%;
   padding: 0.55rem 0.75rem;
@@ -206,7 +207,8 @@ input::placeholder {
   color: #94a3b8;
 }
 
-input:focus {
+input:focus,
+select:focus {
   outline: none;
   border-color: var(--cz-accent);
   box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);

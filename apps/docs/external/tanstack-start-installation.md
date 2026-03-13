@@ -60,6 +60,7 @@ import {
 	googleProvider,
 } from "convex-zen";
 import { adminPlugin } from "convex-zen/plugins/admin";
+import { organizationPlugin } from "convex-zen/plugins/organization";
 import { components } from "./_generated/api";
 
 export const authOptions = {
@@ -86,7 +87,23 @@ export const authOptions = {
 		}),
 	],
 	requireEmailVerified: true,
-	plugins: [adminPlugin({ defaultRole: "user", adminRole: "admin" })],
+	plugins: [
+		adminPlugin({ defaultRole: "user", adminRole: "admin" }),
+		organizationPlugin({
+			accessControl: {
+				project: ["write"],
+			},
+			roles: {
+				owner: {
+					project: ["write"],
+				},
+				admin: {
+					project: ["write"],
+				},
+			},
+			subdomainSuffix: "example.com",
+		}),
+	],
 };
 
 export const auth = new ConvexZen(components.convexAuth, authOptions);
@@ -119,6 +136,7 @@ This creates generated wrappers used by the TanStack adapter (for example `conve
 
 For provider callback URLs, Convex env setup, and the shared browser flow, see:
 - [oauth.md](./oauth.md)
+- [organizations.md](./organizations.md)
 
 ## 7. Wire TanStack Start server + client auth
 
@@ -142,6 +160,7 @@ Create `src/lib/auth-client.ts`:
 
 ```ts
 import { createTanStackAuthClient } from "convex-zen/tanstack-start";
+import { useZenSession } from "convex-zen/react";
 import { api } from "../../convex/_generated/api";
 import { authMeta } from "../../convex/auth/metaGenerated";
 

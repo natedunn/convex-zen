@@ -5,6 +5,7 @@ import {
 	googleProvider,
 } from "convex-zen";
 import { adminPlugin } from "convex-zen/plugins/admin";
+import { organizationPlugin } from "convex-zen/plugins/organization";
 import { components } from "./_generated/api";
 
 /**
@@ -34,7 +35,23 @@ export const authOptions = {
 		// }),
 	],
 	requireEmailVerified: true,
-	plugins: [adminPlugin({ defaultRole: "user", adminRole: "admin" })],
+	plugins: [
+		adminPlugin({ defaultRole: "user", adminRole: "admin" }),
+		organizationPlugin({
+			accessControl: {
+				project: ["write"],
+			},
+			roles: {
+				owner: {
+					project: ["write"],
+				},
+				admin: {
+					project: ["write"],
+				},
+			},
+			subdomainSuffix: "example.com",
+		}),
+	],
 };
 
 export const auth = new ConvexZen(components.convexAuth, authOptions);

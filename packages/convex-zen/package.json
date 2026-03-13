@@ -45,6 +45,10 @@
       "types": "./src/client/plugins/admin.ts",
       "import": "./src/client/plugins/admin.ts"
     },
+    "./plugins/organization": {
+      "types": "./src/client/plugins/organization.ts",
+      "import": "./src/client/plugins/organization.ts"
+    },
     "./convex.config": {
       "types": "./src/component/convex.config.ts",
       "import": "./src/component/convex.config.ts"
@@ -85,6 +89,10 @@
       "./plugins/admin": {
         "types": "./dist/client/plugins/admin.d.ts",
         "import": "./dist/client/plugins/admin.js"
+      },
+      "./plugins/organization": {
+        "types": "./dist/client/plugins/organization.d.ts",
+        "import": "./dist/client/plugins/organization.js"
       },
       "./convex.config": {
         "types": "./dist/component/convex.config.d.ts",

@@ -120,6 +120,9 @@ function detectEnabledPlugins(authSource: string): Set<string> {
   if (/adminPlugin\s*\(/.test(authSource)) {
     plugins.add("admin");
   }
+  if (/organizationPlugin\s*\(/.test(authSource)) {
+    plugins.add("organization");
+  }
   return plugins;
 }
 
@@ -346,6 +349,469 @@ export const deleteUser = mutation({
 `);
 }
 
+function renderOrganizationPluginFile(options: { authImportPath: string }): string {
+  const authImportPath = options.authImportPath;
+  return normalizeContent(`${GENERATED_MARKER}
+import { v } from "convex/values";
+import { mutation, query } from "../../_generated/server";
+import { auth } from "${authImportPath}";
+
+const organizationPermissionValidator = v.object({
+  resource: v.string(),
+  action: v.string(),
+});
+
+const organizationRoleAssignmentValidator = v.union(
+  v.object({
+    type: v.literal("system"),
+    systemRole: v.string(),
+  }),
+  v.object({
+    type: v.literal("custom"),
+    customRoleId: v.string(),
+  }),
+);
+
+type OrganizationApi = NonNullable<typeof auth.organization>;
+type InviteMemberArgs = Parameters<OrganizationApi["inviteMember"]>[1];
+type SetMemberRoleArgs = Parameters<OrganizationApi["setMemberRole"]>[1];
+type HasRoleArgs = Parameters<OrganizationApi["hasRole"]>[1];
+type RequireRoleArgs = Parameters<OrganizationApi["requireRole"]>[1];
+type HasPermissionArgs = Parameters<OrganizationApi["hasPermission"]>[1];
+type RequirePermissionArgs = Parameters<OrganizationApi["requirePermission"]>[1];
+
+export const checkSlug = query({
+  args: {
+    slug: v.string(),
+  },
+  handler: async (ctx, args) => {
+    if (!auth.organization) {
+      throw new Error("Organization plugin is not enabled");
+    }
+    return auth.organization.checkSlug(ctx, args);
+  },
+});
+
+export const createOrganization = mutation({
+  args: {
+    name: v.string(),
+    slug: v.string(),
+    logo: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    if (!auth.organization) {
+      throw new Error("Organization plugin is not enabled");
+    }
+    return auth.organization.createOrganization(ctx, args);
+  },
+});
+
+export const updateOrganization = mutation({
+  args: {
+    organizationId: v.string(),
+    name: v.optional(v.string()),
+    slug: v.optional(v.string()),
+    logo: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    if (!auth.organization) {
+      throw new Error("Organization plugin is not enabled");
+    }
+    return auth.organization.updateOrganization(ctx, args);
+  },
+});
+
+export const deleteOrganization = mutation({
+  args: {
+    organizationId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    if (!auth.organization) {
+      throw new Error("Organization plugin is not enabled");
+    }
+    return auth.organization.deleteOrganization(ctx, args);
+  },
+});
+
+export const listOrganizations = query({
+  args: {},
+  handler: async (ctx) => {
+    if (!auth.organization) {
+      throw new Error("Organization plugin is not enabled");
+    }
+    return auth.organization.listOrganizations(ctx);
+  },
+});
+
+export const getOrganization = query({
+  args: {
+    organizationId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    if (!auth.organization) {
+      throw new Error("Organization plugin is not enabled");
+    }
+    return auth.organization.getOrganization(ctx, args);
+  },
+});
+
+export const getMembership = query({
+  args: {
+    organizationId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    if (!auth.organization) {
+      throw new Error("Organization plugin is not enabled");
+    }
+    return auth.organization.getMembership(ctx, args);
+  },
+});
+
+export const listMembers = query({
+  args: {
+    organizationId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    if (!auth.organization) {
+      throw new Error("Organization plugin is not enabled");
+    }
+    return auth.organization.listMembers(ctx, args);
+  },
+});
+
+export const inviteMember = mutation({
+  args: {
+    organizationId: v.string(),
+    email: v.string(),
+    role: organizationRoleAssignmentValidator,
+  },
+  handler: async (ctx, args) => {
+    if (!auth.organization) {
+      throw new Error("Organization plugin is not enabled");
+    }
+    return auth.organization.inviteMember(ctx, args as InviteMemberArgs);
+  },
+});
+
+export const listInvitations = query({
+  args: {
+    organizationId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    if (!auth.organization) {
+      throw new Error("Organization plugin is not enabled");
+    }
+    return auth.organization.listInvitations(ctx, args);
+  },
+});
+
+export const listIncomingInvitations = query({
+  args: {},
+  handler: async (ctx) => {
+    if (!auth.organization) {
+      throw new Error("Organization plugin is not enabled");
+    }
+    return auth.organization.listIncomingInvitations(ctx);
+  },
+});
+
+export const acceptInvitation = mutation({
+  args: {
+    token: v.string(),
+  },
+  handler: async (ctx, args) => {
+    if (!auth.organization) {
+      throw new Error("Organization plugin is not enabled");
+    }
+    return auth.organization.acceptInvitation(ctx, args);
+  },
+});
+
+export const acceptIncomingInvitation = mutation({
+  args: {
+    invitationId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    if (!auth.organization) {
+      throw new Error("Organization plugin is not enabled");
+    }
+    return auth.organization.acceptIncomingInvitation(ctx, args);
+  },
+});
+
+export const cancelInvitation = mutation({
+  args: {
+    invitationId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    if (!auth.organization) {
+      throw new Error("Organization plugin is not enabled");
+    }
+    return auth.organization.cancelInvitation(ctx, args);
+  },
+});
+
+export const declineIncomingInvitation = mutation({
+  args: {
+    invitationId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    if (!auth.organization) {
+      throw new Error("Organization plugin is not enabled");
+    }
+    return auth.organization.declineIncomingInvitation(ctx, args);
+  },
+});
+
+export const removeMember = mutation({
+  args: {
+    organizationId: v.string(),
+    userId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    if (!auth.organization) {
+      throw new Error("Organization plugin is not enabled");
+    }
+    return auth.organization.removeMember(ctx, args);
+  },
+});
+
+export const setMemberRole = mutation({
+  args: {
+    organizationId: v.string(),
+    userId: v.string(),
+    role: organizationRoleAssignmentValidator,
+  },
+  handler: async (ctx, args) => {
+    if (!auth.organization) {
+      throw new Error("Organization plugin is not enabled");
+    }
+    return auth.organization.setMemberRole(ctx, args as SetMemberRoleArgs);
+  },
+});
+
+export const transferOwnership = mutation({
+  args: {
+    organizationId: v.string(),
+    newOwnerUserId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    if (!auth.organization) {
+      throw new Error("Organization plugin is not enabled");
+    }
+    return auth.organization.transferOwnership(ctx, args);
+  },
+});
+
+export const createRole = mutation({
+  args: {
+    organizationId: v.string(),
+    name: v.string(),
+    slug: v.string(),
+    description: v.optional(v.string()),
+    permissions: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    if (!auth.organization) {
+      throw new Error("Organization plugin is not enabled");
+    }
+    return auth.organization.createRole(ctx, args);
+  },
+});
+
+export const listRoles = query({
+  args: {
+    organizationId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    if (!auth.organization) {
+      throw new Error("Organization plugin is not enabled");
+    }
+    return auth.organization.listRoles(ctx, args);
+  },
+});
+
+export const listAvailablePermissions = query({
+  args: {
+    organizationId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    if (!auth.organization) {
+      throw new Error("Organization plugin is not enabled");
+    }
+    return auth.organization.listAvailablePermissions(ctx, args);
+  },
+});
+
+export const getRole = query({
+  args: {
+    roleId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    if (!auth.organization) {
+      throw new Error("Organization plugin is not enabled");
+    }
+    return auth.organization.getRole(ctx, args);
+  },
+});
+
+export const updateRole = mutation({
+  args: {
+    roleId: v.string(),
+    name: v.optional(v.string()),
+    slug: v.optional(v.string()),
+    description: v.optional(v.string()),
+    permissions: v.optional(v.array(v.string())),
+  },
+  handler: async (ctx, args) => {
+    if (!auth.organization) {
+      throw new Error("Organization plugin is not enabled");
+    }
+    return auth.organization.updateRole(ctx, args);
+  },
+});
+
+export const deleteRole = mutation({
+  args: {
+    roleId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    if (!auth.organization) {
+      throw new Error("Organization plugin is not enabled");
+    }
+    return auth.organization.deleteRole(ctx, args);
+  },
+});
+
+export const addDomain = mutation({
+  args: {
+    organizationId: v.string(),
+    hostname: v.string(),
+  },
+  handler: async (ctx, args) => {
+    if (!auth.organization) {
+      throw new Error("Organization plugin is not enabled");
+    }
+    return auth.organization.addDomain(ctx, args);
+  },
+});
+
+export const listDomains = query({
+  args: {
+    organizationId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    if (!auth.organization) {
+      throw new Error("Organization plugin is not enabled");
+    }
+    return auth.organization.listDomains(ctx, args);
+  },
+});
+
+export const getDomainVerificationChallenge = query({
+  args: {
+    domainId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    if (!auth.organization) {
+      throw new Error("Organization plugin is not enabled");
+    }
+    return auth.organization.getDomainVerificationChallenge(ctx, args);
+  },
+});
+
+export const markDomainVerified = mutation({
+  args: {
+    domainId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    if (!auth.organization) {
+      throw new Error("Organization plugin is not enabled");
+    }
+    return auth.organization.markDomainVerified(ctx, args);
+  },
+});
+
+export const removeDomain = mutation({
+  args: {
+    domainId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    if (!auth.organization) {
+      throw new Error("Organization plugin is not enabled");
+    }
+    return auth.organization.removeDomain(ctx, args);
+  },
+});
+
+export const resolveOrganizationByHost = query({
+  args: {
+    host: v.string(),
+  },
+  handler: async (ctx, args) => {
+    if (!auth.organization) {
+      throw new Error("Organization plugin is not enabled");
+    }
+    return auth.organization.resolveOrganizationByHost(ctx, args);
+  },
+});
+
+export const hasRole = query({
+  args: {
+    organizationId: v.string(),
+    role: v.optional(v.string()),
+    roles: v.optional(v.array(v.string())),
+  },
+  handler: async (ctx, args) => {
+    if (!auth.organization) {
+      throw new Error("Organization plugin is not enabled");
+    }
+    return auth.organization.hasRole(ctx, args as HasRoleArgs);
+  },
+});
+
+export const requireRole = query({
+  args: {
+    organizationId: v.string(),
+    role: v.optional(v.string()),
+    roles: v.optional(v.array(v.string())),
+  },
+  handler: async (ctx, args) => {
+    if (!auth.organization) {
+      throw new Error("Organization plugin is not enabled");
+    }
+    return auth.organization.requireRole(ctx, args as RequireRoleArgs);
+  },
+});
+
+export const hasPermission = query({
+  args: {
+    organizationId: v.string(),
+    permission: organizationPermissionValidator,
+  },
+  handler: async (ctx, args) => {
+    if (!auth.organization) {
+      throw new Error("Organization plugin is not enabled");
+    }
+    return auth.organization.hasPermission(ctx, args as HasPermissionArgs);
+  },
+});
+
+export const requirePermission = query({
+  args: {
+    organizationId: v.string(),
+    permission: organizationPermissionValidator,
+  },
+  handler: async (ctx, args) => {
+    if (!auth.organization) {
+      throw new Error("Organization plugin is not enabled");
+    }
+    return auth.organization.requirePermission(ctx, args as RequirePermissionArgs);
+  },
+});
+`);
+}
+
 function parseFunctionKinds(source: string): Record<string, AuthFunctionKind> {
   const result: Record<string, AuthFunctionKind> = {};
   const pattern = /export\s+const\s+([A-Za-z0-9_]+)\s*=\s*(query|mutation|action)\s*\(/g;
@@ -431,6 +897,53 @@ function renderPluginMetaCompatFile(): string {
   return normalizeContent(`${GENERATED_MARKER}
 export { authPluginMeta } from "../metaGenerated";
 export type { AuthPluginMeta } from "../metaGenerated";
+`);
+}
+
+function renderClientGeneratedFile(
+  pluginMeta: PluginFunctionMeta
+): string {
+  const pluginEntries = Object.keys(pluginMeta).sort((left, right) =>
+    left.localeCompare(right)
+  );
+  const pluginImports = pluginEntries
+    .map(
+      (pluginName) =>
+        `import * as plugin_${pluginName} from "./plugin/${pluginName}";`
+    )
+    .join("\n");
+  const authModuleTypes = [`  core: typeof core;`]
+    .concat(
+      pluginEntries.map(
+        (pluginName) => `  "plugin/${pluginName}": typeof plugin_${pluginName};`
+      )
+    )
+    .join("\n");
+  const pluginObject =
+    pluginEntries.length === 0
+      ? "{}"
+      : `{\n${pluginEntries
+          .map(
+            (pluginName) =>
+              `    ${pluginName}: plugin_${pluginName} as unknown as AuthApi["plugin"]["${pluginName}"],`
+          )
+          .join("\n")}\n  }`;
+
+  return normalizeContent(`${GENERATED_MARKER}
+import type { ApiFromModules } from "convex/server";
+import * as core from "./core";
+${pluginImports ? `${pluginImports}\n` : ""}
+
+type AuthApi = ApiFromModules<{
+${authModuleTypes}
+}>;
+
+export const authConvexFunctions = {
+  core: core as unknown as AuthApi["core"],
+  plugin: ${pluginObject},
+} as const;
+
+export type AuthConvexFunctions = typeof authConvexFunctions;
 `);
 }
 
@@ -559,6 +1072,17 @@ export async function generateAuthFunctions(
     });
     generatedPluginSources.set("admin", adminContent);
   }
+  if (enabledPlugins.has("organization")) {
+    const organizationContent = renderOrganizationPluginFile({
+      authImportPath: pluginAuthImportPath,
+    });
+    filesToGenerate.push({
+      absolutePath: path.join(pluginDir, "organization.ts"),
+      relativePath: path.join("convex", "auth", "plugin", "organization.ts"),
+      content: organizationContent,
+    });
+    generatedPluginSources.set("organization", organizationContent);
+  }
 
   for (const file of filesToGenerate) {
     await upsertGeneratedFile(file, options, result);
@@ -574,6 +1098,14 @@ export async function generateAuthFunctions(
     await deleteGeneratedFileIfExists(
       path.join(pluginDir, "admin.ts"),
       path.join("convex", "auth", "plugin", "admin.ts"),
+      options,
+      result
+    );
+  }
+  if (!enabledPlugins.has("organization")) {
+    await deleteGeneratedFileIfExists(
+      path.join(pluginDir, "organization.ts"),
+      path.join("convex", "auth", "plugin", "organization.ts"),
       options,
       result
     );
@@ -610,6 +1142,13 @@ export async function generateAuthFunctions(
       ) {
         continue;
       }
+      if (
+        pluginName === "organization" &&
+        !enabledPlugins.has("organization") &&
+        isGeneratedFile(source)
+      ) {
+        continue;
+      }
       const kinds = parseFunctionKinds(source);
       if (Object.keys(kinds).length > 0) {
         pluginMeta[pluginName] = kinds;
@@ -622,6 +1161,16 @@ export async function generateAuthFunctions(
       absolutePath: path.join(authDir, "metaGenerated.ts"),
       relativePath: path.join("convex", "auth", "metaGenerated.ts"),
       content: renderAuthMetaFile(coreMeta, pluginMeta),
+    },
+    options,
+    result
+  );
+
+  await upsertGeneratedFile(
+    {
+      absolutePath: path.join(authDir, "clientGenerated.ts"),
+      relativePath: path.join("convex", "auth", "clientGenerated.ts"),
+      content: renderClientGeneratedFile(pluginMeta),
     },
     options,
     result
