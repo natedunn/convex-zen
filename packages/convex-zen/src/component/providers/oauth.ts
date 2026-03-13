@@ -223,6 +223,9 @@ export async function handleOAuthCallbackForProvider(
   const provider = args.provider;
   const runtime = resolveOAuthProviderRuntime(provider);
 
+  assertRelativeRedirectTarget(args.redirectTo, "redirectTo");
+  assertRelativeRedirectTarget(args.errorRedirectTo, "errorRedirectTo");
+
   const stateHash = await hashToken(args.state);
   const stateRecord = await ctx.runMutation(
     internal.providers.oauth.consumeOAuthState,
