@@ -26,6 +26,7 @@ WebBrowser.maybeCompleteAuthSession();
 const convexUrl =
   process.env.EXPO_PUBLIC_CONVEX_URL ?? "https://example.convex.cloud";
 const appScheme = process.env.EXPO_PUBLIC_APP_SCHEME ?? "convexzenexpo";
+const enabledOAuthProviders: readonly OAuthProviderId[] = ["github"];
 
 const authClient = createExpoAuthClient({
   convexUrl,
@@ -52,6 +53,7 @@ interface AuthContextValue {
   currentUser: CurrentUser | null;
   error: string | null;
   callbackUrl: string;
+  enabledOAuthProviders: readonly OAuthProviderId[];
   refresh: () => Promise<SessionInfo | null>;
   signInWithEmail: (input: {
     email: string;
@@ -133,13 +135,13 @@ export function ExpoAuthProvider({ children }: { children: ReactNode }) {
   const signInWithOAuth = useCallback(async (
     providerId: OAuthProviderId
   ): Promise<ExpoOAuthResult | null> => {
-    const redirectTo = "/home";
-    const errorRedirectTo = "/sign-in";
+    if (!enabledOAuthProviders.includes(providerId)) {
+      throw new Error(`OAuth provider "${providerId}" is not enabled in this Expo app`);
+    }
+
     try {
       const start = await authClient.signIn.oauth(providerId, {
         callbackUrl,
-        redirectTo,
-        errorRedirectTo,
       });
 
       const browserResult = await WebBrowser.openAuthSessionAsync(
@@ -157,8 +159,6 @@ export function ExpoAuthProvider({ children }: { children: ReactNode }) {
         code,
         state,
         callbackUrl,
-        redirectTo,
-        errorRedirectTo,
       });
       const nextCurrentUser = await authClient.currentUser({});
       startTransition(() => {
@@ -200,6 +200,7 @@ export function ExpoAuthProvider({ children }: { children: ReactNode }) {
       currentUser,
       error,
       callbackUrl,
+      enabledOAuthProviders,
       refresh,
       signInWithEmail,
       signInWithGithub,
@@ -208,6 +209,7 @@ export function ExpoAuthProvider({ children }: { children: ReactNode }) {
     }),
     [
       callbackUrl,
+      enabledOAuthProviders,
       currentUser,
       error,
       refresh,

@@ -21,4 +21,5 @@ pnpm -C apps/expo build
 
 - Tokens are persisted with `expo-secure-store`.
 - OAuth uses a deep-link callback URL built with `expo-auth-session`.
+- The example currently shows the shared repo's GitHub flow by default.
 - The example calls Convex auth functions directly through `convex-zen/expo`; it does not use `/api/auth/*` routes.

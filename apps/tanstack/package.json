@@ -3,15 +3,16 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"dev": "concurrently -k -n web,convex -c blue,green \"pnpm dev:web\" \"convex dev\"",
-		"dev:web": "sh -c 'if command -v portless >/dev/null 2>&1; then portless tanstack.convex-zen vite dev; else echo \"portless not found; starting vite dev directly\"; vite dev; fi'",
-		"dev:direct": "concurrently -k -n web,convex -c blue,green \"pnpm dev:web:direct\" \"convex dev\"",
-		"dev:web:direct": "vite dev",
+		"dev": "concurrently -k -n web,convex -c blue,green \"pnpm dev:web\" \"pnpm convex:dev:noninteractive\"",
+		"dev:web": "node ./scripts/with-local-env.mjs --require VITE_CONVEX_URL -- sh -c 'if command -v portless >/dev/null 2>&1; then portless run vite dev; else echo \"portless not found; starting vite dev directly\"; vite dev; fi'",
+		"dev:direct": "concurrently -k -n web,convex -c blue,green \"pnpm dev:web:direct\" \"pnpm convex:dev:noninteractive\"",
+		"dev:web:direct": "node ./scripts/with-local-env.mjs --require VITE_CONVEX_URL -- vite dev",
 		"dev:vite": "pnpm dev:web",
 		"dev:vite:direct": "pnpm dev:web:direct",
 		"build": "vite build",
 		"preview": "vite preview",
-		"convex:dev": "convex dev"
+		"convex:dev": "node ./scripts/with-local-env.mjs -- pnpm exec convex dev",
+		"convex:dev:noninteractive": "node ./scripts/with-local-env.mjs --require CONVEX_DEPLOYMENT -- pnpm exec convex dev"
 	},
 	"dependencies": {
 		"@convex-zen/playground-ui": "workspace:*",
@@ -32,7 +33,7 @@
 		"@types/react-dom": "^19.0.3",
 		"@vitejs/plugin-react": "^4.3.4",
 		"concurrently": "^9.2.1",
-		"portless": "^0.4.2",
+		"portless": "^0.5.2",
 		"typescript": "^5.7.2",
 		"vite": "^7.3.1",
 		"vite-tsconfig-paths": "^5.1.4"

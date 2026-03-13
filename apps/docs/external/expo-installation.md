@@ -113,5 +113,5 @@ See `apps/expo` for a runnable managed Expo example with:
 - `expo-secure-store`
 - `expo-auth-session`
 - Expo Router
-- manual Google OAuth callback completion
+- manual OAuth callback completion
 - generated `currentUser` calls via `authClient.currentUser({})`

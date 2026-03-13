@@ -1,8 +1,6 @@
 import {
 	ConvexZen,
-	discordProvider,
 	githubProvider,
-	googleProvider,
 } from "convex-zen";
 import { adminPlugin } from "convex-zen/plugins/admin";
 import { components } from "./_generated/api";
@@ -20,18 +18,18 @@ export const authOptions = {
 		},
 	},
 	providers: [
-		discordProvider({
-			clientId: process.env["DISCORD_CLIENT_ID"]!,
-			clientSecret: process.env["DISCORD_CLIENT_SECRET"]!,
-		}),
 		githubProvider({
 			clientId: process.env["GITHUB_CLIENT_ID"]!,
 			clientSecret: process.env["GITHUB_CLIENT_SECRET"]!,
 		}),
-		googleProvider({
-			clientId: process.env["GOOGLE_CLIENT_ID"]!,
-			clientSecret: process.env["GOOGLE_CLIENT_SECRET"]!,
-		}),
+		// discordProvider({
+		// 	clientId: process.env["DISCORD_CLIENT_ID"]!,
+		// 	clientSecret: process.env["DISCORD_CLIENT_SECRET"]!,
+		// }),
+		// googleProvider({
+		// 	clientId: process.env["GOOGLE_CLIENT_ID"]!,
+		// 	clientSecret: process.env["GOOGLE_CLIENT_SECRET"]!,
+		// }),
 	],
 	requireEmailVerified: true,
 	plugins: [adminPlugin({ defaultRole: "user", adminRole: "admin" })],

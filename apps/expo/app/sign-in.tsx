@@ -14,6 +14,7 @@ import { useExpoAuth } from "../src/auth";
 export default function SignInScreen() {
   const {
     callbackUrl,
+    enabledOAuthProviders,
     error,
     signInWithEmail,
     signInWithGithub,
@@ -39,7 +40,7 @@ export default function SignInScreen() {
           <Text style={styles.title}>Deep-link auth without cookies.</Text>
           <Text style={styles.subtitle}>
             This example stores the session token in SecureStore and completes
-            Google OAuth manually from an Expo callback URL.
+            OAuth manually from an Expo callback URL.
           </Text>
         </View>
 
@@ -80,42 +81,53 @@ export default function SignInScreen() {
             </Text>
           </Pressable>
 
-          <Pressable
-            onPress={async () => {
-              setPending("google");
-              try {
-                await signInWithGoogle();
-              } finally {
-                setPending(null);
-              }
-            }}
-            style={[styles.secondaryButton, pending === "google" && styles.buttonDisabled]}
-          >
-            <Text style={styles.secondaryButtonText}>
-              {pending === "google" ? "Opening browser..." : "Continue with Google"}
-            </Text>
-          </Pressable>
+          {enabledOAuthProviders.includes("google") ? (
+            <Pressable
+              onPress={async () => {
+                setPending("google");
+                try {
+                  await signInWithGoogle();
+                } finally {
+                  setPending(null);
+                }
+              }}
+              style={[styles.secondaryButton, pending === "google" && styles.buttonDisabled]}
+            >
+              <Text style={styles.secondaryButtonText}>
+                {pending === "google" ? "Opening browser..." : "Continue with Google"}
+              </Text>
+            </Pressable>
+          ) : null}
 
-          <Pressable
-            onPress={async () => {
-              setPending("github");
-              try {
-                await signInWithGithub();
-              } finally {
-                setPending(null);
-              }
-            }}
-            style={[styles.tertiaryButton, pending === "github" && styles.buttonDisabled]}
-          >
-            <Text style={styles.tertiaryButtonText}>
-              {pending === "github" ? "Opening browser..." : "Continue with GitHub"}
-            </Text>
-          </Pressable>
+          {enabledOAuthProviders.includes("github") ? (
+            <Pressable
+              onPress={async () => {
+                setPending("github");
+                try {
+                  await signInWithGithub();
+                } finally {
+                  setPending(null);
+                }
+              }}
+              style={[styles.tertiaryButton, pending === "github" && styles.buttonDisabled]}
+            >
+              <Text style={styles.tertiaryButtonText}>
+                {pending === "github" ? "Opening browser..." : "Continue with GitHub"}
+              </Text>
+            </Pressable>
+          ) : null}
 
           <View style={styles.infoBlock}>
             <Text style={styles.infoLabel}>Expo callback URL</Text>
             <Text selectable style={styles.infoValue}>
               {callbackUrl}
+            </Text>
+          </View>
+
+          <View style={styles.infoBlock}>
+            <Text style={styles.infoLabel}>Enabled OAuth providers</Text>
+            <Text selectable style={styles.infoValue}>
+              {enabledOAuthProviders.join(", ")}
             </Text>
           </View>
 
