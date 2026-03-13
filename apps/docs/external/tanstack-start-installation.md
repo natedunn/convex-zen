@@ -160,7 +160,6 @@ Create `src/lib/auth-client.ts`:
 
 ```ts
 import { createTanStackAuthClient } from "convex-zen/tanstack-start";
-import { useZenSession } from "convex-zen/react";
 import { api } from "../../convex/_generated/api";
 import { authMeta } from "../../convex/auth/metaGenerated";
 
