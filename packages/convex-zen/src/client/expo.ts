@@ -440,6 +440,8 @@ export function createExpoAuthClient<
     return runtime.mountConvex(convexClient);
   };
 
+  const directConvexClient = new ConvexHttpClient(options.convexUrl);
+
   const callDirectConvexFunction = async <
     TFunctionRef extends ExpoPublicFunctionRef,
   >(
@@ -447,21 +449,20 @@ export function createExpoAuthClient<
     functionRef: TFunctionRef,
     input?: FunctionArgs<TFunctionRef>
   ): Promise<FunctionReturnType<TFunctionRef>> => {
-    const client = new ConvexHttpClient(options.convexUrl);
     const args = (input ?? {}) as FunctionArgs<TFunctionRef>;
     switch (kind) {
       case "query":
-        return (await client.query(
+        return (await directConvexClient.query(
           functionRef as FunctionReference<"query", "public">,
           args as FunctionArgs<FunctionReference<"query", "public">>
         )) as FunctionReturnType<TFunctionRef>;
       case "mutation":
-        return (await client.mutation(
+        return (await directConvexClient.mutation(
           functionRef as FunctionReference<"mutation", "public">,
           args as FunctionArgs<FunctionReference<"mutation", "public">>
         )) as FunctionReturnType<TFunctionRef>;
       case "action":
-        return (await client.action(
+        return (await directConvexClient.action(
           functionRef as FunctionReference<"action", "public">,
           args as FunctionArgs<FunctionReference<"action", "public">>
         )) as FunctionReturnType<TFunctionRef>;
