@@ -169,13 +169,13 @@ const appDir = process.cwd();
 const { command, required } = parseArgs(process.argv.slice(2));
 const envResolution = resolveEnvFiles(appDir);
 const envSources = [
+  ...(envResolution.localEnvPath
+    ? [{ envPath: envResolution.localEnvPath, source: "local" }]
+    : []),
   ...envResolution.siblingEnvPaths.map((envPath) => ({
     envPath,
     source: "worktree",
   })),
-  ...(envResolution.localEnvPath
-    ? [{ envPath: envResolution.localEnvPath, source: "local" }]
-    : []),
 ];
 
 for (const { envPath } of envSources) {
