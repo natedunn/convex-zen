@@ -14,9 +14,9 @@ Those references keep behavior familiar, but `convex-zen` intentionally implemen
 The integration surface should still feel familiar:
 
 1. Sign in returns a session token.
-2. Framework layer stores that token in an HttpOnly cookie.
-3. Session checks read cookie token and validate it server-side.
-4. App/client reads session state from framework server functions.
+2. Web adapters can store that token in an HttpOnly cookie.
+3. Native adapters can store that token in client storage.
+4. Session checks validate the token through Convex public auth functions.
 
 ## Layers
 
@@ -37,16 +37,20 @@ New in this iteration:
 
 ### Layer C: framework adapters
 
-New in this iteration:
+Current adapters:
 
-- `convex-zen/tanstack-start`
-- wraps primitives with TanStack Start server functions and cookie management
+- `convex-zen/expo`: direct Convex-function transport, async client storage (`expo-secure-store`, `AsyncStorage`, or equivalent), and manual OAuth callback completion for deep-link flows
+- `convex-zen/tanstack-start`: route-backed TanStack Start server functions and cookie management
+- `convex-zen/next`: route-backed Next.js handlers and cookie management
 
 Future:
 
-- `convex-zen/next`
 - `convex-zen/sveltekit`
-- `convex-zen/expo` (client storage oriented)
+
+The adapter split is now:
+
+- web adapters: `convex-zen/tanstack-start`, `convex-zen/next`
+- native/storage adapters: `convex-zen/expo`
 
 ## Why this is replicatable
 

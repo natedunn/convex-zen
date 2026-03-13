@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "convex-zen-expo",
+    "slug": "convex-zen-expo",
+    "version": "1.0.0",
+    "scheme": "convexzenexpo",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "plugins": [
+      "expo-router",
+      "expo-secure-store"
+    ],
+    "experiments": {
+      "typedRoutes": false
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    }
+  }
+}

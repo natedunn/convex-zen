@@ -212,6 +212,8 @@ export async function handleOAuthCallbackForProvider(
     code: string;
     state: string;
     callbackUrl?: string;
+    redirectTo?: string;
+    errorRedirectTo?: string;
     redirectUrl?: string;
     ipAddress?: string;
     userAgent?: string;
@@ -220,6 +222,9 @@ export async function handleOAuthCallbackForProvider(
 ): Promise<OAuthCallbackResult> {
   const provider = args.provider;
   const runtime = resolveOAuthProviderRuntime(provider);
+
+  assertRelativeRedirectTarget(args.redirectTo, "redirectTo");
+  assertRelativeRedirectTarget(args.errorRedirectTo, "errorRedirectTo");
 
   const stateHash = await hashToken(args.state);
   const stateRecord = await ctx.runMutation(
@@ -300,8 +305,9 @@ export async function handleOAuthCallbackForProvider(
 
   return {
     ...result,
-    redirectTo: stateRecord.redirectTo,
-    redirectUrl: stateRecord.redirectTo,
+    redirectTo: args.redirectTo ?? stateRecord.redirectTo,
+    redirectUrl:
+      args.redirectTo ?? args.redirectUrl ?? stateRecord.redirectTo,
   };
 }
 

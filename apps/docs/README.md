@@ -20,8 +20,9 @@ Read in order:
 
 ## External docs
 
-1. `apps/docs/external/tanstack-start-installation.md`
-2. `apps/docs/external/next-installation.md`
-3. `apps/docs/external/oauth.md`
-4. `apps/docs/external/custom-oauth-providers.md`
-5. `apps/docs/external/next-server-patterns.md`
+1. `apps/docs/external/expo-installation.md`
+2. `apps/docs/external/tanstack-start-installation.md`
+3. `apps/docs/external/next-installation.md`
+4. `apps/docs/external/oauth.md`
+5. `apps/docs/external/custom-oauth-providers.md`
+6. `apps/docs/external/next-server-patterns.md`

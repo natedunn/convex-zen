@@ -130,6 +130,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           callbackUrl?: string;
           code: string;
           defaultRole?: string;
+          errorRedirectTo?: string;
           ipAddress?: string;
           provider: {
             accessType?: "offline" | "online";
@@ -146,6 +147,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             trustVerifiedEmail?: boolean;
             userInfoUrl: string;
           };
+          redirectTo?: string;
           redirectUrl?: string;
           state: string;
           userAgent?: string;

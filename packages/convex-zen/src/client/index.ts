@@ -566,6 +566,8 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 			code: args.code,
 			state: args.state,
 			callbackUrl: args.callbackUrl,
+			redirectTo: args.redirectTo,
+			errorRedirectTo: args.errorRedirectTo,
 			redirectUrl: args.redirectUrl,
 			ipAddress: args.ipAddress,
 			userAgent: args.userAgent,
@@ -892,6 +894,12 @@ export {
 } from "./providers";
 export { adminPlugin } from "./plugins/admin";
 export { SessionPrimitives, createSessionPrimitives } from "./primitives";
+export {
+	createExpoAuthClient,
+	createKeyValueStorageAuthStorage,
+	createMemoryAuthStorage,
+	DEFAULT_EXPO_CORE_META,
+} from "./expo";
 export { createRouteAuthRuntimeAdapter } from "./framework-adapter";
 export {
 	createNextAuthClient,
@@ -938,13 +946,34 @@ export type {
 	RouteAuthRuntimeClientOptions,
 } from "./framework-adapter";
 export type {
+	AuthKeyValueStorage,
+	ExpoAuthClientBase,
+	AuthRuntimeStorage,
+	AuthRuntimeSync,
+	ConvexAuthClientLike,
+	ExpoAuthClient,
+	ExpoAuthClientOptions,
+	ExpoAuthCoreMeta,
+	ExpoAuthFunctionKind,
+	ExpoAuthMeta,
+	ExpoAuthPluginMeta,
+	ExpoAuthRuntimeClientOptions,
+	ExpoConvexActions,
+	ExpoConvexFunctionRefs,
+	ExpoOAuthActions,
+	ExpoOAuthCallbackInput,
+	ExpoOAuthResult,
+	ExpoOAuthSignInOptions,
+	KeyValueAuthStorageOptions,
+} from "./expo";
+export type {
 	AuthenticatedSession,
-		NextAuthApiHandlerOptions,
-		NextAuthApiPlugin,
-		NextAuthApiPluginFactory,
-		NextAuthApiPluginFactoryContext,
-		NextAuthApiPluginSelection,
-		NextAuthApiPluginContext,
+	NextAuthApiHandlerOptions,
+	NextAuthApiPlugin,
+	NextAuthApiPluginFactory,
+	NextAuthApiPluginFactoryContext,
+	NextAuthApiPluginSelection,
+	NextAuthApiPluginContext,
 	NextAuthClientOptions,
 	NextAuthCoreMeta,
 	NextAuthFunctionKind,
