@@ -208,6 +208,89 @@ export interface AdminPluginConfig extends ConvexAuthPlugin {
   adminRole?: string;
 }
 
+export type BuiltInOrganizationRole = "owner" | "admin" | "member";
+export type OrganizationRole = BuiltInOrganizationRole;
+
+type OrganizationAccessControlResourceKey<TAccessControl> = Extract<
+  keyof TAccessControl,
+  string
+>;
+
+type OrganizationAccessControlAction<
+  TAccessControl,
+  TResource extends OrganizationAccessControlResourceKey<TAccessControl>,
+> = TAccessControl[TResource] extends readonly (infer TAction)[]
+  ? Extract<TAction, string>
+  : never;
+
+export interface BuiltInOrganizationAccessControl {
+  organization: readonly ["read", "update", "delete", "transfer"];
+  accessControl: readonly ["read"];
+  role: readonly ["read", "create", "update", "delete"];
+  member: readonly ["read", "create", "update", "delete"];
+  invitation: readonly ["read", "create", "cancel", "accept"];
+  domain: readonly ["read", "create", "verify", "delete"];
+}
+
+export type OrganizationCustomAccessControl = Record<string, readonly string[]>;
+
+export type OrganizationAccessControl<
+  TCustomAccessControl extends OrganizationCustomAccessControl = {},
+> = BuiltInOrganizationAccessControl & TCustomAccessControl;
+
+export type OrganizationRoleDefinition<
+  TAccessControl,
+> = Partial<{
+  [TResource in OrganizationAccessControlResourceKey<TAccessControl>]:
+    readonly OrganizationAccessControlAction<TAccessControl, TResource>[];
+}>;
+
+export type OrganizationCustomRoleDefinitions<
+  TAccessControl,
+> = Record<string, OrganizationRoleDefinition<TAccessControl>>;
+
+export type OrganizationRoleDefinitions<
+  TAccessControl,
+  TCustomRoles extends OrganizationCustomRoleDefinitions<TAccessControl> = {},
+> = TCustomRoles &
+  Partial<
+    Record<
+      BuiltInOrganizationRole,
+      OrganizationRoleDefinition<TAccessControl>
+    >
+  >;
+
+export type OrganizationRoleName<
+  TCustomRoles extends Record<string, unknown> = {},
+> = BuiltInOrganizationRole | Extract<keyof TCustomRoles, string>;
+
+export type OrganizationPermission<
+  TAccessControl,
+  TResource extends OrganizationAccessControlResourceKey<TAccessControl> = OrganizationAccessControlResourceKey<TAccessControl>,
+> = TResource extends string
+  ? {
+      resource: TResource;
+      action: OrganizationAccessControlAction<TAccessControl, TResource>;
+    }
+  : never;
+
+export interface OrganizationPluginConfig<
+  TCustomAccessControl extends OrganizationCustomAccessControl = {},
+  TCustomRoles extends OrganizationCustomRoleDefinitions<
+    OrganizationAccessControl<TCustomAccessControl>
+  > = {},
+> extends ConvexAuthPlugin {
+  id: "organization";
+  allowUserOrganizationCreation?: boolean;
+  inviteExpiresInMs?: number;
+  subdomainSuffix?: string;
+  accessControl?: TCustomAccessControl;
+  roles?: OrganizationRoleDefinitions<
+    OrganizationAccessControl<TCustomAccessControl>,
+    TCustomRoles
+  >;
+}
+
 /** Result of a successful auth operation. */
 export interface AuthResult {
   sessionToken: string;
@@ -269,4 +352,146 @@ export interface AdminListUsersResult<
   users: TUser[];
   cursor: string | null;
   isDone: boolean;
+}
+
+export interface Organization {
+  _id: string;
+  name: string;
+  slug: string;
+  logo?: string;
+  createdByUserId: string;
+  createdAt: number;
+  updatedAt: number;
+  _creationTime?: number;
+}
+
+export interface OrganizationRoleRecord {
+  _id: string;
+  organizationId: string;
+  name: string;
+  slug: string;
+  description?: string;
+  permissions: string[];
+  createdByUserId: string;
+  createdAt: number;
+  updatedAt: number;
+  _creationTime?: number;
+}
+
+export type OrganizationRoleAssignment =
+  | {
+      roleType: "system";
+      roleName: BuiltInOrganizationRole;
+      systemRole: BuiltInOrganizationRole;
+      customRoleId?: undefined;
+    }
+  | {
+      roleType: "custom";
+      roleName: string;
+      customRoleId: string;
+      systemRole?: undefined;
+    };
+
+export type OrganizationRoleAssignmentInput =
+  | {
+      type: "system";
+      systemRole: BuiltInOrganizationRole;
+      customRoleId?: undefined;
+    }
+  | {
+      type: "custom";
+      customRoleId: string;
+      systemRole?: undefined;
+    };
+
+export interface OrganizationMembership {
+  _id: string;
+  organizationId: string;
+  userId: string;
+  roleType: "system" | "custom";
+  roleName: string;
+  systemRole?: BuiltInOrganizationRole;
+  customRoleId?: string;
+  createdAt: number;
+  updatedAt: number;
+  _creationTime?: number;
+}
+
+export interface OrganizationInvitation {
+  _id: string;
+  organizationId: string;
+  email: string;
+  roleType: "system" | "custom";
+  roleName: string;
+  systemRole?: BuiltInOrganizationRole;
+  customRoleId?: string;
+  invitedByUserId: string;
+  expiresAt: number;
+  acceptedAt?: number;
+  cancelledAt?: number;
+  declinedAt?: number;
+  createdAt: number;
+  updatedAt: number;
+  _creationTime?: number;
+}
+
+export interface OrganizationIncomingInvitation extends OrganizationInvitation {
+  organization: Organization;
+}
+
+export interface OrganizationDomain {
+  _id: string;
+  organizationId: string;
+  hostname: string;
+  verifiedAt?: number;
+  createdAt: number;
+  updatedAt: number;
+  _creationTime?: number;
+}
+
+export interface OrganizationMemberUser {
+  _id: string;
+  email: string;
+  emailVerified: boolean;
+  name?: string;
+  image?: string;
+}
+
+export interface OrganizationMember extends OrganizationMembership {
+  user: OrganizationMemberUser;
+}
+
+export interface OrganizationListItem {
+  organization: Organization;
+  membership: OrganizationMembership;
+}
+
+export interface OrganizationListResult {
+  organizations: OrganizationListItem[];
+}
+
+export interface OrganizationInviteResult {
+  invitation: OrganizationInvitation;
+  token: string;
+}
+
+export interface OrganizationRoleListResult {
+  roles: OrganizationRoleRecord[];
+}
+
+export interface OrganizationAvailablePermissionsResult {
+  resources: Record<string, string[]>;
+  permissions: string[];
+}
+
+export interface OrganizationDomainVerificationChallenge {
+  domainId: string;
+  hostname: string;
+  txtRecordName: string;
+  txtRecordValue: string;
+}
+
+export interface OrganizationSlugCheckResult {
+  slug: string;
+  available: boolean;
 }

@@ -75,6 +75,7 @@ No magic. Every public method has a JSDoc comment. Every security decision has a
 - **OAuth** — Google and GitHub with PKCE
 - **Session management** — sliding window sessions with absolute timeout
 - **Admin plugin** — list users, ban/unban, assign roles, delete
+- **Organization plugin** — orgs, memberships, invites, roles, and verified domains
 - **Rate limiting** — brute-force protection on auth endpoints
 - **Strong cryptography** — Argon2id passwords, SHA-256 session token storage, 256-bit random tokens
 
@@ -132,7 +133,8 @@ packages/convex-zen/
     │   ├── index.ts                   # ConvexZen class
     │   ├── providers.ts               # googleProvider(), githubProvider()
     │   └── plugins/
-    │       └── admin.ts               # adminPlugin() factory + AdminPlugin class
+    │       ├── admin.ts               # adminPlugin() factory + AdminPlugin class
+    │       └── organization.ts        # organizationPlugin() factory + OrganizationPlugin class
     └── component/                     # Convex component (server-side)
         ├── convex.config.ts           # defineComponent("convexAuth")
         ├── schema.ts                  # All 7 database tables
@@ -145,7 +147,8 @@ packages/convex-zen/
         │   ├── emailPassword.ts       # Email/password sign up, sign in, reset
         │   └── oauth.ts               # OAuth authorization URL + callback handler
         ├── plugins/
-        │   └── admin.ts               # listUsers, banUser, unbanUser, setRole, deleteUser
+        │   ├── admin.ts               # listUsers, banUser, unbanUser, setRole, deleteUser
+        │   └── organization.ts        # org CRUD, memberships, invites, domains
         └── lib/
             ├── crypto.ts              # Token generation, SHA-256, PKCE helpers
             └── rateLimit.ts           # Sliding window rate limiting
@@ -160,6 +163,7 @@ convex-zen/next         → src/client/next.ts
 convex-zen/react        → src/client/react.ts
 convex-zen/tanstack-start → src/client/tanstack-start.ts
 convex-zen/plugins/admin → src/client/plugins/admin.ts
+convex-zen/plugins/organization → src/client/plugins/organization.ts
 convex-zen/convex.config → src/component/convex.config.ts
 ```
 

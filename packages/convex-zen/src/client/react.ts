@@ -18,26 +18,26 @@ export interface ReactAuthClient {
   getSession: () => Promise<AuthSession | null>;
 }
 
-export interface ConvexZenAuthContextValue {
+export interface ConvexZenSessionContextValue {
   status: AuthStatus;
   session: AuthSession | null;
   isAuthenticated: boolean;
   refresh: () => Promise<AuthSession | null>;
 }
 
-export interface ConvexZenAuthProviderProps {
-  client: ReactAuthClient;
+export interface ConvexZenAuthProviderProps<
+  TClient extends ReactAuthClient = ReactAuthClient,
+> {
+  client: TClient;
   initialSession?: AuthSession | null;
   children: ReactNode;
 }
 
-const AuthContext = createContext<ConvexZenAuthContextValue | null>(null);
+const SessionContext = createContext<ConvexZenSessionContextValue | null>(null);
 
-export function ConvexZenAuthProvider({
-  client,
-  initialSession,
-  children,
-}: ConvexZenAuthProviderProps) {
+export function ConvexZenAuthProvider<
+  TClient extends ReactAuthClient = ReactAuthClient,
+>({ client, initialSession, children }: ConvexZenAuthProviderProps<TClient>) {
   const [session, setSession] = useState<AuthSession | null>(
     initialSession ?? null
   );
@@ -69,7 +69,7 @@ export function ConvexZenAuthProvider({
     }
   }, [initialSession, refresh]);
 
-  const value = useMemo<ConvexZenAuthContextValue>(
+  const sessionValue = useMemo<ConvexZenSessionContextValue>(
     () => ({
       status,
       session,
@@ -79,17 +79,23 @@ export function ConvexZenAuthProvider({
     [status, session, refresh]
   );
 
-  return createElement(AuthContext.Provider, { value }, children);
+  return createElement(SessionContext.Provider, { value: sessionValue }, children);
 }
 
-function useSessionContext(): ConvexZenAuthContextValue {
-  const context = useContext(AuthContext);
+function useSessionContext(): ConvexZenSessionContextValue {
+  const context = useContext(SessionContext);
   if (!context) {
-    throw new Error("useSession must be used within ConvexZenAuthProvider");
+    throw new Error(
+      "useZenSession (or useSession) must be used within ConvexZenAuthProvider"
+    );
   }
   return context;
 }
 
-export function useSession(): ConvexZenAuthContextValue {
+export function useZenSession(): ConvexZenSessionContextValue {
   return useSessionContext();
+}
+
+export function useSession(): ConvexZenSessionContextValue {
+  return useZenSession();
 }

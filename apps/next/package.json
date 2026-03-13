@@ -2,14 +2,16 @@
   "name": "@convex-zen/next",
   "private": true,
   "scripts": {
-    "dev": "sh -c 'if command -v portless >/dev/null 2>&1; then portless next.convex-zen next dev; else echo \"portless not found; starting next dev directly\"; next dev; fi'",
-    "dev:direct": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "convex:dev": "convex dev"
+    "dev": "node ./scripts/with-local-env.mjs --require NEXT_PUBLIC_CONVEX_URL -- sh -c 'if command -v portless >/dev/null 2>&1; then portless next.convex-zen next dev; else echo \"portless not found; starting next dev directly\"; next dev; fi'",
+    "dev:direct": "node ./scripts/with-local-env.mjs --require NEXT_PUBLIC_CONVEX_URL -- next dev",
+    "build": "node ./scripts/with-local-env.mjs --require NEXT_PUBLIC_CONVEX_URL -- next build",
+    "start": "node ./scripts/with-local-env.mjs --require NEXT_PUBLIC_CONVEX_URL -- next start",
+    "convex:dev": "node ./scripts/with-local-env.mjs --require CONVEX_DEPLOYMENT -- pnpm exec convex dev"
   },
   "dependencies": {
+    "@convex-dev/react-query": "^0.1.0",
     "@convex-zen/playground-ui": "workspace:*",
+    "@tanstack/react-query": "^5.90.21",
     "convex": "^1.32.0",
     "convex-zen": "workspace:*",
     "next": "^15.1.0",

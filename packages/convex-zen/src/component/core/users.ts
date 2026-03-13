@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery } from "../_generated/server";
 import type { DatabaseReader, DatabaseWriter } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
+import { deleteUserOrganizationRelations } from "../plugins/organization";
 
 type UserPatchFields = {
   email?: string;
@@ -93,6 +94,8 @@ export async function deleteUserWithRelations(
   db: DatabaseWriter,
   userId: Id<"users">
 ): Promise<void> {
+  await deleteUserOrganizationRelations(db, userId);
+
   const accounts = await db
     .query("accounts")
     .withIndex("by_userId", (q) => q.eq("userId", userId))

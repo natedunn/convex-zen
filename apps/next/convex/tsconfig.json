@@ -16,6 +16,9 @@
 			"convex-zen/plugins/admin": [
 				"../../../packages/convex-zen/src/client/plugins/admin.ts"
 			],
+			"convex-zen/plugins/organization": [
+				"../../../packages/convex-zen/src/client/plugins/organization.ts"
+			],
 			"convex-zen/convex.config": [
 				"../../../packages/convex-zen/src/component/convex.config.ts"
 			]

@@ -17,6 +17,7 @@ import type * as lib_internalApi from "../lib/internalApi.js";
 import type * as lib_rateLimit from "../lib/rateLimit.js";
 import type * as lib_validators from "../lib/validators.js";
 import type * as plugins_admin from "../plugins/admin.js";
+import type * as plugins_organization from "../plugins/organization.js";
 import type * as providers_emailPassword from "../providers/emailPassword.js";
 import type * as providers_oauth from "../providers/oauth.js";
 
@@ -37,6 +38,7 @@ const fullApi: ApiFromModules<{
   "lib/rateLimit": typeof lib_rateLimit;
   "lib/validators": typeof lib_validators;
   "plugins/admin": typeof plugins_admin;
+  "plugins/organization": typeof plugins_organization;
   "providers/emailPassword": typeof providers_emailPassword;
   "providers/oauth": typeof providers_oauth;
 }> = anyApi as any;

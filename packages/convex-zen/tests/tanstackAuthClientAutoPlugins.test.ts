@@ -458,6 +458,36 @@ describe("createTanStackAuthClient auto plugins", () => {
     expect(typeof authClient.plugin.admin.banUser).toBe("function");
   });
 
+  it("infers organization plugin methods and routes them through the generic plugin API", async () => {
+    const fetchImpl = vi.fn(async () => {
+      return new Response(JSON.stringify({ organizations: [] }), {
+        status: 200,
+        headers: { "content-type": "application/json; charset=utf-8" },
+      });
+    });
+    const authClient = createTanStackAuthClient({
+      fetch: fetchImpl,
+      convexFunctions: {
+        plugin: {
+          organization: {
+            listOrganizations: queryRef("listOrganizations"),
+          },
+        },
+      },
+      pluginMeta: {
+        organization: {
+          listOrganizations: "query",
+        },
+      },
+    });
+
+    expect(typeof authClient.plugin.organization.listOrganizations).toBe("function");
+    await authClient.plugin.organization.listOrganizations({});
+    expect(String(fetchImpl.mock.calls[0]?.[0])).toContain(
+      "/api/auth/plugin/organization/list-organizations"
+    );
+  });
+
   it("calls the plugin API route when using inferred auto plugin methods", async () => {
     const fetchImpl = vi.fn(async () => {
       return new Response(

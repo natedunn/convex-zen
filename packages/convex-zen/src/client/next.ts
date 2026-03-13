@@ -1833,6 +1833,50 @@ function withDefaultRouteInput<TFunctionRef extends NextClientRouteFunctionRef>(
   return {} as FunctionArgs<TFunctionRef>;
 }
 
+function isNextClientMutationExecutor(
+  value: unknown
+): value is NextClientMutationExecutorLike {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    "mutation" in value &&
+    typeof (value as { mutation?: unknown }).mutation === "function"
+  );
+}
+
+function isNextClientActionExecutor(
+  value: unknown
+): value is NextClientActionExecutorLike {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    "action" in value &&
+    typeof (value as { action?: unknown }).action === "function"
+  );
+}
+
+function resolveNextClientMutationExecutor(
+  executor: NextClientMutationExecutorLike | undefined
+): NextClientMutationExecutorLike {
+  if (!executor) {
+    throw new Error(
+      "No Convex mutation executor connected. Call authClient.connectConvexAuth(convex) before using mutationFn() or mutate() without an executor."
+    );
+  }
+  return executor;
+}
+
+function resolveNextClientActionExecutor(
+  executor: NextClientActionExecutorLike | undefined
+): NextClientActionExecutorLike {
+  if (!executor) {
+    throw new Error(
+      "No Convex action executor connected. Call authClient.connectConvexAuth(convex) before using actionFn() or runAction() without an executor."
+    );
+  }
+  return executor;
+}
+
 function createNextClientQueryOptions<
   TFunctionRef extends FunctionReference<"query", "public">,
 >(
@@ -1897,22 +1941,44 @@ function attachNextClientQueryHelpers<
 
 function attachNextClientMutationHelpers<
   TFunctionRef extends FunctionReference<"mutation", "public">,
->(routeMethod: NextClientMutableCallable, functionRef: TFunctionRef): void {
+>(
+  routeMethod: NextClientMutableCallable,
+  functionRef: TFunctionRef,
+  getDefaultExecutor: () => NextClientMutationExecutorLike | undefined
+): void {
   const mutate = async (
-    convex: NextClientMutationExecutorLike,
-    input?: FunctionArgs<TFunctionRef>
+    inputOrConvex?: FunctionArgs<TFunctionRef> | NextClientMutationExecutorLike,
+    maybeInput?: FunctionArgs<TFunctionRef>
   ): Promise<FunctionReturnType<TFunctionRef>> => {
-    return convex.mutation(functionRef, withDefaultRouteInput(input));
+    const convex = isNextClientMutationExecutor(inputOrConvex)
+      ? inputOrConvex
+      : getDefaultExecutor();
+    const input = isNextClientMutationExecutor(inputOrConvex)
+      ? maybeInput
+      : inputOrConvex;
+    return resolveNextClientMutationExecutor(convex).mutation(
+      functionRef,
+      withDefaultRouteInput(input)
+    );
   };
-  routeMethod.mutationFn = (convex: NextClientMutationExecutorLike) => {
-    return async (input?: FunctionArgs<TFunctionRef>) => mutate(convex, input);
+  routeMethod.mutationFn = (convex?: NextClientMutationExecutorLike) => {
+    const executor = resolveNextClientMutationExecutor(
+      convex ?? getDefaultExecutor()
+    );
+    return async (input?: FunctionArgs<TFunctionRef>) => {
+      return executor.mutation(functionRef, withDefaultRouteInput(input));
+    };
   };
   routeMethod.mutate = mutate;
 }
 
 function attachNextClientActionHelpers<
   TFunctionRef extends FunctionReference<"action", "public">,
->(routeMethod: NextClientMutableCallable, functionRef: TFunctionRef): void {
+>(
+  routeMethod: NextClientMutableCallable,
+  functionRef: TFunctionRef,
+  getDefaultExecutor: () => NextClientActionExecutorLike | undefined
+): void {
   const queryOptions = (input?: FunctionArgs<TFunctionRef>) =>
     createNextClientActionOptions(functionRef, input);
   routeMethod.query = queryOptions;
@@ -1933,13 +1999,27 @@ function attachNextClientActionHelpers<
     );
   };
   const runAction = async (
-    convex: NextClientActionExecutorLike,
-    input?: FunctionArgs<TFunctionRef>
+    inputOrConvex?: FunctionArgs<TFunctionRef> | NextClientActionExecutorLike,
+    maybeInput?: FunctionArgs<TFunctionRef>
   ): Promise<FunctionReturnType<TFunctionRef>> => {
-    return convex.action(functionRef, withDefaultRouteInput(input));
+    const convex = isNextClientActionExecutor(inputOrConvex)
+      ? inputOrConvex
+      : getDefaultExecutor();
+    const input = isNextClientActionExecutor(inputOrConvex)
+      ? maybeInput
+      : inputOrConvex;
+    return resolveNextClientActionExecutor(convex).action(
+      functionRef,
+      withDefaultRouteInput(input)
+    );
   };
-  routeMethod.actionFn = (convex: NextClientActionExecutorLike) => {
-    return async (input?: FunctionArgs<TFunctionRef>) => runAction(convex, input);
+  routeMethod.actionFn = (convex?: NextClientActionExecutorLike) => {
+    const executor = resolveNextClientActionExecutor(
+      convex ?? getDefaultExecutor()
+    );
+    return async (input?: FunctionArgs<TFunctionRef>) => {
+      return executor.action(functionRef, withDefaultRouteInput(input));
+    };
   };
   routeMethod.runAction = runAction;
 }
@@ -2053,6 +2133,8 @@ function createNextClientRouteMethod<
   kind?: TanStackAuthPluginFunctionKind;
   functionRef: TFunctionRef;
   fallback: string;
+  getDefaultMutationExecutor?: () => NextClientMutationExecutorLike | undefined;
+  getDefaultActionExecutor?: () => NextClientActionExecutorLike | undefined;
 }): (
   (input?: FunctionArgs<TFunctionRef>) => Promise<FunctionReturnType<TFunctionRef>>
 ) &
@@ -2095,12 +2177,14 @@ function createNextClientRouteMethod<
   } else if (options.kind === "mutation") {
     attachNextClientMutationHelpers(
       mutableRouteMethod,
-      options.functionRef as FunctionReference<"mutation", "public">
+      options.functionRef as FunctionReference<"mutation", "public">,
+      options.getDefaultMutationExecutor ?? (() => undefined)
     );
   } else if (options.kind === "action") {
     attachNextClientActionHelpers(
       mutableRouteMethod,
-      options.functionRef as FunctionReference<"action", "public">
+      options.functionRef as FunctionReference<"action", "public">,
+      options.getDefaultActionExecutor ?? (() => undefined)
     );
   }
 
@@ -2141,6 +2225,18 @@ function createNextQueryAuthClient<
     ...(options as NextAuthClientOptions),
     basePath: requester.basePath,
   });
+  let defaultMutationExecutor: NextClientMutationExecutorLike | undefined;
+  let defaultActionExecutor: NextClientActionExecutorLike | undefined;
+  const originalConnectConvexAuth = baseClient.connectConvexAuth.bind(baseClient);
+  baseClient.connectConvexAuth = (convexClient) => {
+    defaultMutationExecutor = isNextClientMutationExecutor(convexClient)
+      ? convexClient
+      : undefined;
+    defaultActionExecutor = isNextClientActionExecutor(convexClient)
+      ? convexClient
+      : undefined;
+    return originalConnectConvexAuth(convexClient);
+  };
   const plugins = (
     autoPluginsEnabled ? [] : options.plugins
   ) as readonly TanStackStartAuthApiClientPlugin<object>[];
@@ -2171,6 +2267,8 @@ function createNextQueryAuthClient<
           kind: functionKind,
           functionRef,
           fallback: `Could not call plugin method ${pluginName}.${functionName}`,
+          getDefaultMutationExecutor: () => defaultMutationExecutor,
+          getDefaultActionExecutor: () => defaultActionExecutor,
         });
       }
 
@@ -2216,6 +2314,8 @@ function createNextQueryAuthClient<
         ...(functionKind !== undefined ? { kind: functionKind } : {}),
         functionRef,
         fallback: `Could not call core method ${functionName}`,
+        getDefaultMutationExecutor: () => defaultMutationExecutor,
+        getDefaultActionExecutor: () => defaultActionExecutor,
       });
     }
 
@@ -2276,12 +2376,14 @@ function createNextQueryAuthClient<
       } else if (functionKind === "mutation") {
         attachNextClientMutationHelpers(
           routeMethod,
-          functionRef as FunctionReference<"mutation", "public">
+          functionRef as FunctionReference<"mutation", "public">,
+          () => defaultMutationExecutor
         );
       } else if (functionKind === "action") {
         attachNextClientActionHelpers(
           routeMethod,
-          functionRef as FunctionReference<"action", "public">
+          functionRef as FunctionReference<"action", "public">,
+          () => defaultActionExecutor
         );
       }
     }
@@ -2315,9 +2417,6 @@ function createNextQueryAuthClient<
 /**
  * Next.js client adapter (route-backed) built on the shared runtime adapter.
  */
-export function createNextAuthClient(
-  options?: NextAuthClientOptions
-): RouteAuthRuntimeAdapterClient;
 export function createNextAuthClient<
   TPlugins extends readonly TanStackStartAuthApiClientPlugin<object>[] = [],
   TConvexFunctions extends Record<string, unknown> = Record<string, unknown>,
@@ -2331,6 +2430,9 @@ export function createNextAuthClient<
     TCoreMeta
   >
 ): NextQueryAuthClient<TPlugins, TConvexFunctions, TPluginMeta, TCoreMeta>;
+export function createNextAuthClient(
+  options?: NextAuthClientOptions
+): RouteAuthRuntimeAdapterClient;
 export function createNextAuthClient<
   TPlugins extends readonly TanStackStartAuthApiClientPlugin<object>[] = [],
   TConvexFunctions extends Record<string, unknown> = Record<string, unknown>,

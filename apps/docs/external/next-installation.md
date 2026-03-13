@@ -59,6 +59,7 @@ import {
   googleProvider,
 } from "convex-zen";
 import { adminPlugin } from "convex-zen/plugins/admin";
+import { organizationPlugin } from "convex-zen/plugins/organization";
 import { components } from "./_generated/api";
 
 export const authOptions = {
@@ -85,7 +86,23 @@ export const authOptions = {
     }),
   ],
   requireEmailVerified: true,
-  plugins: [adminPlugin({ defaultRole: "user", adminRole: "admin" })],
+  plugins: [
+    adminPlugin({ defaultRole: "user", adminRole: "admin" }),
+    organizationPlugin({
+      accessControl: {
+        billing: ["read"],
+      },
+      roles: {
+        owner: {
+          billing: ["read"],
+        },
+        admin: {
+          billing: ["read"],
+        },
+      },
+      subdomainSuffix: "example.com",
+    }),
+  ],
 };
 
 export const auth = new ConvexZen(components.convexAuth, authOptions);
@@ -118,6 +135,7 @@ This creates generated wrappers used by the Next adapter (for example `convex/au
 
 For provider callback URLs, Convex env setup, and the shared browser flow, see:
 - [oauth.md](./oauth.md)
+- [organizations.md](./organizations.md)
 
 ## 7. Wire Next server + client auth
 

@@ -1,8 +1,10 @@
 import { createNextAuthClient } from "convex-zen/next";
-import { api } from "../../convex/_generated/api";
+import { authConvexFunctions } from "../../convex/auth/clientGenerated";
 import { authMeta } from "../../convex/auth/metaGenerated";
 
 export const authClient = createNextAuthClient({
-	convexFunctions: api.auth,
+	convexFunctions: authConvexFunctions,
 	meta: authMeta,
 });
+
+export type AppAuthClient = typeof authClient;

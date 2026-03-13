@@ -14,11 +14,15 @@ File: `packages/convex-zen/src/client/react.ts`
 Exports:
 
 - `ConvexZenAuthProvider`
-- `useSession`
+- `useZenSession`
+- `useSession` (alias)
 
 ## Purpose
 
-Provide a consistent client-side session state/hook layer that works with any React runtime, while keeping storage transport outside the component.
+Provide a consistent React auth context with:
+
+- reactive session state
+- a minimal provider contract
 
 Current demo integration:
 
@@ -33,7 +37,7 @@ Current demo integration:
   - `createTanStackAuthClient(...)` (route methods + dependency-free query/mutation/action helpers on plugin + core methods)
 - TanStack Query + Convex client providers are wired at the router level in `apps/tanstack/src/router.tsx`
 
-The provider expects a small client interface:
+The provider still only requires a client with:
 
 ```ts
 {
@@ -50,7 +54,8 @@ That means:
 ## Example
 
 ```ts
-import { ConvexZenAuthProvider, useSession } from "convex-zen/react";
+import { ConvexZenAuthProvider, useZenSession } from "convex-zen/react";
+import { authClient } from "./auth-client";
 
 function AppRoot() {
   return (
@@ -61,13 +66,18 @@ function AppRoot() {
 }
 
 function Profile() {
-  const { status, session, refresh } = useSession();
+  const { status, session, refresh } = useZenSession();
+  const organization = authClient.plugin.organization;
   if (status === "loading") return <p>Loading...</p>;
   if (!session) return <p>Signed out</p>;
 
   return (
     <div>
       <p>{session.userId}</p>
+      <button onClick={() => void authClient.signOut()}>Sign out</button>
+      <button onClick={() => void organization.listOrganizations()}>
+        Load orgs
+      </button>
       <button onClick={() => void refresh()}>Refresh session</button>
     </div>
   );

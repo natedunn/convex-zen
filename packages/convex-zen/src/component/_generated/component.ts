@@ -169,6 +169,385 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         any,
         Name
       >;
+      organizationAcceptIncomingInvitation: FunctionReference<
+        "mutation",
+        "internal",
+        { actorUserId: string; invitationId: string },
+        any,
+        Name
+      >;
+      organizationAcceptInvitation: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          actorUserId: string;
+          rolePermissions?: Record<string, Array<string>>;
+          token: string;
+        },
+        any,
+        Name
+      >;
+      organizationAddDomain: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          actorUserId: string;
+          hostname: string;
+          organizationId: string;
+          rolePermissions?: Record<string, Array<string>>;
+        },
+        any,
+        Name
+      >;
+      organizationCancelInvitation: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          actorUserId: string;
+          invitationId: string;
+          rolePermissions?: Record<string, Array<string>>;
+        },
+        any,
+        Name
+      >;
+      organizationCheckSlug: FunctionReference<
+        "query",
+        "internal",
+        { slug: string },
+        any,
+        Name
+      >;
+      organizationCreate: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          actorUserId: string;
+          allowUserOrganizationCreation?: boolean;
+          logo?: string;
+          name: string;
+          slug: string;
+        },
+        any,
+        Name
+      >;
+      organizationCreateRole: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          accessControl?: Record<string, Array<string>>;
+          actorUserId: string;
+          description?: string;
+          name: string;
+          organizationId: string;
+          permissions: Array<string>;
+          rolePermissions?: Record<string, Array<string>>;
+          slug: string;
+        },
+        any,
+        Name
+      >;
+      organizationDeclineIncomingInvitation: FunctionReference<
+        "mutation",
+        "internal",
+        { actorUserId: string; invitationId: string },
+        any,
+        Name
+      >;
+      organizationDelete: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          actorUserId: string;
+          organizationId: string;
+          rolePermissions?: Record<string, Array<string>>;
+        },
+        any,
+        Name
+      >;
+      organizationDeleteRole: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          actorUserId: string;
+          roleId: string;
+          rolePermissions?: Record<string, Array<string>>;
+        },
+        any,
+        Name
+      >;
+      organizationGet: FunctionReference<
+        "query",
+        "internal",
+        {
+          actorUserId: string;
+          organizationId: string;
+          rolePermissions?: Record<string, Array<string>>;
+        },
+        any,
+        Name
+      >;
+      organizationGetDomainVerificationChallenge: FunctionReference<
+        "query",
+        "internal",
+        {
+          actorUserId: string;
+          domainId: string;
+          rolePermissions?: Record<string, Array<string>>;
+        },
+        any,
+        Name
+      >;
+      organizationGetMembership: FunctionReference<
+        "query",
+        "internal",
+        { actorUserId: string; organizationId: string },
+        any,
+        Name
+      >;
+      organizationGetRole: FunctionReference<
+        "query",
+        "internal",
+        {
+          actorUserId: string;
+          roleId: string;
+          rolePermissions?: Record<string, Array<string>>;
+        },
+        any,
+        Name
+      >;
+      organizationHasPermission: FunctionReference<
+        "query",
+        "internal",
+        {
+          actorUserId: string;
+          organizationId: string;
+          permission: { action: string; resource: string };
+          rolePermissions?: Record<string, Array<string>>;
+        },
+        any,
+        Name
+      >;
+      organizationHasRole: FunctionReference<
+        "query",
+        "internal",
+        {
+          actorUserId: string;
+          organizationId: string;
+          role?: string;
+          roles?: Array<string>;
+        },
+        any,
+        Name
+      >;
+      organizationInviteMember: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          accessControl?: Record<string, Array<string>>;
+          actorUserId: string;
+          email: string;
+          inviteExpiresInMs?: number;
+          organizationId: string;
+          role:
+            | { systemRole: string; type: "system" }
+            | { customRoleId: string; type: "custom" };
+          rolePermissions?: Record<string, Array<string>>;
+        },
+        any,
+        Name
+      >;
+      organizationList: FunctionReference<
+        "query",
+        "internal",
+        { actorUserId: string },
+        any,
+        Name
+      >;
+      organizationListAvailablePermissions: FunctionReference<
+        "query",
+        "internal",
+        {
+          accessControl?: Record<string, Array<string>>;
+          actorUserId: string;
+          organizationId: string;
+          rolePermissions?: Record<string, Array<string>>;
+        },
+        any,
+        Name
+      >;
+      organizationListDomains: FunctionReference<
+        "query",
+        "internal",
+        {
+          actorUserId: string;
+          organizationId: string;
+          rolePermissions?: Record<string, Array<string>>;
+        },
+        any,
+        Name
+      >;
+      organizationListIncomingInvitations: FunctionReference<
+        "query",
+        "internal",
+        { actorUserId: string },
+        any,
+        Name
+      >;
+      organizationListInvitations: FunctionReference<
+        "query",
+        "internal",
+        {
+          actorUserId: string;
+          organizationId: string;
+          rolePermissions?: Record<string, Array<string>>;
+        },
+        any,
+        Name
+      >;
+      organizationListMembers: FunctionReference<
+        "query",
+        "internal",
+        {
+          actorUserId: string;
+          organizationId: string;
+          rolePermissions?: Record<string, Array<string>>;
+        },
+        any,
+        Name
+      >;
+      organizationListRoles: FunctionReference<
+        "query",
+        "internal",
+        {
+          actorUserId: string;
+          organizationId: string;
+          rolePermissions?: Record<string, Array<string>>;
+        },
+        any,
+        Name
+      >;
+      organizationMarkDomainVerified: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          actorUserId: string;
+          domainId: string;
+          rolePermissions?: Record<string, Array<string>>;
+        },
+        any,
+        Name
+      >;
+      organizationRemoveDomain: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          actorUserId: string;
+          domainId: string;
+          rolePermissions?: Record<string, Array<string>>;
+        },
+        any,
+        Name
+      >;
+      organizationRemoveMember: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          actorUserId: string;
+          organizationId: string;
+          rolePermissions?: Record<string, Array<string>>;
+          userId: string;
+        },
+        any,
+        Name
+      >;
+      organizationRequirePermission: FunctionReference<
+        "query",
+        "internal",
+        {
+          actorUserId: string;
+          organizationId: string;
+          permission: { action: string; resource: string };
+          rolePermissions?: Record<string, Array<string>>;
+        },
+        any,
+        Name
+      >;
+      organizationRequireRole: FunctionReference<
+        "query",
+        "internal",
+        {
+          actorUserId: string;
+          organizationId: string;
+          role?: string;
+          roles?: Array<string>;
+        },
+        any,
+        Name
+      >;
+      organizationResolveByHost: FunctionReference<
+        "query",
+        "internal",
+        { host: string; subdomainSuffix?: string },
+        any,
+        Name
+      >;
+      organizationSetMemberRole: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          actorUserId: string;
+          organizationId: string;
+          role:
+            | { systemRole: string; type: "system" }
+            | { customRoleId: string; type: "custom" };
+          rolePermissions?: Record<string, Array<string>>;
+          userId: string;
+        },
+        any,
+        Name
+      >;
+      organizationTransferOwnership: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          actorUserId: string;
+          newOwnerUserId: string;
+          organizationId: string;
+          rolePermissions?: Record<string, Array<string>>;
+        },
+        any,
+        Name
+      >;
+      organizationUpdate: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          actorUserId: string;
+          logo?: string;
+          name?: string;
+          organizationId: string;
+          rolePermissions?: Record<string, Array<string>>;
+          slug?: string;
+        },
+        any,
+        Name
+      >;
+      organizationUpdateRole: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          accessControl?: Record<string, Array<string>>;
+          actorUserId: string;
+          description?: string;
+          name?: string;
+          permissions?: Array<string>;
+          roleId: string;
+          rolePermissions?: Record<string, Array<string>>;
+          slug?: string;
+        },
+        any,
+        Name
+      >;
       requestPasswordReset: FunctionReference<
         "mutation",
         "internal",

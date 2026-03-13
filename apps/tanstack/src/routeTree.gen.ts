@@ -13,6 +13,7 @@ import { Route as VerifyRouteImport } from './routes/verify'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SigninRouteImport } from './routes/signin'
 import { Route as ResetRouteImport } from './routes/reset'
+import { Route as OrganizationsRouteImport } from './routes/organizations'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
@@ -36,6 +37,11 @@ const SigninRoute = SigninRouteImport.update({
 const ResetRoute = ResetRouteImport.update({
   id: '/reset',
   path: '/reset',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrganizationsRoute = OrganizationsRouteImport.update({
+  id: '/organizations',
+  path: '/organizations',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -63,6 +69,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/dashboard': typeof DashboardRoute
+  '/organizations': typeof OrganizationsRoute
   '/reset': typeof ResetRoute
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
@@ -73,6 +80,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/dashboard': typeof DashboardRoute
+  '/organizations': typeof OrganizationsRoute
   '/reset': typeof ResetRoute
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
@@ -84,6 +92,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/dashboard': typeof DashboardRoute
+  '/organizations': typeof OrganizationsRoute
   '/reset': typeof ResetRoute
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
@@ -96,6 +105,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/dashboard'
+    | '/organizations'
     | '/reset'
     | '/signin'
     | '/signup'
@@ -106,6 +116,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/dashboard'
+    | '/organizations'
     | '/reset'
     | '/signin'
     | '/signup'
@@ -116,6 +127,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/dashboard'
+    | '/organizations'
     | '/reset'
     | '/signin'
     | '/signup'
@@ -127,6 +139,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
   DashboardRoute: typeof DashboardRoute
+  OrganizationsRoute: typeof OrganizationsRoute
   ResetRoute: typeof ResetRoute
   SigninRoute: typeof SigninRoute
   SignupRoute: typeof SignupRoute
@@ -164,6 +177,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ResetRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/organizations': {
+      id: '/organizations'
+      path: '/organizations'
+      fullPath: '/organizations'
+      preLoaderRoute: typeof OrganizationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dashboard': {
       id: '/dashboard'
       path: '/dashboard'
@@ -199,6 +219,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   DashboardRoute: DashboardRoute,
+  OrganizationsRoute: OrganizationsRoute,
   ResetRoute: ResetRoute,
   SigninRoute: SigninRoute,
   SignupRoute: SignupRoute,
