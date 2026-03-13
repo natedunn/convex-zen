@@ -1,6 +1,6 @@
 {
   "name": "convex-zen",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "Production-grade auth component for Convex",
   "repository": {
     "type": "git",
@@ -36,6 +36,10 @@
     "./framework-adapter": {
       "types": "./src/client/framework-adapter.ts",
       "import": "./src/client/framework-adapter.ts"
+    },
+    "./expo": {
+      "types": "./src/client/expo.ts",
+      "import": "./src/client/expo.ts"
     },
     "./next": {
       "types": "./src/client/next.ts",
@@ -81,6 +85,10 @@
       "./framework-adapter": {
         "types": "./dist/client/framework-adapter.d.ts",
         "import": "./dist/client/framework-adapter.js"
+      },
+      "./expo": {
+        "types": "./dist/client/expo.d.ts",
+        "import": "./dist/client/expo.js"
       },
       "./next": {
         "types": "./dist/client/next.d.ts",

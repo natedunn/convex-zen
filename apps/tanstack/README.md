@@ -31,7 +31,8 @@ pnpm -C apps/tanstack dev
 
 Web app URL (via Portless):
 
-- `http://tanstack.convex-zen.localhost:1355`
+- Main checkout: `http://tanstack.localhost:1355`
+- Linked worktrees: `http://<branch>.tanstack.localhost:1355`
 
 If you need dev mode without Portless:
 

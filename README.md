@@ -8,7 +8,7 @@ Production-grade authentication for Convex, built as a reusable component packag
 
 - Baseline reference: https://github.com/get-convex/better-auth
 - Baseline docs: https://labs.convex.dev/better-auth
-- This project: native auth implementation inside Convex components (`packages/convex-zen`), with optional framework-specific exports like `convex-zen/tanstack-start`.
+- This project: native auth implementation inside Convex components (`packages/convex-zen`), with framework-specific exports like `convex-zen/tanstack-start`, `convex-zen/next`, and `convex-zen/expo`.
 
 In short: we do not import Better Auth runtime into app code. We keep auth logic in Convex component functions and expose a familiar integration surface.
 
@@ -21,7 +21,7 @@ npm install convex-zen
 ## Workspace
 
 - Library package: `packages/convex-zen`
-- Demo app: `apps/tanstack`
+- Demo apps: `apps/tanstack`, `apps/next`, `apps/expo`
 - Draft integration docs: `apps/docs`
 - Project architecture and design notes: `PROJECT.md`
 
@@ -33,12 +33,21 @@ pnpm -C apps/tanstack exec convex dev
 pnpm -C apps/tanstack dev
 ```
 
+Expo example:
+
+```bash
+pnpm -C apps/expo typecheck
+pnpm -C apps/expo build
+pnpm -C apps/expo start
+```
+
 ## Testing and build
 
 ```bash
 pnpm -C packages/convex-zen test
 pnpm -C packages/convex-zen build
 pnpm -C apps/tanstack build
+pnpm -C apps/expo build
 ```
 
 ## License and attribution

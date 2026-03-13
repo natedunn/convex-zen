@@ -158,6 +158,10 @@ packages/convex-zen/
 
 ```
 convex-zen              → src/client/index.ts
+convex-zen/expo         → src/client/expo.ts
+convex-zen/next         → src/client/next.ts
+convex-zen/react        → src/client/react.ts
+convex-zen/tanstack-start → src/client/tanstack-start.ts
 convex-zen/plugins/admin → src/client/plugins/admin.ts
 convex-zen/plugins/organization → src/client/plugins/organization.ts
 convex-zen/convex.config → src/component/convex.config.ts
@@ -473,4 +477,4 @@ Tests use `convexTest(schema, modules)` and call `internal.*` functions directly
 - Webhook events on auth actions
 - Built-in email templates (currently caller-supplied)
 - React hooks package (`useSession`, `useSignIn`, etc.)
-- React Native support
+- Broader React Native support beyond the shipped Expo client

@@ -1,3 +1,18 @@
+# [1.6.0](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.5.0...convex-zen-v1.6.0) (2026-03-13)
+
+
+### Bug Fixes
+
+* **expo:** align native session flow with direct Convex auth ([08b0dfb](https://github.com/natedunn/convex-zen/commit/08b0dfb494df70220356451d3d3936f20d9161c7))
+* **expo:** stop sending session tokens as Convex JWT auth ([09a9f74](https://github.com/natedunn/convex-zen/commit/09a9f748146f94090e4c5326dd2d0febff085fa0))
+* **expo:** use real Convex function references in example app ([7b27270](https://github.com/natedunn/convex-zen/commit/7b27270b7c819120a8faa7bb79aad1864ec0c077))
+* **oauth:** validate redirectTo and errorRedirectTo overrides in callback handler ([59357aa](https://github.com/natedunn/convex-zen/commit/59357aadaf29ada9ef877666c6c60cd1b6849633))
+
+
+### Features
+
+* **expo:** add first-class Expo client and example app ([0f6f2e2](https://github.com/natedunn/convex-zen/commit/0f6f2e22a43066d2b7567772fcac251e5486ecaf))
+
 # [1.5.0](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.4.0...convex-zen-v1.5.0) (2026-03-10)
 
 

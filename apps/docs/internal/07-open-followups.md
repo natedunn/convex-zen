@@ -9,7 +9,8 @@ This file tracks active follow-ups that are not implemented yet.
 
 ## Framework expansion
 
-1. Evaluate additional runtime adapters for future framework targets beyond TanStack Start/Next.js.
+1. Decide whether the Expo adapter should remain Expo-scoped or become the basis for broader React Native support.
+2. Evaluate additional runtime adapters for future framework targets beyond Expo/TanStack Start/Next.js.
 
 ## Next.js parity backlog (post-compaction)
 

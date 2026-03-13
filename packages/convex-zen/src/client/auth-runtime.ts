@@ -87,6 +87,16 @@ export interface LocalStorageAuthStorageOptions {
   key?: string;
 }
 
+export interface AuthKeyValueStorage {
+  getItem: (key: string) => MaybePromise<string | null>;
+  setItem: (key: string, value: string) => MaybePromise<void>;
+  removeItem: (key: string) => MaybePromise<void>;
+}
+
+export interface KeyValueAuthStorageOptions {
+  key?: string;
+}
+
 export interface BroadcastAuthSyncOptions {
   channelName?: string;
 }
@@ -221,6 +231,33 @@ export function createLocalStorageAuthStorage(
         return;
       }
       window.localStorage.removeItem(key);
+    },
+  };
+}
+
+export function createKeyValueStorageAuthStorage(
+  storage: AuthKeyValueStorage,
+  options: KeyValueAuthStorageOptions = {}
+): AuthRuntimeStorage {
+  const key = options.key ?? DEFAULT_STORAGE_KEY;
+
+  return {
+    get: async () => {
+      const raw = await storage.getItem(key);
+      if (!raw) {
+        return null;
+      }
+      return parseStoredPayload(raw);
+    },
+    set: async (payload) => {
+      if (!payload) {
+        await storage.removeItem(key);
+        return;
+      }
+      await storage.setItem(key, serializePayload(payload));
+    },
+    clear: async () => {
+      await storage.removeItem(key);
     },
   };
 }
