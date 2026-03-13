@@ -86,7 +86,7 @@ function useSessionContext(): ConvexZenSessionContextValue {
   const context = useContext(SessionContext);
   if (!context) {
     throw new Error(
-      "useZenSession must be used within ConvexZenAuthProvider"
+      "useZenSession (or useSession) must be used within ConvexZenAuthProvider"
     );
   }
   return context;
