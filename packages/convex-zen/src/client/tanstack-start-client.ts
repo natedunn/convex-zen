@@ -921,9 +921,6 @@ function createTanStackRouteAuthClient<
       'or disable auto plugins with plugins: [].'
     );
   }
-  let defaultMutationExecutor: ConvexMutationExecutorLike | undefined;
-  let defaultActionExecutor: ConvexActionExecutorLike | undefined;
-
   const basePath = normalizeBasePath(options.basePath ?? "/api/auth");
   const credentials = options.credentials ?? "same-origin";
   const fetchImpl = options.fetch ?? fetch;
@@ -1121,12 +1118,6 @@ function createTanStackRouteAuthClient<
   };
 
   const connectConvexAuth = (convexClient: ConvexAuthClientLike): (() => void) => {
-    defaultMutationExecutor = isMutationExecutor(convexClient)
-      ? convexClient
-      : undefined;
-    defaultActionExecutor = isActionExecutor(convexClient)
-      ? convexClient
-      : undefined;
     return runtime.mountConvex(convexClient);
   };
 
