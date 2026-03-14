@@ -1,3 +1,12 @@
+## [1.7.1](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.7.0...convex-zen-v1.7.1) (2026-03-14)
+
+
+### Bug Fixes
+
+* **runtime:** replace btoa spread with loop-based base64 encoding for Convex runtime safety ([f626d49](https://github.com/natedunn/convex-zen/commit/f626d4975c0577ac77d2effbf661b4d0febc193c))
+* **security:** address code review feedback ([99d88b6](https://github.com/natedunn/convex-zen/commit/99d88b66967ad96b591483fb0ccbfd9576119c07))
+* **security:** address five vulnerabilities in auth library ([58d923b](https://github.com/natedunn/convex-zen/commit/58d923be6a4ce6e42f47af064e12d16b56c98875))
+
 # [1.7.0](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.6.0...convex-zen-v1.7.0) (2026-03-13)
 
 
