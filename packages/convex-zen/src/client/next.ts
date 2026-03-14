@@ -1439,7 +1439,11 @@ export function resolveNextTrustedOriginsFromEnv(
   options: NextTrustedOriginsFromEnvOptions = {}
 ): string[] {
   const env = options.env ?? resolveProcessEnv();
-  const envVars = options.envVars ?? ["CONVEX_SITE_URL", "NEXT_PUBLIC_APP_ORIGIN"];
+  const envVars = options.envVars ?? [
+    "CONVEX_SITE_URL",
+    "NEXT_PUBLIC_APP_ORIGIN",
+    "PORTLESS_URL",
+  ];
   const defaults = options.defaults ?? [];
   const values: string[] = [...defaults];
 
