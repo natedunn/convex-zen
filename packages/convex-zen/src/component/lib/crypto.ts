@@ -66,6 +66,22 @@ export function generateState(): string {
   return generateToken();
 }
 
+/**
+ * Compare two strings in constant time to prevent timing attacks.
+ * Both strings must be the same length; if they differ, returns false
+ * without leaking information about the position of the first mismatch.
+ */
+export function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) {
+    return false;
+  }
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return result === 0;
+}
+
 function assertEncryptionSecret(secret: string): string {
   const trimmed = secret.trim();
   if (trimmed.length < MIN_ENCRYPTION_SECRET_LENGTH) {

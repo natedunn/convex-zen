@@ -1100,13 +1100,17 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 		const result = (await ctx.runMutation(this.fn("gateway:signUp"), {
 			...args,
 			defaultRole: this.resolveDefaultRole(),
-		})) as { status: "verification_required"; verificationCode: string };
+		})) as { status: "verification_required"; verificationCode: string | null };
 
-		// Send email from host app context (functions can't be Convex args)
-		await this.options.emailProvider.sendVerificationEmail(
-			args.email,
-			result.verificationCode,
-		);
+		// Only send the verification email when a code was produced.
+		// A null code means the address was already registered; we return the
+		// same response shape to avoid revealing whether the email exists.
+		if (result.verificationCode !== null) {
+			await this.options.emailProvider.sendVerificationEmail(
+				args.email,
+				result.verificationCode,
+			);
+		}
 
 		return { status: "verification_required" };
 	}

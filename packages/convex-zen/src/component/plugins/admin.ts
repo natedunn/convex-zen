@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery, type DatabaseReader, type DatabaseWriter } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { deleteUserWithRelations } from "../core/users";
+import { invalidateAllUserSessions } from "../core/sessions";
 
 function normalizeAdminRole(adminRole?: string): string {
   const normalizedRole = adminRole?.trim();
@@ -19,6 +20,12 @@ export async function assertAdminActor(
   const requiredRole = normalizeAdminRole(adminRole);
   if (!actor) {
     throw new Error("Unauthorized");
+  }
+  if (actor.banned) {
+    const now = Date.now();
+    if (actor.banExpires === undefined || actor.banExpires > now) {
+      throw new Error("Unauthorized");
+    }
   }
   if (actor.role !== requiredRole) {
     throw new Error("Forbidden");
@@ -133,6 +140,10 @@ export async function setUserRoleByAdmin(
     role: args.role,
     updatedAt: Date.now(),
   });
+
+  // Invalidate all active sessions so that the new role takes effect
+  // immediately and downgraded users cannot continue acting with old privileges.
+  await invalidateAllUserSessions(db, args.userId);
 }
 
 export async function deleteUserByAdmin(

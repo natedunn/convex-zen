@@ -74,7 +74,7 @@ export async function signUpWithEmailPassword(
     ipAddress?: string;
     defaultRole?: string;
   }
-): Promise<{ status: "verification_required"; verificationCode: string }> {
+): Promise<{ status: "verification_required"; verificationCode: string | null }> {
   const { email, password, name, ipAddress, defaultRole } = args;
   const normalizedEmail = email.toLowerCase();
 
@@ -100,7 +100,9 @@ export async function signUpWithEmailPassword(
     for (const key of rateLimitKeys) {
       await incrementRateLimit(ctx.db, key);
     }
-    throw new Error("Email already registered");
+    // Return the same shape as a successful signup to avoid revealing
+    // whether this email address is already registered (email enumeration).
+    return { status: "verification_required" as const, verificationCode: null };
   }
 
   const passwordHash = await hashPassword(password);
