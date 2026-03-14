@@ -26,10 +26,27 @@ export async function hashToken(token: string): Promise<string> {
   return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+/**
+ * Convert a Uint8Array to a base64 string without using spread arguments.
+ *
+ * The spread form `btoa(String.fromCharCode(...bytes))` passes every byte as a
+ * separate function argument. JavaScript engines impose a per-call argument
+ * limit (≈65 536 in V8) and the Convex component runtime runs in a sandboxed
+ * V8 isolate where that limit may be lower. This loop-based implementation has
+ * no argument-count limit and is safe for inputs of any size (e.g. large OAuth
+ * JWT access tokens issued by enterprise identity providers).
+ */
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+  return btoa(binary);
+}
+
 /** Base64url encode bytes (no padding). Used for PKCE code challenge. */
 export function base64url(bytes: Uint8Array): string {
-  const base64 = btoa(String.fromCharCode(...bytes));
-  return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+  return bytesToBase64(bytes).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
 }
 
 /** Generate a PKCE code verifier (32 random bytes, base64url encoded). */
@@ -66,6 +83,27 @@ export function generateState(): string {
   return generateToken();
 }
 
+/**
+ * Compare two strings in constant time to prevent timing attacks.
+ * Runs for max(a.length, b.length) iterations regardless of input so that
+ * neither string length nor the position of the first mismatch is revealed
+ * through execution time.
+ */
+export function timingSafeEqual(a: string, b: string): boolean {
+  const lenA = a.length;
+  const lenB = b.length;
+  const len = Math.max(lenA, lenB);
+  // Encode length difference into result from the start so differing lengths
+  // always produce a non-zero result without an early return.
+  let result = lenA ^ lenB;
+  for (let i = 0; i < len; i++) {
+    const ca = i < lenA ? a.charCodeAt(i) : 0;
+    const cb = i < lenB ? b.charCodeAt(i) : 0;
+    result |= ca ^ cb;
+  }
+  return result === 0;
+}
+
 function assertEncryptionSecret(secret: string): string {
   const trimmed = secret.trim();
   if (trimmed.length < MIN_ENCRYPTION_SECRET_LENGTH) {
@@ -77,8 +115,7 @@ function assertEncryptionSecret(secret: string): string {
 }
 
 function bytesToBase64Url(bytes: Uint8Array): string {
-  const base64 = btoa(String.fromCharCode(...bytes));
-  return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+  return bytesToBase64(bytes).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
 }
 
 function base64UrlToBytes(value: string): Uint8Array {

@@ -318,6 +318,31 @@ describe("oauth", () => {
       ).rejects.toThrow("redirectTo must be a relative path");
     });
 
+    it("rejects URL-encoded open-redirect bypass in redirectTo", async () => {
+      const t = convexTest(schema, modules);
+
+      // /%2Fevil.com decodes to //evil.com which is a protocol-relative URL
+      // (open redirect). The validator must catch this after decoding.
+      await expect(
+        t.mutation(internal.providers.oauth.getAuthorizationUrl, {
+          provider: googleConfig,
+          redirectTo: "/%2Fevil.com/path",
+        })
+      ).rejects.toThrow("redirectTo must be a relative path");
+    });
+
+    it("rejects backslash open-redirect bypass in redirectTo", async () => {
+      const t = convexTest(schema, modules);
+
+      // /\evil.com is treated as //evil.com by some browsers/parsers
+      await expect(
+        t.mutation(internal.providers.oauth.getAuthorizationUrl, {
+          provider: googleConfig,
+          redirectTo: "/\\evil.com",
+        })
+      ).rejects.toThrow("redirectTo must be a relative path");
+    });
+
     it("cleans up expired oauth states", async () => {
       const t = convexTest(schema, modules);
 

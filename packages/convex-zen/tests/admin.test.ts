@@ -338,6 +338,62 @@ describe("admin plugin", () => {
       const user = await t.run((ctx) => ctx.db.get(userId));
       expect(user!.role).toBe("admin");
     });
+
+    it("invalidates all sessions when role is changed", async () => {
+      const t = convexTest(schema, modules);
+      const adminId = await createUser(t, "admin-role-sessions@example.com", {
+        role: "admin",
+      });
+      const userId = await createUser(t, "role-sessions-user@example.com");
+
+      // Create sessions for the user
+      const token1 = await t.mutation(internal.core.sessions.create, { userId });
+      const token2 = await t.mutation(internal.core.sessions.create, { userId });
+
+      // Both sessions should be valid before role change
+      const before1 = await t.mutation(internal.core.sessions.validate, { token: token1 });
+      const before2 = await t.mutation(internal.core.sessions.validate, { token: token2 });
+      expect(before1).not.toBeNull();
+      expect(before2).not.toBeNull();
+
+      // Change the role
+      await t.mutation(internal.plugins.admin.setRole, {
+        actorUserId: adminId,
+        userId,
+        role: "moderator",
+      });
+
+      // All sessions should be invalidated after role change
+      const after1 = await t.mutation(internal.core.sessions.validate, { token: token1 });
+      const after2 = await t.mutation(internal.core.sessions.validate, { token: token2 });
+      expect(after1).toBeNull();
+      expect(after2).toBeNull();
+    });
+
+    it("rejects a banned admin actor", async () => {
+      const t = convexTest(schema, modules);
+      const adminId = await createUser(t, "banned-admin-role@example.com", {
+        role: "admin",
+      });
+      const userId = await createUser(t, "target-role@example.com");
+
+      // Ban the admin
+      await t.run(async (ctx) => {
+        await ctx.db.patch(adminId, {
+          banned: true,
+          banReason: "test",
+          updatedAt: Date.now(),
+        });
+      });
+
+      await expect(
+        t.mutation(internal.plugins.admin.setRole, {
+          actorUserId: adminId,
+          userId,
+          role: "moderator",
+        })
+      ).rejects.toThrow("Unauthorized");
+    });
   });
 
   describe("deleteUser", () => {

@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "../_generated/server";
 import type { DatabaseReader, DatabaseWriter } from "../_generated/server";
-import { generateCode, hashToken } from "../lib/crypto";
+import { generateCode, hashToken, timingSafeEqual } from "../lib/crypto";
 
 /** Max attempts before a verification code is locked. */
 const MAX_ATTEMPTS = 10;
@@ -92,7 +92,7 @@ export async function verifyVerification(
   }
 
   const codeHash = await hashToken(args.code);
-  if (codeHash !== record.codeHash) {
+  if (!timingSafeEqual(codeHash, record.codeHash)) {
     await db.patch(record._id, { attempts: record.attempts + 1 });
     if (record.attempts + 1 >= MAX_ATTEMPTS) {
       return { status: "too_many_attempts" as const };

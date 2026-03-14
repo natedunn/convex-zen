@@ -74,6 +74,29 @@ function assertRelativeRedirectTarget(
       `${fieldName} must be a relative path that stays on the current origin`
     );
   }
+  // Decode URL-encoded characters and re-validate to prevent bypasses such as
+  // `/%2Fevil.com` which decodes to `//evil.com` (an open redirect).
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(target);
+  } catch {
+    throw new Error(
+      `${fieldName} contains invalid URL encoding`
+    );
+  }
+  if (!decoded.startsWith("/") || decoded.startsWith("//")) {
+    throw new Error(
+      `${fieldName} must be a relative path that stays on the current origin`
+    );
+  }
+  // Block backslash-based open-redirect tricks. Some browsers normalise `/\`
+  // or `/\/` to `//` when resolving URLs, so we reject any backslash within
+  // the first three characters of the decoded path (e.g. `/\`, `/\\`, `/\/`).
+  if (decoded.substring(0, 3).includes("\\")) {
+    throw new Error(
+      `${fieldName} must be a relative path that stays on the current origin`
+    );
+  }
 }
 
 function providerTrustsVerifiedEmail(

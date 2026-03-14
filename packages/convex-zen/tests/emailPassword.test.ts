@@ -67,7 +67,7 @@ describe("emailPassword", () => {
       ).rejects.toThrow("Invalid email address");
     });
 
-    it("rejects duplicate email", async () => {
+    it("does not reveal whether email is already registered (enumeration protection)", async () => {
       const t = convexTest(schema, modules);
 
       await t.mutation(internal.providers.emailPassword.signUp, {
@@ -75,12 +75,18 @@ describe("emailPassword", () => {
         password: "Password123!",
       });
 
-      await expect(
-        t.mutation(internal.providers.emailPassword.signUp, {
-          email: "dup@example.com",
-          password: "AnotherPassword123!",
-        })
-      ).rejects.toThrow("Email already registered");
+      // A second signup with the same email should return the same
+      // "verification_required" shape rather than throwing, so that
+      // callers cannot distinguish between a new address and an existing one.
+      const result = (await t.mutation(internal.providers.emailPassword.signUp, {
+        email: "dup@example.com",
+        password: "AnotherPassword123!",
+      })) as { status: string; verificationCode: string | null };
+
+      expect(result.status).toBe("verification_required");
+      // verificationCode is null so the caller knows not to send a code,
+      // but the response shape itself doesn't reveal the email exists.
+      expect(result.verificationCode).toBeNull();
     });
 
     it("rejects short passwords", async () => {
