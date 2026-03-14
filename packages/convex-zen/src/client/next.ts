@@ -26,17 +26,17 @@ import {
   type TanStackAuthPluginFunctionKind,
   type TanStackAuthPluginMeta,
   toKebabCase,
-} from "./tanstack-start-plugin-meta";
+} from "./plugin-meta";
 import {
   createConvexZenIdentityJwt,
   type SessionTokenCodec,
-} from "./tanstack-start-identity-jwt";
+} from "./identity-jwt";
 import {
   type TanStackQueryAuthClient,
   type TanStackQueryAuthClientOptions,
   type TanStackStartAuthApiClientPlugin,
   type TanStackStartAuthApiClientPluginContext,
-} from "./tanstack-start-client";
+} from "./tanstack-start/client";
 
 type MaybePromise<T> = T | Promise<T>;
 const DEFAULT_COOKIE_MAX_AGE_SECONDS = 14 * 24 * 60 * 60;

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { FunctionReference } from "convex/server";
 import { createTanStackAuthServer } from "../src/client/tanstack-start";
-import type { SessionTokenCodec } from "../src/client/tanstack-start-identity-jwt";
+import type { SessionTokenCodec } from "../src/client/identity-jwt";
 
 const passthroughSessionTokenCodec: SessionTokenCodec = {
   encode: async ({ sessionToken }) => sessionToken,

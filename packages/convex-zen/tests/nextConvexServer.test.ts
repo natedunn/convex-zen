@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { FunctionReference } from "convex/server";
-import type { SessionTokenCodec } from "../src/client/tanstack-start-identity-jwt";
+import type { SessionTokenCodec } from "../src/client/identity-jwt";
 import {
   createNextAuthServer,
   createNextConvexFetchers,

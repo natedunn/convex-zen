@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { FunctionReference } from "convex/server";
-import { coreApiPlugin } from "../src/client/tanstack-start-plugins";
+import { coreApiPlugin } from "../src/client/tanstack-start/plugins";
 
 function mutationRef(name: string): FunctionReference<"mutation", "public"> {
   return { name } as unknown as FunctionReference<"mutation", "public">;

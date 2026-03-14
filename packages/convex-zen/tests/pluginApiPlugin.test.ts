@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { FunctionReference } from "convex/server";
-import { pluginApiPlugin } from "../src/client/tanstack-start-plugins";
+import { pluginApiPlugin } from "../src/client/tanstack-start/plugins";
 
 function queryRef(name: string): FunctionReference<"query", "public"> {
   return { name } as unknown as FunctionReference<"query", "public">;

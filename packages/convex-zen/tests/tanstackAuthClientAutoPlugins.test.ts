@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { FunctionReference } from "convex/server";
-import { createTanStackAuthClient } from "../src/client/tanstack-start-client";
+import { createTanStackAuthClient } from "../src/client/tanstack-start/client";
 
 const adminPluginMeta = {
   admin: {

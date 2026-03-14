@@ -1,9 +1,9 @@
-import type { SessionInfo, SignInInput } from "./primitives";
-import type { ReactAuthClient } from "./react";
+import type { SessionInfo, SignInInput } from "../primitives";
+import type { ReactAuthClient } from "../react";
 import type {
   OAuthProviderId,
   OAuthStartResult,
-} from "../types";
+} from "../../types";
 import type {
   FunctionArgs,
   FunctionReference,
@@ -14,9 +14,9 @@ import type {
   TanStackAuthCoreMeta,
   TanStackAuthMeta,
   TanStackAuthPluginMeta,
-} from "./tanstack-start-plugin-meta";
-import { toKebabCase } from "./tanstack-start-plugin-meta";
-import type { AuthTokenPayload } from "./auth-token-manager";
+} from "../plugin-meta";
+import { toKebabCase } from "../plugin-meta";
+import type { AuthTokenPayload } from "../auth-token-manager";
 import {
   createAuthRuntime,
   createBroadcastAuthSync,
@@ -24,7 +24,7 @@ import {
   type AuthRuntimeStorage,
   type AuthRuntimeSync,
   type ConvexAuthClientLike,
-} from "./auth-runtime";
+} from "../auth-runtime";
 export {
   createAuthTokenManager,
   type AuthTokenManager,
@@ -32,7 +32,7 @@ export {
   type AuthTokenManagerListener,
   type AuthTokenManagerOptions,
   type AuthTokenPayload,
-} from "./auth-token-manager";
+} from "../auth-token-manager";
 export {
   createAuthRuntime,
   createMemoryAuthStorage,
@@ -50,7 +50,7 @@ export {
   type BroadcastAuthSyncOptions,
   type ConvexAuthClientLike,
   type LocalStorageAuthStorageOptions,
-} from "./auth-runtime";
+} from "../auth-runtime";
 
 interface AuthApiErrorPayload {
   error?: string;

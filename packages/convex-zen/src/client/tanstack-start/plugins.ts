@@ -1,11 +1,11 @@
 import type { FunctionArgs, FunctionReference } from "convex/server";
-import type { TanStackStartAuthApiPluginFactory } from "./tanstack-start";
+import type { TanStackStartAuthApiPluginFactory } from "./index";
 import type {
   TanStackAuthCoreMeta,
   TanStackAuthPluginFunctionKind,
   TanStackAuthPluginMeta,
-} from "./tanstack-start-plugin-meta";
-import { toKebabCase } from "./tanstack-start-plugin-meta";
+} from "../plugin-meta";
+import { toKebabCase } from "../plugin-meta";
 
 type MutationRef = FunctionReference<"mutation", "public">;
 type QueryRef = FunctionReference<"query", "public">;
