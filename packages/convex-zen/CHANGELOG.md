@@ -1,3 +1,10 @@
+# [1.8.0](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.7.1...convex-zen-v1.8.0) (2026-03-14)
+
+
+### Features
+
+* **next:** simplify dev hostnames and auto-trust PORTLESS_URL ([65f3a06](https://github.com/natedunn/convex-zen/commit/65f3a0637c0c8b6384e9dc08fd032a2735e3fc89))
+
 ## [1.7.1](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.7.0...convex-zen-v1.7.1) (2026-03-14)
 
 
