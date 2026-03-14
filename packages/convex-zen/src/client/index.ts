@@ -7,7 +7,6 @@ import type {
 	OAuthStartOptions,
 	OAuthStartResult,
 	AdminPluginConfig,
-	AdminListUsersResult,
 	Organization,
 	OrganizationDomain,
 	OrganizationDomainVerificationChallenge,
@@ -138,40 +137,6 @@ type PasswordValidationConfig = PasswordValidationFn | PasswordSchema;
 
 const DEFAULT_MIN_PASSWORD_LENGTH = 12;
 const DEFAULT_MAX_PASSWORD_LENGTH = 128;
-
-interface AdminFacade {
-	isAdmin: (
-		ctx: RunsQueries,
-		args?: { actorUserId?: string },
-	) => Promise<boolean>;
-	listUsers: (
-		ctx: RunsQueries,
-		args?: { actorUserId?: string; limit?: number; cursor?: string },
-	) => Promise<AdminListUsersResult>;
-	banUser: (
-		ctx: RunsMutations,
-		args: {
-			actorUserId?: string;
-			userId: string;
-			reason?: string;
-			expiresAt?: number;
-		},
-	) => Promise<void>;
-	unbanUser: (
-		ctx: RunsMutations,
-		args: { actorUserId?: string; userId: string },
-	) => Promise<void>;
-	setRole: (
-		ctx: RunsMutations,
-		args: { actorUserId?: string; userId: string; role: string },
-	) => Promise<void>;
-	deleteUser: (
-		ctx: RunsMutations,
-		args: { actorUserId?: string; userId: string },
-	) => Promise<void>;
-}
-type AdminFacadeFor<TPlugins extends PluginList> =
-	Extract<TPlugins[number], { id: "admin" }> extends never ? null : AdminFacade;
 
 interface OrganizationRoleInput<TRole extends string> {
 	role?: TRole;
@@ -516,98 +481,6 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 	/** Alias for plugins to support auth.plugin.admin style access. */
 	get plugin() {
 		return this.plugins;
-	}
-
-	/** Admin facade on the auth object (no separate authSystem object required). */
-	get admin(): AdminFacadeFor<TPlugins> {
-		if (!this._adminPlugin) {
-			return null as AdminFacadeFor<TPlugins>;
-		}
-		return {
-			isAdmin: async (ctx, args = {}) => {
-				const actorUserId = args.actorUserId ?? (await this.resolveUserId(ctx));
-				if (!actorUserId) {
-					return false;
-				}
-				return this._adminPlugin!.isAdmin(ctx, { actorUserId });
-			},
-			listUsers: async (ctx, args = {}) => {
-				const actorUserId =
-					args.actorUserId ?? (await this.requireAdminActorUserId(ctx));
-				const payload: {
-					actorUserId: string;
-					limit?: number;
-					cursor?: string;
-				} = {
-					actorUserId,
-				};
-				if (args.limit !== undefined) {
-					payload.limit = args.limit;
-				}
-				if (args.cursor !== undefined) {
-					payload.cursor = args.cursor;
-				}
-				return this._adminPlugin!.listUsers(ctx, payload);
-			},
-			banUser: async (ctx, args) => {
-				const actorUserId =
-					args.actorUserId ?? (await this.requireAdminActorUserId(ctx));
-				const payload: {
-					actorUserId: string;
-					userId: string;
-					reason?: string;
-					expiresAt?: number;
-				} = {
-					actorUserId,
-					userId: args.userId,
-				};
-				if (args.reason !== undefined) {
-					payload.reason = args.reason;
-				}
-				if (args.expiresAt !== undefined) {
-					payload.expiresAt = args.expiresAt;
-				}
-				return this._adminPlugin!.banUser(ctx, payload);
-			},
-			unbanUser: async (ctx, args) => {
-				const actorUserId =
-					args.actorUserId ?? (await this.requireAdminActorUserId(ctx));
-				const payload: {
-					actorUserId: string;
-					userId: string;
-				} = {
-					actorUserId,
-					userId: args.userId,
-				};
-				return this._adminPlugin!.unbanUser(ctx, payload);
-			},
-			setRole: async (ctx, args) => {
-				const actorUserId =
-					args.actorUserId ?? (await this.requireAdminActorUserId(ctx));
-				const payload: {
-					actorUserId: string;
-					userId: string;
-					role: string;
-				} = {
-					actorUserId,
-					userId: args.userId,
-					role: args.role,
-				};
-				return this._adminPlugin!.setRole(ctx, payload);
-			},
-			deleteUser: async (ctx, args) => {
-				const actorUserId =
-					args.actorUserId ?? (await this.requireAdminActorUserId(ctx));
-				const payload: {
-					actorUserId: string;
-					userId: string;
-				} = {
-					actorUserId,
-					userId: args.userId,
-				};
-				return this._adminPlugin!.deleteUser(ctx, payload);
-			},
-		} as AdminFacadeFor<TPlugins>;
 	}
 
 	get organization(): OrganizationFacadeFor<TPlugins> {
@@ -1496,10 +1369,6 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 			this.getStringClaim(identity, "https://convex-zen.dev/sessionToken") ??
 			null
 		);
-	}
-
-	private async requireAdminActorUserId(ctx: unknown): Promise<string> {
-		return this.requireActorUserId(ctx);
 	}
 
 	private async requireActorUserId(ctx: unknown): Promise<string> {
