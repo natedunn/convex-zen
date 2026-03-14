@@ -33,19 +33,29 @@ describe("resolveNextTrustedOriginsFromEnv", () => {
       "https://app.example.com",
     ]);
   });
+
+  it("includes the current Portless origin automatically", () => {
+    const trustedOrigins = resolveNextTrustedOriginsFromEnv({
+      env: {
+        PORTLESS_URL: "http://feature.next.localhost:1355/dashboard",
+      },
+    });
+
+    expect(trustedOrigins).toEqual(["http://feature.next.localhost:1355"]);
+  });
 });
 
 describe("createRequestFromHeaders", () => {
   it("uses forwarded host/proto headers when present", () => {
     const request = createRequestFromHeaders({
       headers: new Headers({
-        "x-forwarded-host": "next.convex-zen.localhost:1355",
+        "x-forwarded-host": "feature.next.localhost:1355",
         "x-forwarded-proto": "http",
       }),
       pathname: "/dashboard",
     });
 
-    expect(request.url).toBe("http://next.convex-zen.localhost:1355/dashboard");
+    expect(request.url).toBe("http://feature.next.localhost:1355/dashboard");
   });
 });
 

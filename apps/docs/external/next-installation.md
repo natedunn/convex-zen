@@ -262,7 +262,7 @@ If you run Next behind a custom dev host (for example Portless), add that host t
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  allowedDevOrigins: ["next.example.localhost", "*.example.localhost"],
+  allowedDevOrigins: ["next.localhost", "*.next.localhost"],
 };
 
 export default nextConfig;

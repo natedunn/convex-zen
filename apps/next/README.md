@@ -17,7 +17,7 @@ pnpm -C apps/next convex:dev
 ```
 
 3. Set `NEXT_PUBLIC_CONVEX_URL` in `apps/next/.env.local`.
-4. Set `CONVEX_SITE_URL` to your app origin (`http://next.convex-zen.localhost:1355` when using Portless).
+4. Set `CONVEX_SITE_URL` to your app origin (`http://next.localhost:1355` in the main checkout when using Portless).
 
 ## Run
 
@@ -25,7 +25,7 @@ pnpm -C apps/next convex:dev
 pnpm -C apps/next dev
 ```
 
-Open `http://next.convex-zen.localhost:1355`.
+Open `http://next.localhost:1355` in the main checkout, or `http://<branch>.next.localhost:1355` in a linked worktree.
 
 If you need raw Next dev without Portless:
 

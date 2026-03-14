@@ -20,5 +20,5 @@ Recommended order:
    - Decide whether Next client should remain intentionally slim or adopt TanStack-style auto alias/plugin route ergonomics.
    - Write explicit “what parity means” guidance to avoid drift in future changes.
 2. Expand Next-specific tests further.
-   - Add matrix coverage for more host/proxy combinations (`localhost`, `127.0.0.1`, `next.convex-zen.localhost`) in integration-level tests.
+   - Add matrix coverage for more host/proxy combinations (`localhost`, `127.0.0.1`, `next.localhost`, `feature.next.localhost`) in integration-level tests.
    - Add server helper behavior coverage for `isAuthenticated` in app-router contexts.
