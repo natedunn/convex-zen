@@ -275,13 +275,27 @@ import { v } from "convex/values";
 import { mutation, query } from "../../_generated/server";
 import { auth } from "${authImportPath}";
 
+async function requireActorUserId(ctx: { auth: { getUserIdentity: () => Promise<{ subject?: string } | null> } }): Promise<string> {
+  const identity = await ctx.auth.getUserIdentity();
+  const actorUserId = identity?.subject;
+  if (!actorUserId) {
+    throw new Error("Unauthorized: missing identity subject");
+  }
+  return actorUserId;
+}
+
 export const isAdmin = query({
   args: {},
   handler: async (ctx) => {
-    if (!auth.admin) {
+    if (!auth.plugins.admin) {
       throw new Error("Admin plugin is not enabled");
     }
-    return auth.admin.isAdmin(ctx);
+    const identity = await ctx.auth.getUserIdentity();
+    const actorUserId = identity?.subject;
+    if (!actorUserId) {
+      return false;
+    }
+    return auth.plugins.admin.isAdmin(ctx, { actorUserId });
   },
 });
 
@@ -291,10 +305,11 @@ export const listUsers = query({
     cursor: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    if (!auth.admin) {
+    if (!auth.plugins.admin) {
       throw new Error("Admin plugin is not enabled");
     }
-    return auth.admin.listUsers(ctx, args);
+    const actorUserId = await requireActorUserId(ctx);
+    return auth.plugins.admin.listUsers(ctx, { actorUserId, ...args });
   },
 });
 
@@ -305,10 +320,11 @@ export const banUser = mutation({
     expiresAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    if (!auth.admin) {
+    if (!auth.plugins.admin) {
       throw new Error("Admin plugin is not enabled");
     }
-    return auth.admin.banUser(ctx, args);
+    const actorUserId = await requireActorUserId(ctx);
+    return auth.plugins.admin.banUser(ctx, { actorUserId, ...args });
   },
 });
 
@@ -317,10 +333,11 @@ export const unbanUser = mutation({
     userId: v.string(),
   },
   handler: async (ctx, args) => {
-    if (!auth.admin) {
+    if (!auth.plugins.admin) {
       throw new Error("Admin plugin is not enabled");
     }
-    return auth.admin.unbanUser(ctx, args);
+    const actorUserId = await requireActorUserId(ctx);
+    return auth.plugins.admin.unbanUser(ctx, { actorUserId, ...args });
   },
 });
 
@@ -330,10 +347,11 @@ export const setRole = mutation({
     role: v.string(),
   },
   handler: async (ctx, args) => {
-    if (!auth.admin) {
+    if (!auth.plugins.admin) {
       throw new Error("Admin plugin is not enabled");
     }
-    return auth.admin.setRole(ctx, args);
+    const actorUserId = await requireActorUserId(ctx);
+    return auth.plugins.admin.setRole(ctx, { actorUserId, ...args });
   },
 });
 
@@ -342,10 +360,11 @@ export const deleteUser = mutation({
     userId: v.string(),
   },
   handler: async (ctx, args) => {
-    if (!auth.admin) {
+    if (!auth.plugins.admin) {
       throw new Error("Admin plugin is not enabled");
     }
-    return auth.admin.deleteUser(ctx, args);
+    const actorUserId = await requireActorUserId(ctx);
+    return auth.plugins.admin.deleteUser(ctx, { actorUserId, ...args });
   },
 });
 `);
