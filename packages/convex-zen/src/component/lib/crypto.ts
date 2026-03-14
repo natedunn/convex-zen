@@ -68,16 +68,21 @@ export function generateState(): string {
 
 /**
  * Compare two strings in constant time to prevent timing attacks.
- * Both strings must be the same length; if they differ, returns false
- * without leaking information about the position of the first mismatch.
+ * Runs for max(a.length, b.length) iterations regardless of input so that
+ * neither string length nor the position of the first mismatch is revealed
+ * through execution time.
  */
 export function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) {
-    return false;
-  }
-  let result = 0;
-  for (let i = 0; i < a.length; i++) {
-    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  const lenA = a.length;
+  const lenB = b.length;
+  const len = Math.max(lenA, lenB);
+  // Encode length difference into result from the start so differing lengths
+  // always produce a non-zero result without an early return.
+  let result = lenA ^ lenB;
+  for (let i = 0; i < len; i++) {
+    const ca = i < lenA ? a.charCodeAt(i) : 0;
+    const cb = i < lenB ? b.charCodeAt(i) : 0;
+    result |= ca ^ cb;
   }
   return result === 0;
 }

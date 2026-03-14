@@ -84,7 +84,15 @@ function assertRelativeRedirectTarget(
       `${fieldName} contains invalid URL encoding`
     );
   }
-  if (!decoded.startsWith("/") || decoded.startsWith("//") || decoded.startsWith("/\\")) {
+  if (!decoded.startsWith("/") || decoded.startsWith("//")) {
+    throw new Error(
+      `${fieldName} must be a relative path that stays on the current origin`
+    );
+  }
+  // Block backslash-based open-redirect tricks. Some browsers normalise `/\`
+  // or `/\/` to `//` when resolving URLs, so we reject any backslash within
+  // the first three characters of the decoded path (e.g. `/\`, `/\\`, `/\/`).
+  if (decoded.substring(0, 3).includes("\\")) {
     throw new Error(
       `${fieldName} must be a relative path that stays on the current origin`
     );
