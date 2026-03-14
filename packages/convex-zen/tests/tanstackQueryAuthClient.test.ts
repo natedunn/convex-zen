@@ -1,6 +1,6 @@
 import { describe, expect, expectTypeOf, it, vi } from "vitest";
 import type { FunctionReference } from "convex/server";
-import { createTanStackAuthClient } from "../src/client/tanstack-start-client";
+import { createTanStackAuthClient } from "../src/client/tanstack-start/client";
 
 function mutationRef(name: string): FunctionReference<"mutation", "public"> {
   return { name } as unknown as FunctionReference<"mutation", "public">;

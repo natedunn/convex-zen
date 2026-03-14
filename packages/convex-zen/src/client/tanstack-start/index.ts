@@ -11,22 +11,22 @@ import type {
 import {
   createConvexZenIdentityJwt,
   type SessionTokenCodec,
-} from "./tanstack-start-identity-jwt";
+} from "../identity-jwt";
 import type {
   TanStackAuthCoreMeta,
   TanStackAuthMeta,
   TanStackAuthPluginMeta,
-} from "./tanstack-start-plugin-meta";
-import { coreApiPlugin, pluginApiPlugin } from "./tanstack-start-plugins";
+} from "../plugin-meta";
+import { coreApiPlugin, pluginApiPlugin } from "./plugins";
 import {
   createSessionPrimitives,
   type SessionInfo,
   type SessionPrimitives,
   type SignInInput,
   type SignInOutput,
-} from "./primitives";
-import { createConvexFetchers } from "./convex-fetchers";
-import type { OAuthProviderId } from "../types";
+} from "../primitives";
+import { createConvexFetchers } from "../convex-fetchers";
+import type { OAuthProviderId } from "../../types";
 
 type SetCookieOptions = Exclude<Parameters<typeof setCookieFn>[2], undefined>;
 type DeleteCookieOptions = Exclude<
@@ -1521,5 +1521,5 @@ export function createTanStackAuthServer(
   };
 }
 
-export * from "./tanstack-start-client";
-export * from "./tanstack-start-client-plugins";
+export * from "./client";
+export * from "./client-plugins";

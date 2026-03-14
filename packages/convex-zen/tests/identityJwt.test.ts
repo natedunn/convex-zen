@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createConvexZenIdentityJwt } from "../src/client/tanstack-start-identity-jwt";
+import { createConvexZenIdentityJwt } from "../src/client/identity-jwt";
 
 const TEST_SECRET = "convex-zen-test-secret-1234567890-abcdef";
 
