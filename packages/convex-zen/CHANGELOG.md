@@ -1,3 +1,10 @@
+## [1.8.2](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.8.1...convex-zen-v1.8.2) (2026-03-15)
+
+
+### Bug Fixes
+
+* **auth:** restore convex wrapper typings ([a23b55f](https://github.com/natedunn/convex-zen/commit/a23b55f48d5983e513a05019ae6ab8742c323057))
+
 ## [1.8.1](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.8.0...convex-zen-v1.8.1) (2026-03-15)
 
 
