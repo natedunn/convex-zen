@@ -29,6 +29,10 @@
       "types": "./src/client/tanstack-start/plugins.ts",
       "import": "./src/client/tanstack-start/plugins.ts"
     },
+    "./tanstack-start/admin-plugin": {
+      "types": "./src/client/tanstack-start/admin-plugin.ts",
+      "import": "./src/client/tanstack-start/admin-plugin.ts"
+    },
     "./react": {
       "types": "./src/client/react.ts",
       "import": "./src/client/react.ts"
@@ -77,6 +81,10 @@
       "./tanstack-start/plugins": {
         "types": "./dist/client/tanstack-start/plugins.d.ts",
         "import": "./dist/client/tanstack-start/plugins.js"
+      },
+      "./tanstack-start/admin-plugin": {
+        "types": "./dist/client/tanstack-start/admin-plugin.d.ts",
+        "import": "./dist/client/tanstack-start/admin-plugin.js"
       },
       "./react": {
         "types": "./dist/client/react.d.ts",

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { FunctionReference } from "convex/server";
-import { adminApiPlugin } from "../src/client/tanstack-start/plugins";
+import { adminApiPlugin } from "../src/client/tanstack-start/admin-plugin";
 
 const listUsersRef = { name: "listUsers" } as unknown as FunctionReference<
   "query",
