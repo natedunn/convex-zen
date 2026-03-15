@@ -1,9 +1,9 @@
 import type { FunctionArgs, FunctionReference } from "convex/server";
 import type {
-  TanStackAuthCoreMeta,
-  TanStackAuthMeta,
-  TanStackAuthPluginFunctionKind,
-  TanStackAuthPluginMeta,
+  AuthCoreMeta,
+  AuthMeta,
+  AuthPluginFunctionKind,
+  AuthPluginMeta,
 } from "../plugin-meta";
 import { toKebabCase } from "../plugin-meta";
 import type {
@@ -52,10 +52,10 @@ export type NextAuthApiPluginSelection =
   | "auto"
   | readonly NextAuthApiPluginFactory[];
 
-export type NextAuthFunctionKind = TanStackAuthPluginFunctionKind;
-export type NextAuthCoreMeta = TanStackAuthCoreMeta;
-export type NextAuthPluginMeta = TanStackAuthPluginMeta;
-export type NextAuthMeta = TanStackAuthMeta;
+export type NextAuthFunctionKind = AuthPluginFunctionKind;
+export type NextAuthCoreMeta = AuthCoreMeta;
+export type NextAuthPluginMeta = AuthPluginMeta;
+export type NextAuthMeta = AuthMeta;
 
 export function resolveNamedConvexFunctionRef(
   convexFunctions: NextConvexActionRefs,

@@ -11,9 +11,9 @@ import type {
 } from "convex/server";
 import { getFunctionName } from "convex/server";
 import type {
-  TanStackAuthCoreMeta,
-  TanStackAuthMeta,
-  TanStackAuthPluginMeta,
+  AuthCoreMeta,
+  AuthMeta,
+  AuthPluginMeta,
 } from "../plugin-meta";
 import { toKebabCase } from "../plugin-meta";
 import type { AuthTokenPayload } from "../auth-token-manager";
@@ -332,7 +332,7 @@ type TanStackMethodForKind<
 
 type PluginTanStackExtensionsFromMeta<
   TConvexFunctions,
-  TPluginMeta extends TanStackAuthPluginMeta,
+  TPluginMeta extends AuthPluginMeta,
 > = TConvexFunctions extends { plugin: infer TPlugin }
   ? {
       plugin: {
@@ -364,11 +364,11 @@ export const DEFAULT_GENERATED_CORE_META = {
   currentUser: "query",
   getOAuthUrl: "mutation",
   handleOAuthCallback: "action",
-} as const satisfies TanStackAuthCoreMeta;
+} as const satisfies AuthCoreMeta;
 
 type CoreTanStackExtensionsFromMeta<
   TConvexFunctions,
-  TCoreMeta extends TanStackAuthCoreMeta,
+  TCoreMeta extends AuthCoreMeta,
 > = TConvexFunctions extends { core: infer TCore }
   ? {
       core: {
@@ -382,7 +382,7 @@ type CoreTanStackExtensionsFromMeta<
 
 type RootTanStackExtensionsFromCoreMeta<
   TConvexFunctions,
-  TCoreMeta extends TanStackAuthCoreMeta,
+  TCoreMeta extends AuthCoreMeta,
 > = TConvexFunctions extends { core: infer TCore }
   ? {
       [TFunctionName in keyof TCoreMeta & keyof TCore &
@@ -397,20 +397,20 @@ type RootTanStackExtensionsFromCoreMeta<
 export interface TanStackQueryAuthClientOptions<
   TPlugins extends readonly TanStackStartAuthApiClientPlugin<object>[] = [],
   TConvexFunctions extends Record<string, unknown> = Record<string, unknown>,
-  TPluginMeta extends TanStackAuthPluginMeta = TanStackAuthPluginMeta,
-  TCoreMeta extends TanStackAuthCoreMeta = typeof DEFAULT_GENERATED_CORE_META,
+  TPluginMeta extends AuthPluginMeta = AuthPluginMeta,
+  TCoreMeta extends AuthCoreMeta = typeof DEFAULT_GENERATED_CORE_META,
 > extends TanStackStartAuthApiClientOptions<TPlugins, TConvexFunctions> {
   convexFunctions: TConvexFunctions;
   pluginMeta?: TPluginMeta;
   coreMeta?: TCoreMeta;
-  meta?: TanStackAuthMeta;
+  meta?: AuthMeta;
 }
 
 export type TanStackQueryAuthClient<
   TPlugins extends readonly TanStackStartAuthApiClientPlugin<object>[],
   TConvexFunctions extends Record<string, unknown>,
-  TPluginMeta extends TanStackAuthPluginMeta,
-  TCoreMeta extends TanStackAuthCoreMeta = typeof DEFAULT_GENERATED_CORE_META,
+  TPluginMeta extends AuthPluginMeta,
+  TCoreMeta extends AuthCoreMeta = typeof DEFAULT_GENERATED_CORE_META,
 > = TanStackStartAuthApiClientAuto<TPlugins, TConvexFunctions> &
   PluginTanStackExtensionsFromMeta<TConvexFunctions, TPluginMeta> &
   CoreTanStackExtensionsFromMeta<TConvexFunctions, TCoreMeta> &
@@ -448,8 +448,8 @@ export interface TanStackStartAuthApiClientOptions<
   credentials?: RequestCredentials;
   fetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
   convexFunctions?: TConvexFunctions;
-  pluginMeta?: TanStackAuthPluginMeta;
-  meta?: TanStackAuthMeta;
+  pluginMeta?: AuthPluginMeta;
+  meta?: AuthMeta;
   plugins?: "auto" | TPlugins;
   runtime?: TanStackAuthRuntimeClientOptions;
   /**
@@ -535,18 +535,18 @@ const RESERVED_CORE_ROOT_METHOD_NAMES = new Set<string>([
 ]);
 
 function resolvePluginMetaFromOptions(options: {
-  pluginMeta?: TanStackAuthPluginMeta;
-  meta?: TanStackAuthMeta;
-}): TanStackAuthPluginMeta | undefined {
+  pluginMeta?: AuthPluginMeta;
+  meta?: AuthMeta;
+}): AuthPluginMeta | undefined {
   return options.meta?.plugin ?? options.pluginMeta;
 }
 
 function resolveCoreMetaFromOptions(
   options: {
-    coreMeta?: TanStackAuthCoreMeta;
-    meta?: TanStackAuthMeta;
+    coreMeta?: AuthCoreMeta;
+    meta?: AuthMeta;
   }
-): TanStackAuthCoreMeta {
+): AuthCoreMeta {
   return options.meta?.core ?? options.coreMeta ?? DEFAULT_GENERATED_CORE_META;
 }
 
@@ -1256,8 +1256,8 @@ function createTanStackRouteAuthClient<
 export function createTanStackAuthClient<
   TPlugins extends readonly TanStackStartAuthApiClientPlugin<object>[] = [],
   TConvexFunctions extends Record<string, unknown> = Record<string, unknown>,
-  TPluginMeta extends TanStackAuthPluginMeta = TanStackAuthPluginMeta,
-  TCoreMeta extends TanStackAuthCoreMeta = typeof DEFAULT_GENERATED_CORE_META,
+  TPluginMeta extends AuthPluginMeta = AuthPluginMeta,
+  TCoreMeta extends AuthCoreMeta = typeof DEFAULT_GENERATED_CORE_META,
 >(
   options: TanStackQueryAuthClientOptions<
     TPlugins,
@@ -1275,8 +1275,8 @@ export function createTanStackAuthClient<
 export function createTanStackAuthClient<
   TPlugins extends readonly TanStackStartAuthApiClientPlugin<object>[] = [],
   TConvexFunctions extends Record<string, unknown> | undefined = undefined,
-  TPluginMeta extends TanStackAuthPluginMeta = TanStackAuthPluginMeta,
-  TCoreMeta extends TanStackAuthCoreMeta = typeof DEFAULT_GENERATED_CORE_META,
+  TPluginMeta extends AuthPluginMeta = AuthPluginMeta,
+  TCoreMeta extends AuthCoreMeta = typeof DEFAULT_GENERATED_CORE_META,
 >(
   options:
     | TanStackStartAuthApiClientOptions<TPlugins, TConvexFunctions>

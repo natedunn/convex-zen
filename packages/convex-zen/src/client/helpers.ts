@@ -62,3 +62,36 @@ export function hasPluginFunctionRefs(convexFunctions: unknown): boolean {
   }
   return false;
 }
+
+/**
+ * Resolve a Convex component function reference from a dotted path string.
+ *
+ * Converts e.g. `"gateway:signUp"` or `"plugins/admin:listUsers"` into the
+ * corresponding nested property on the component API object.
+ *
+ * Used by ConvexZen, AdminPlugin, and OrganizationPlugin to avoid duplicating
+ * the same traversal logic.
+ */
+export function resolveComponentFn(
+  api: Record<string, unknown>,
+  path: string,
+): unknown {
+  const [modulePath, funcName] = path.split(":");
+  if (!modulePath || !funcName) {
+    throw new Error(`Invalid function path: ${path}`);
+  }
+  const parts = modulePath.split("/");
+  let ref: Record<string, unknown> = api;
+  for (const part of parts) {
+    const next = ref[part];
+    if (!next || typeof next !== "object" || Array.isArray(next)) {
+      throw new Error(`Invalid function path segment: ${part}`);
+    }
+    ref = next as Record<string, unknown>;
+  }
+  const resolved = ref[funcName];
+  if (!resolved) {
+    throw new Error(`Function not found: ${path}`);
+  }
+  return resolved;
+}

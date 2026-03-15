@@ -13,9 +13,9 @@ import {
   type SessionTokenCodec,
 } from "../identity-jwt";
 import type {
-  TanStackAuthCoreMeta,
-  TanStackAuthMeta,
-  TanStackAuthPluginMeta,
+  AuthCoreMeta,
+  AuthMeta,
+  AuthPluginMeta,
 } from "../plugin-meta";
 import { coreApiPlugin, pluginApiPlugin } from "./plugins";
 import {
@@ -124,16 +124,16 @@ export interface TanStackStartConvexReactStartOptions
    * Generated plugin function metadata.
    * Required for generic auto plugin routing (`/api/auth/plugin/*`).
    */
-  pluginMeta?: TanStackAuthPluginMeta;
+  pluginMeta?: AuthPluginMeta;
   /**
    * Generated core function metadata.
    * Enables deterministic core route mapping for proxy-shaped Convex refs.
    */
-  coreMeta?: TanStackAuthCoreMeta;
+  coreMeta?: AuthCoreMeta;
   /**
    * Generated auth metadata (`core` + `plugin`) from `convex/auth/metaGenerated.ts`.
    */
-  meta?: TanStackAuthMeta;
+  meta?: AuthMeta;
   /**
    * Additional trusted origins allowed for non-GET auth API requests.
    * Same-origin is always trusted.
@@ -179,7 +179,7 @@ export interface TanStackStartAuthApiHandlerOptions {
   trustedProxy?: TrustedProxyConfig;
   getClientIp?: ClientIpResolver;
   convexFunctions?: Record<string, unknown>;
-  coreMeta?: TanStackAuthCoreMeta;
+  coreMeta?: AuthCoreMeta;
   fetchers?: Pick<TanStackStartConvexFetchers, "fetchAction" | "fetchMutation">;
 }
 
@@ -329,7 +329,7 @@ function resolveCoreActions(
   };
 }
 
-function hasPluginMeta(pluginMeta: TanStackAuthPluginMeta | undefined): boolean {
+function hasPluginMeta(pluginMeta: AuthPluginMeta | undefined): boolean {
   if (!pluginMeta) {
     return false;
   }
@@ -343,13 +343,13 @@ function hasPluginMeta(pluginMeta: TanStackAuthPluginMeta | undefined): boolean 
 
 function resolvePluginMeta(
   options: Pick<TanStackStartConvexReactStartOptions, "meta" | "pluginMeta">
-): TanStackAuthPluginMeta | undefined {
+): AuthPluginMeta | undefined {
   return options.meta?.plugin ?? options.pluginMeta;
 }
 
 function resolveCoreMeta(
   options: Pick<TanStackStartConvexReactStartOptions, "meta" | "coreMeta">
-): TanStackAuthCoreMeta | undefined {
+): AuthCoreMeta | undefined {
   return options.meta?.core ?? options.coreMeta;
 }
 
@@ -1442,7 +1442,7 @@ export function createTanStackAuthServer(
   if (hasPluginMeta(pluginMeta)) {
     autoPluginFactories.push(
       pluginApiPlugin({
-        pluginMeta: pluginMeta as TanStackAuthPluginMeta,
+        pluginMeta: pluginMeta as AuthPluginMeta,
       })
     );
   }
