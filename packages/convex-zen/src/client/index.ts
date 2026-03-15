@@ -7,12 +7,7 @@ import type {
 	OAuthStartOptions,
 	OAuthStartResult,
 	AdminPluginConfig,
-	BuiltInOrganizationAccessControl,
-	OrganizationAccessControl,
-	OrganizationCustomRoleDefinitions,
-	OrganizationPermission,
 	OrganizationPluginConfig,
-	OrganizationRoleName,
 } from "../types";
 import type { HttpRouter } from "convex/server";
 import { httpActionGeneric } from "convex/server";
@@ -20,9 +15,18 @@ import { AdminPlugin } from "./plugins/admin";
 import {
 	OrganizationPlugin,
 	ConvexZenOrganizationFacade,
-	type OrganizationFacade,
+	type OrganizationFacadeFromConfig,
+	type OrganizationPluginFromConfig,
 } from "./plugins/organization";
 import { resolveComponentFn } from "./helpers";
+
+/**
+ * Main client entrypoint.
+ *
+ * This file owns cross-plugin composition: it takes the app's `plugins` tuple
+ * and decides which helpers `ConvexZen` should expose. Plugin-specific derived
+ * types live with their plugin modules and are imported here.
+ */
 
 /**
  * Minimal Convex context interfaces used by the client wrappers.
@@ -41,53 +45,19 @@ interface RunsActions {
 }
 type ConvexCtx = RunsQueries & RunsMutations;
 type PluginList = readonly ConvexAuthPlugin[];
+
+/** Plugin-tuple extraction belongs here because `ConvexZen` owns `TPlugins`. */
 type AdminPluginFor<TPlugins extends PluginList> =
 	Extract<TPlugins[number], { id: "admin" }> extends never ? null : AdminPlugin;
 type OrganizationPluginConfigFor<TPlugins extends PluginList> = Extract<
 	TPlugins[number],
 	OrganizationPluginConfig<any, any>
 >;
-type OrganizationAccessControlFor<
-	TPlugins extends PluginList,
-> = OrganizationPluginConfigFor<TPlugins> extends OrganizationPluginConfig<
-	infer TCustomAccessControl,
-	any
->
-	? OrganizationAccessControl<TCustomAccessControl>
-	: BuiltInOrganizationAccessControl;
-type OrganizationCustomRolesFor<
-	TPlugins extends PluginList,
-> = OrganizationPluginConfigFor<TPlugins> extends OrganizationPluginConfig<
-	any,
-	infer TCustomRoles
->
-	? TCustomRoles
-	: {};
-type OrganizationRoleFor<TPlugins extends PluginList> = OrganizationRoleName<
-	OrganizationCustomRolesFor<TPlugins>
+
+/** Plugin modules derive their own runtime and facade shapes from config. */
+type OrganizationPluginFor<TPlugins extends PluginList> = OrganizationPluginFromConfig<
+	OrganizationPluginConfigFor<TPlugins>
 >;
-type OrganizationPermissionFor<
-	TPlugins extends PluginList,
-> = OrganizationPermission<OrganizationAccessControlFor<TPlugins>>;
-type OrganizationPluginFor<TPlugins extends PluginList> =
-	OrganizationPluginConfigFor<TPlugins> extends never
-		? null
-		: OrganizationPlugin<
-				OrganizationPluginConfigFor<TPlugins> extends OrganizationPluginConfig<
-					infer TCustomAccessControl,
-					any
-				>
-					? TCustomAccessControl
-					: {},
-				OrganizationPluginConfigFor<TPlugins> extends OrganizationPluginConfig<
-					any,
-					infer TCustomRoles
-				>
-					? OrganizationCustomRolesFor<TPlugins>
-					: OrganizationCustomRoleDefinitions<
-							OrganizationAccessControlFor<TPlugins>
-					  >
-		  >;
 type MaybePromise<T> = T | Promise<T>;
 type AuthIdentity = {
 	subject?: string | null;
@@ -129,13 +99,9 @@ type PasswordValidationConfig = PasswordValidationFn | PasswordSchema;
 const DEFAULT_MIN_PASSWORD_LENGTH = 12;
 const DEFAULT_MAX_PASSWORD_LENGTH = 128;
 
-type OrganizationFacadeFor<TPlugins extends PluginList> =
-	OrganizationPluginConfigFor<TPlugins> extends never
-		? null
-		: OrganizationFacade<
-				OrganizationRoleFor<TPlugins>,
-				OrganizationPermissionFor<TPlugins>
-		  >;
+type OrganizationFacadeFor<TPlugins extends PluginList> = OrganizationFacadeFromConfig<
+	OrganizationPluginConfigFor<TPlugins>
+>;
 
 export interface AuthUser {
 	_id: string;
@@ -208,7 +174,9 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 	private readonly component: Record<string, unknown>;
 	private readonly options: ConvexZenOptions<TPlugins>;
 	private readonly _adminPlugin: AdminPlugin | null;
+	/** Raw plugin instance exposed at `auth.plugins.organization`. */
 	private readonly _organizationPlugin: OrganizationPluginFor<TPlugins>;
+	/** Context-aware facade exposed at `auth.organization`. */
 	private readonly _organizationFacade: OrganizationFacadeFor<TPlugins>;
 	private readonly providerMap: Map<string, OAuthProviderConfig>;
 	private readonly adminConfig: AdminPluginConfig | null;

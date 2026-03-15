@@ -24,6 +24,15 @@ import type {
 } from "../../types";
 import { resolveComponentFn } from "../helpers";
 
+/**
+ * Organization plugin client module.
+ *
+ * This file owns organization-specific runtime logic and the config-derived
+ * helper types that describe `auth.plugins.organization` and `auth.organization`.
+ * The main client entrypoint should only extract the organization config from
+ * the app's plugin tuple and delegate the rest here.
+ */
+
 const DEFAULT_INVITE_EXPIRES_MS = 7 * 24 * 60 * 60 * 1000;
 const BUILT_IN_ACCESS_CONTROL = {
   organization: ["read", "update", "delete", "transfer"],
@@ -193,6 +202,44 @@ export function organizationPlugin<
   return plugin;
 }
 
+/** Shared config-to-type transforms used by `ConvexZen` and this module. */
+export type OrganizationAccessControlFromConfig<TConfig> =
+  TConfig extends OrganizationPluginConfig<infer TCustomAccessControl, any>
+    ? OrganizationAccessControl<TCustomAccessControl>
+    : BuiltInOrganizationAccessControl;
+
+export type OrganizationCustomRolesFromConfig<TConfig> =
+  TConfig extends OrganizationPluginConfig<any, infer TCustomRoles>
+    ? TCustomRoles
+    : {};
+
+export type OrganizationRoleFromConfig<TConfig> = OrganizationRoleName<
+  OrganizationCustomRolesFromConfig<TConfig>
+>;
+
+export type OrganizationPermissionFromConfig<TConfig> = OrganizationPermission<
+  OrganizationAccessControlFromConfig<TConfig>
+>;
+
+export type OrganizationPluginFromConfig<TConfig> = [TConfig] extends [never]
+  ? null
+  : OrganizationPlugin<
+      TConfig extends OrganizationPluginConfig<infer TCustomAccessControl, any>
+        ? TCustomAccessControl
+        : {},
+      TConfig extends OrganizationPluginConfig<any, infer TCustomRoles>
+        ? OrganizationCustomRolesFromConfig<TConfig>
+        : OrganizationCustomRoleDefinitions<
+            OrganizationAccessControlFromConfig<TConfig>
+          >
+    >;
+
+/**
+ * Raw plugin API.
+ *
+ * These methods mirror the underlying organization gateway fairly closely and
+ * generally expect an explicit `actorUserId` when authorization depends on it.
+ */
 export class OrganizationPlugin<
   TCustomAccessControl extends OrganizationCustomAccessControl = {},
   TCustomRoles extends OrganizationCustomRoleDefinitions<
@@ -694,9 +741,10 @@ export interface OrganizationRoleInput<TRole extends string> {
 }
 
 /**
- * The shape of `auth.organization` — all organisation operations available on
- * the ConvexZen instance.  Actor user ID is optional on every method; when
- * omitted it is resolved from the Convex context automatically.
+ * The shape of `auth.organization`.
+ *
+ * This is the ergonomic facade surface: actor user ID is optional on every
+ * method and is resolved from the Convex context when omitted.
  */
 export interface OrganizationFacade<
   TOrganizationRole extends string,
@@ -888,17 +936,18 @@ export interface OrganizationFacade<
   ) => Promise<OrganizationMembership>;
 }
 
+export type OrganizationFacadeFromConfig<TConfig> = [TConfig] extends [never]
+  ? null
+  : OrganizationFacade<
+      OrganizationRoleFromConfig<TConfig>,
+      OrganizationPermissionFromConfig<TConfig>
+    >;
+
 /**
  * Context-aware facade that wraps {@link OrganizationPlugin}.
  *
- * Each method accepts an optional `actorUserId`.  When omitted the facade
- * resolves it automatically via the injected `requireActorUserId` /
- * `resolveUserId` helpers so callers don't have to thread the identity through
- * every call site.
- *
- * This class lives in the organisation plugin module so that all organisation-
- * related code stays in one place, while `ConvexZen` simply constructs and
- * stores an instance.
+ * It lives here, rather than in the main client entrypoint, so organization
+ * behavior and organization-specific type derivation stay co-located.
  */
 export class ConvexZenOrganizationFacade<
   TCustomAccessControl extends OrganizationCustomAccessControl = {},
