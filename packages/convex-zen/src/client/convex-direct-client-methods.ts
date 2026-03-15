@@ -8,7 +8,7 @@ import type {
   TanStackAuthMeta,
   TanStackAuthPluginFunctionKind,
   TanStackAuthPluginMeta,
-} from "./tanstack-start-plugin-meta";
+} from "./plugin-meta";
 
 export type DirectConvexFunctionKind = TanStackAuthPluginFunctionKind;
 export type DirectConvexCoreMeta = TanStackAuthCoreMeta;
