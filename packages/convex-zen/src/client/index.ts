@@ -25,18 +25,19 @@ import {
 import { resolveComponentFn } from "./helpers";
 
 /**
- * Minimal Convex context interfaces. Using `unknown` for the function
- * reference parameter lets any Convex ctx satisfy these interfaces while
- * remaining type-safe — the same pattern used throughout the plugin classes.
+ * Minimal Convex context interfaces used by the client wrappers.
+ *
+ * These are declared with method syntax so Convex's generated ctx types remain
+ * structurally assignable under `strictFunctionTypes`.
  */
 interface RunsQueries {
-	runQuery: (fn: unknown, args: Record<string, unknown>) => Promise<unknown>;
+	runQuery(fn: unknown, args: Record<string, unknown>): Promise<unknown>;
 }
 interface RunsMutations {
-	runMutation: (fn: unknown, args: Record<string, unknown>) => Promise<unknown>;
+	runMutation(fn: unknown, args: Record<string, unknown>): Promise<unknown>;
 }
 interface RunsActions {
-	runAction: (fn: unknown, args: Record<string, unknown>) => Promise<unknown>;
+	runAction(fn: unknown, args: Record<string, unknown>): Promise<unknown>;
 }
 type ConvexCtx = RunsQueries & RunsMutations;
 type PluginList = readonly ConvexAuthPlugin[];
@@ -82,7 +83,7 @@ type OrganizationPluginFor<TPlugins extends PluginList> =
 					any,
 					infer TCustomRoles
 				>
-					? TCustomRoles
+					? OrganizationCustomRolesFor<TPlugins>
 					: OrganizationCustomRoleDefinitions<
 							OrganizationAccessControlFor<TPlugins>
 					  >
@@ -275,7 +276,7 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 					this._organizationPlugin as OrganizationPlugin,
 					(ctx) => this.requireActorUserId(ctx),
 					(ctx) => this.resolveUserId(ctx),
-				) as OrganizationFacadeFor<TPlugins>)
+				) as unknown as OrganizationFacadeFor<TPlugins>)
 			: null as OrganizationFacadeFor<TPlugins>;
 	}
 

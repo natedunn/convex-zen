@@ -2,11 +2,11 @@ import type { AdminListUsersResult, AdminPluginConfig } from "../../types";
 import { resolveComponentFn } from "../helpers";
 
 type RunsQueries = {
-  runQuery: (fn: unknown, args: Record<string, unknown>) => Promise<unknown>;
+  runQuery(fn: unknown, args: Record<string, unknown>): Promise<unknown>;
 };
 
 type RunsMutations = {
-  runMutation: (fn: unknown, args: Record<string, unknown>) => Promise<unknown>;
+  runMutation(fn: unknown, args: Record<string, unknown>): Promise<unknown>;
 };
 
 /**

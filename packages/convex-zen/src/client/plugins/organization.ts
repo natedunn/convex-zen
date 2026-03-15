@@ -58,11 +58,11 @@ const DEFAULT_ROLE_DEFINITIONS = {
 } as const;
 
 type RunsQueries = {
-  runQuery: (fn: unknown, args: Record<string, unknown>) => Promise<unknown>;
+  runQuery(fn: unknown, args: Record<string, unknown>): Promise<unknown>;
 };
 
 type RunsMutations = {
-  runMutation: (fn: unknown, args: Record<string, unknown>) => Promise<unknown>;
+  runMutation(fn: unknown, args: Record<string, unknown>): Promise<unknown>;
 };
 
 type RuntimeRolePermissions = Record<string, string[]>;
