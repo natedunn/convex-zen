@@ -33,10 +33,10 @@ export function readFunctionRef<T extends ConvexRouteFunctionRef>(value: unknown
   return value as T;
 }
 
-export function hasPluginFunctionRefs(convexFunctions: Record<string, unknown>): boolean {
+export function hasPluginFunctionRefs(convexFunctions: unknown): boolean {
   const pluginFunctions = readMember(convexFunctions, "plugin");
   if (
-    !pluginFunctions ||
+    pluginFunctions == null ||
     (typeof pluginFunctions !== "object" && typeof pluginFunctions !== "function")
   ) {
     return false;

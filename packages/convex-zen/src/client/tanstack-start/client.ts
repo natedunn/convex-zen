@@ -25,6 +25,7 @@ import {
   type AuthRuntimeSync,
   type ConvexAuthClientLike,
 } from "../auth-runtime";
+import { hasFunctionRefCandidate, hasPluginFunctionRefs, readMember } from "../helpers";
 export {
   createAuthTokenManager,
   type AuthTokenManager,
@@ -522,23 +523,6 @@ function isAbsoluteHttpUrl(value: string): boolean {
   return value.startsWith("http://") || value.startsWith("https://");
 }
 
-function hasFunctionRefCandidate(
-  value: unknown
-): value is FunctionReference<"query" | "mutation" | "action", "public"> {
-  return value !== null && (typeof value === "object" || typeof value === "function");
-}
-
-function hasPluginFunctionRefs(convexFunctions: unknown): boolean {
-  const pluginFunctions = readMember(convexFunctions, "plugin");
-  if (
-    pluginFunctions === null ||
-    (typeof pluginFunctions !== "object" && typeof pluginFunctions !== "function")
-  ) {
-    return false;
-  }
-  return Object.keys(pluginFunctions as Record<string, unknown>).length > 0;
-}
-
 const RESERVED_CORE_ROOT_METHOD_NAMES = new Set<string>([
   "getSession",
   "getToken",
@@ -549,16 +533,6 @@ const RESERVED_CORE_ROOT_METHOD_NAMES = new Set<string>([
   "plugin",
   "core",
 ]);
-
-function readMember(source: unknown, key: string): unknown {
-  if (
-    source === null ||
-    (typeof source !== "object" && typeof source !== "function")
-  ) {
-    return undefined;
-  }
-  return (source as Record<string, unknown>)[key];
-}
 
 function resolvePluginMetaFromOptions(options: {
   pluginMeta?: TanStackAuthPluginMeta;

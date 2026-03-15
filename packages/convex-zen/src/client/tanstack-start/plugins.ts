@@ -6,6 +6,7 @@ import type {
   TanStackAuthPluginMeta,
 } from "../plugin-meta";
 import { toKebabCase } from "../plugin-meta";
+import { readFunctionRef, isRecord, readMember } from "../helpers";
 
 type MutationRef = FunctionReference<"mutation", "public">;
 type QueryRef = FunctionReference<"query", "public">;
@@ -43,17 +44,6 @@ export const REQUIRED_ADMIN_CONVEX_FUNCTIONS = [
 
 type RequiredAdminConvexFunctionName =
   (typeof REQUIRED_ADMIN_CONVEX_FUNCTIONS)[number];
-
-function readFunctionRef<
-  T extends FunctionReference<"query" | "mutation" | "action", "public">,
->(
-  value: unknown
-): T | null {
-  if (!value || (typeof value !== "object" && typeof value !== "function")) {
-    return null;
-  }
-  return value as T;
-}
 
 function resolveRequiredConvexFunction(
   explicit: unknown,
@@ -121,10 +111,6 @@ function resolveAdminConvexFunctions(
 function normalizeRoutePrefix(prefix: string): string {
   const trimmed = prefix.trim().replace(/^\/+|\/+$/g, "");
   return trimmed.length > 0 ? trimmed : "admin";
-}
-
-function isRecord(value: unknown): value is UnknownRecord {
-  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 function parseListUsersArgs(value: unknown): {
@@ -514,16 +500,6 @@ type PluginRouteEntry = {
 function normalizePluginRoutePrefix(prefix: string): string {
   const trimmed = prefix.trim().replace(/^\/+|\/+$/g, "");
   return trimmed.length > 0 ? trimmed : "plugin";
-}
-
-function readMember(source: unknown, key: string): unknown {
-  if (
-    source === null ||
-    (typeof source !== "object" && typeof source !== "function")
-  ) {
-    return undefined;
-  }
-  return (source as Record<string, unknown>)[key];
 }
 
 function resolvePluginRouteEntries(

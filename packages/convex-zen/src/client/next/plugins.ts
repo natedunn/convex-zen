@@ -19,7 +19,7 @@ import {
   readFunctionRef,
   readMember,
   isRecord,
-} from "./helpers";
+} from "../helpers";
 
 export interface NextAuthApiPluginContext {
   request: Request;
