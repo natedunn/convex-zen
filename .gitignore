@@ -36,6 +36,10 @@ id_ecdsa
 .idea/
 .vscode/
 
+# Package manager lock files for non-pnpm environments
+package-lock.json
+yarn.lock
+
 # Local assistant metadata
 .claude/
 .agents/
