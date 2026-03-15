@@ -28,25 +28,24 @@ import type {
 	OrganizationRoleName,
 	OrganizationSlugCheckResult,
 } from "../types";
+import type { HttpRouter } from "convex/server";
+import { httpActionGeneric } from "convex/server";
 import { AdminPlugin } from "./plugins/admin";
 import { OrganizationPlugin } from "./plugins/organization";
 
 /**
- * Minimal Convex context interfaces. Parameters use `any` so that Convex's
- * actual generic context types (which have typed FunctionReference params)
- * satisfy these interfaces without triggering contravariant type errors.
+ * Minimal Convex context interfaces. Using `unknown` for the function
+ * reference parameter lets any Convex ctx satisfy these interfaces while
+ * remaining type-safe — the same pattern used throughout the plugin classes.
  */
 interface RunsQueries {
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	runQuery: (fn: any, args: any) => Promise<any>;
+	runQuery: (fn: unknown, args: Record<string, unknown>) => Promise<unknown>;
 }
 interface RunsMutations {
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	runMutation: (fn: any, args: any) => Promise<any>;
+	runMutation: (fn: unknown, args: Record<string, unknown>) => Promise<unknown>;
 }
 interface RunsActions {
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	runAction: (fn: any, args: any) => Promise<any>;
+	runAction: (fn: unknown, args: Record<string, unknown>) => Promise<unknown>;
 }
 type ConvexCtx = RunsQueries & RunsMutations;
 type PluginList = readonly ConvexAuthPlugin[];
@@ -898,15 +897,14 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 	 * export default http;
 	 * ```
 	 */
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	registerRoutes(http: any, options?: { callbackBaseUrl?: string }): void {
+	registerRoutes(http: HttpRouter, options?: { callbackBaseUrl?: string }): void {
 		for (const provider of this.providerMap.values()) {
 			const path = `/auth/callback/${provider.id}`;
 
 			http.route({
 				path,
 				method: "GET",
-				handler: async (req: Request) => {
+				handler: httpActionGeneric(async (_ctx, req) => {
 					const url = new URL(req.url);
 					const code = url.searchParams.get("code");
 					const state = url.searchParams.get("state");
@@ -943,7 +941,7 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 							headers: { "Content-Type": "application/json" },
 						},
 					);
-				},
+				}),
 			});
 		}
 	}
