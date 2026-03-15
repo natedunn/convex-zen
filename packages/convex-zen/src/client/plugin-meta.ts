@@ -1,15 +1,15 @@
-export type TanStackAuthPluginFunctionKind = "query" | "mutation" | "action";
+export type AuthPluginFunctionKind = "query" | "mutation" | "action";
 
-export type TanStackAuthCoreMeta = Record<string, TanStackAuthPluginFunctionKind>;
+export type AuthCoreMeta = Record<string, AuthPluginFunctionKind>;
 
-export type TanStackAuthPluginMeta = Record<
+export type AuthPluginMeta = Record<
   string,
-  Record<string, TanStackAuthPluginFunctionKind>
+  Record<string, AuthPluginFunctionKind>
 >;
 
-export interface TanStackAuthMeta {
-  core: TanStackAuthCoreMeta;
-  plugin: TanStackAuthPluginMeta;
+export interface AuthMeta {
+  core: AuthCoreMeta;
+  plugin: AuthPluginMeta;
 }
 
 export function toKebabCase(value: string): string {

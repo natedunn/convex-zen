@@ -1,9 +1,9 @@
 import type { FunctionArgs, FunctionReference } from "convex/server";
 import type { TanStackStartAuthApiPluginFactory } from "./index";
 import type {
-  TanStackAuthCoreMeta,
-  TanStackAuthPluginFunctionKind,
-  TanStackAuthPluginMeta,
+  AuthCoreMeta,
+  AuthPluginFunctionKind,
+  AuthPluginMeta,
 } from "../plugin-meta";
 import { toKebabCase } from "../plugin-meta";
 import { readFunctionRef, isRecord, readMember } from "../helpers";
@@ -63,7 +63,7 @@ type CoreRouteEntry = {
 
 export interface TanStackStartCoreApiPluginOptions {
   routePrefix?: string;
-  coreMeta?: TanStackAuthCoreMeta;
+  coreMeta?: AuthCoreMeta;
 }
 
 function normalizeCoreRoutePrefix(prefix: string): string {
@@ -72,7 +72,7 @@ function normalizeCoreRoutePrefix(prefix: string): string {
 }
 
 function resolveCoreRouteEntries(
-  coreMeta: TanStackAuthCoreMeta | undefined,
+  coreMeta: AuthCoreMeta | undefined,
   convexFunctions: Record<string, unknown> | undefined
 ): Map<string, CoreRouteEntry> {
   const entries = new Map<string, CoreRouteEntry>();
@@ -216,12 +216,12 @@ export function coreApiPlugin(
 export const PLUGIN_API_PLUGIN_ID = "plugin" as const;
 
 export interface TanStackStartPluginApiPluginOptions {
-  pluginMeta: TanStackAuthPluginMeta;
+  pluginMeta: AuthPluginMeta;
   routePrefix?: string;
 }
 
 type PluginRouteEntry = {
-  kind: TanStackAuthPluginFunctionKind;
+  kind: AuthPluginFunctionKind;
   ref: FunctionReference<"query" | "mutation" | "action", "public">;
 };
 
@@ -231,7 +231,7 @@ function normalizePluginRoutePrefix(prefix: string): string {
 }
 
 function resolvePluginRouteEntries(
-  pluginMeta: TanStackAuthPluginMeta,
+  pluginMeta: AuthPluginMeta,
   convexFunctions: Record<string, unknown> | undefined
 ): Map<string, PluginRouteEntry> {
   const entries = new Map<string, PluginRouteEntry>();

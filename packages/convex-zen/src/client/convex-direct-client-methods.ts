@@ -4,16 +4,16 @@ import type {
   FunctionReturnType,
 } from "convex/server";
 import type {
-  TanStackAuthCoreMeta,
-  TanStackAuthMeta,
-  TanStackAuthPluginFunctionKind,
-  TanStackAuthPluginMeta,
+  AuthCoreMeta,
+  AuthMeta,
+  AuthPluginFunctionKind,
+  AuthPluginMeta,
 } from "./plugin-meta";
 
-export type DirectConvexFunctionKind = TanStackAuthPluginFunctionKind;
-export type DirectConvexCoreMeta = TanStackAuthCoreMeta;
-export type DirectConvexPluginMeta = TanStackAuthPluginMeta;
-export type DirectConvexMeta = TanStackAuthMeta;
+export type DirectConvexFunctionKind = AuthPluginFunctionKind;
+export type DirectConvexCoreMeta = AuthCoreMeta;
+export type DirectConvexPluginMeta = AuthPluginMeta;
+export type DirectConvexMeta = AuthMeta;
 
 export type DirectConvexFunctionRef = FunctionReference<
   DirectConvexFunctionKind,

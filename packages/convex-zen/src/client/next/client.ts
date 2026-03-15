@@ -12,10 +12,10 @@ import {
 import type { ReactAuthClient } from "../react";
 import type { SessionInfo } from "../primitives";
 import {
-  type TanStackAuthCoreMeta,
-  type TanStackAuthMeta,
-  type TanStackAuthPluginFunctionKind,
-  type TanStackAuthPluginMeta,
+  type AuthCoreMeta,
+  type AuthMeta,
+  type AuthPluginFunctionKind,
+  type AuthPluginMeta,
   toKebabCase,
 } from "../plugin-meta";
 import {
@@ -36,8 +36,8 @@ export interface NextAuthClientOptions extends RouteAuthRuntimeAdapterOptions {}
 export type NextQueryAuthClientOptions<
   TPlugins extends readonly TanStackStartAuthApiClientPlugin<object>[] = [],
   TConvexFunctions extends Record<string, unknown> = Record<string, unknown>,
-  TPluginMeta extends TanStackAuthPluginMeta = TanStackAuthPluginMeta,
-  TCoreMeta extends TanStackAuthCoreMeta = TanStackAuthCoreMeta,
+  TPluginMeta extends AuthPluginMeta = AuthPluginMeta,
+  TCoreMeta extends AuthCoreMeta = AuthCoreMeta,
 > = TanStackQueryAuthClientOptions<
   TPlugins,
   TConvexFunctions,
@@ -48,8 +48,8 @@ export type NextQueryAuthClientOptions<
 export type NextQueryAuthClient<
   TPlugins extends readonly TanStackStartAuthApiClientPlugin<object>[] = [],
   TConvexFunctions extends Record<string, unknown> = Record<string, unknown>,
-  TPluginMeta extends TanStackAuthPluginMeta = TanStackAuthPluginMeta,
-  TCoreMeta extends TanStackAuthCoreMeta = TanStackAuthCoreMeta,
+  TPluginMeta extends AuthPluginMeta = AuthPluginMeta,
+  TCoreMeta extends AuthCoreMeta = AuthCoreMeta,
 > = TanStackQueryAuthClient<
   TPlugins,
   TConvexFunctions,
@@ -145,7 +145,7 @@ const NEXT_DEFAULT_GENERATED_CORE_META = {
   currentUser: "query",
   getOAuthUrl: "mutation",
   handleOAuthCallback: "action",
-} as const satisfies TanStackAuthCoreMeta;
+} as const satisfies AuthCoreMeta;
 
 function normalizeClientBasePath(path: string): string {
   const normalized = path.trim();
@@ -176,16 +176,16 @@ async function readClientJson(response: Response): Promise<unknown> {
 }
 
 function resolveClientPluginMeta(options: {
-  pluginMeta?: TanStackAuthPluginMeta;
-  meta?: TanStackAuthMeta;
-}): TanStackAuthPluginMeta | undefined {
+  pluginMeta?: AuthPluginMeta;
+  meta?: AuthMeta;
+}): AuthPluginMeta | undefined {
   return options.meta?.plugin ?? options.pluginMeta;
 }
 
 function resolveClientCoreMeta(options: {
-  coreMeta?: TanStackAuthCoreMeta;
-  meta?: TanStackAuthMeta;
-}): TanStackAuthCoreMeta {
+  coreMeta?: AuthCoreMeta;
+  meta?: AuthMeta;
+}): AuthCoreMeta {
   return options.meta?.core ?? options.coreMeta ?? NEXT_DEFAULT_GENERATED_CORE_META;
 }
 
@@ -510,7 +510,7 @@ function createNextClientRouteMethod<
 >(options: {
   requester: NextClientRouteRequester;
   routePath: string;
-  kind?: TanStackAuthPluginFunctionKind;
+  kind?: AuthPluginFunctionKind;
   functionRef: TFunctionRef;
   fallback: string;
   getDefaultMutationExecutor?: () => NextClientMutationExecutorLike | undefined;
@@ -574,8 +574,8 @@ function createNextClientRouteMethod<
 function createNextQueryAuthClient<
   TPlugins extends readonly TanStackStartAuthApiClientPlugin<object>[] = [],
   TConvexFunctions extends Record<string, unknown> = Record<string, unknown>,
-  TPluginMeta extends TanStackAuthPluginMeta = TanStackAuthPluginMeta,
-  TCoreMeta extends TanStackAuthCoreMeta = TanStackAuthCoreMeta,
+  TPluginMeta extends AuthPluginMeta = AuthPluginMeta,
+  TCoreMeta extends AuthCoreMeta = AuthCoreMeta,
 >(
   options: NextQueryAuthClientOptions<
     TPlugins,
@@ -800,8 +800,8 @@ function createNextQueryAuthClient<
 export function createNextAuthClient<
   TPlugins extends readonly TanStackStartAuthApiClientPlugin<object>[] = [],
   TConvexFunctions extends Record<string, unknown> = Record<string, unknown>,
-  TPluginMeta extends TanStackAuthPluginMeta = TanStackAuthPluginMeta,
-  TCoreMeta extends TanStackAuthCoreMeta = TanStackAuthCoreMeta,
+  TPluginMeta extends AuthPluginMeta = AuthPluginMeta,
+  TCoreMeta extends AuthCoreMeta = AuthCoreMeta,
 >(
   options: NextQueryAuthClientOptions<
     TPlugins,
@@ -816,8 +816,8 @@ export function createNextAuthClient(
 export function createNextAuthClient<
   TPlugins extends readonly TanStackStartAuthApiClientPlugin<object>[] = [],
   TConvexFunctions extends Record<string, unknown> = Record<string, unknown>,
-  TPluginMeta extends TanStackAuthPluginMeta = TanStackAuthPluginMeta,
-  TCoreMeta extends TanStackAuthCoreMeta = TanStackAuthCoreMeta,
+  TPluginMeta extends AuthPluginMeta = AuthPluginMeta,
+  TCoreMeta extends AuthCoreMeta = AuthCoreMeta,
 >(
   options:
     | NextAuthClientOptions
