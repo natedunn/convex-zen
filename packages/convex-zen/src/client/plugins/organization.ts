@@ -9,6 +9,7 @@ import type {
   OrganizationDomainVerificationChallenge,
   OrganizationIncomingInvitation,
   OrganizationInvitation,
+  OrganizationInviteResult,
   OrganizationListResult,
   OrganizationMember,
   OrganizationMembership,
@@ -700,5 +701,694 @@ export class OrganizationPlugin<
 
   get subdomainSuffix() {
     return this.resolveSubdomainSuffix();
+  }
+}
+
+export interface OrganizationRoleInput<TRole extends string> {
+  role?: TRole;
+  roles?: readonly TRole[];
+}
+
+/**
+ * The shape of `auth.organization` — all organisation operations available on
+ * the ConvexZen instance.  Actor user ID is optional on every method; when
+ * omitted it is resolved from the Convex context automatically.
+ */
+export interface OrganizationFacade<
+  TOrganizationRole extends string,
+  TOrganizationPermission,
+> {
+  checkSlug: (
+    ctx: RunsQueries,
+    args: { slug: string },
+  ) => Promise<OrganizationSlugCheckResult>;
+  createOrganization: (
+    ctx: RunsMutations,
+    args: { actorUserId?: string; name: string; slug: string; logo?: string },
+  ) => Promise<{ organization: Organization; membership: OrganizationMembership }>;
+  updateOrganization: (
+    ctx: RunsMutations,
+    args: {
+      actorUserId?: string;
+      organizationId: string;
+      name?: string;
+      slug?: string;
+      logo?: string;
+    },
+  ) => Promise<Organization>;
+  deleteOrganization: (
+    ctx: RunsMutations,
+    args: { actorUserId?: string; organizationId: string },
+  ) => Promise<void>;
+  listOrganizations: (
+    ctx: RunsQueries,
+    args?: { actorUserId?: string },
+  ) => Promise<OrganizationListResult>;
+  getOrganization: (
+    ctx: RunsQueries,
+    args: { actorUserId?: string; organizationId: string },
+  ) => Promise<Organization | null>;
+  getMembership: (
+    ctx: RunsQueries,
+    args: { actorUserId?: string; organizationId: string },
+  ) => Promise<OrganizationMembership | null>;
+  listMembers: (
+    ctx: RunsQueries,
+    args: { actorUserId?: string; organizationId: string },
+  ) => Promise<OrganizationMember[]>;
+  inviteMember: (
+    ctx: RunsMutations,
+    args: {
+      actorUserId?: string;
+      organizationId: string;
+      email: string;
+      role: OrganizationRoleAssignmentInput;
+    },
+  ) => Promise<OrganizationInviteResult>;
+  listInvitations: (
+    ctx: RunsQueries,
+    args: { actorUserId?: string; organizationId: string },
+  ) => Promise<OrganizationInvitation[]>;
+  listIncomingInvitations: (
+    ctx: RunsQueries,
+    args?: { actorUserId?: string },
+  ) => Promise<OrganizationIncomingInvitation[]>;
+  acceptInvitation: (
+    ctx: RunsMutations,
+    args: { actorUserId?: string; token: string },
+  ) => Promise<OrganizationInvitation>;
+  acceptIncomingInvitation: (
+    ctx: RunsMutations,
+    args: { actorUserId?: string; invitationId: string },
+  ) => Promise<OrganizationInvitation>;
+  cancelInvitation: (
+    ctx: RunsMutations,
+    args: { actorUserId?: string; invitationId: string },
+  ) => Promise<OrganizationInvitation>;
+  declineIncomingInvitation: (
+    ctx: RunsMutations,
+    args: { actorUserId?: string; invitationId: string },
+  ) => Promise<OrganizationInvitation>;
+  removeMember: (
+    ctx: RunsMutations,
+    args: { actorUserId?: string; organizationId: string; userId: string },
+  ) => Promise<void>;
+  setMemberRole: (
+    ctx: RunsMutations,
+    args: {
+      actorUserId?: string;
+      organizationId: string;
+      userId: string;
+      role: OrganizationRoleAssignmentInput;
+    },
+  ) => Promise<OrganizationMembership>;
+  createRole: (
+    ctx: RunsMutations,
+    args: {
+      actorUserId?: string;
+      organizationId: string;
+      name: string;
+      slug: string;
+      description?: string;
+      permissions: string[];
+    },
+  ) => Promise<OrganizationRoleRecord>;
+  listRoles: (
+    ctx: RunsQueries,
+    args: { actorUserId?: string; organizationId: string },
+  ) => Promise<OrganizationRoleListResult>;
+  listAvailablePermissions: (
+    ctx: RunsQueries,
+    args: { actorUserId?: string; organizationId: string },
+  ) => Promise<OrganizationAvailablePermissionsResult>;
+  getRole: (
+    ctx: RunsQueries,
+    args: { actorUserId?: string; roleId: string },
+  ) => Promise<OrganizationRoleRecord | null>;
+  updateRole: (
+    ctx: RunsMutations,
+    args: {
+      actorUserId?: string;
+      roleId: string;
+      name?: string;
+      slug?: string;
+      description?: string;
+      permissions?: string[];
+    },
+  ) => Promise<OrganizationRoleRecord>;
+  deleteRole: (
+    ctx: RunsMutations,
+    args: { actorUserId?: string; roleId: string },
+  ) => Promise<void>;
+  transferOwnership: (
+    ctx: RunsMutations,
+    args: {
+      actorUserId?: string;
+      organizationId: string;
+      newOwnerUserId: string;
+    },
+  ) => Promise<void>;
+  addDomain: (
+    ctx: RunsMutations,
+    args: { actorUserId?: string; organizationId: string; hostname: string },
+  ) => Promise<OrganizationDomain>;
+  listDomains: (
+    ctx: RunsQueries,
+    args: { actorUserId?: string; organizationId: string },
+  ) => Promise<OrganizationDomain[]>;
+  getDomainVerificationChallenge: (
+    ctx: RunsQueries,
+    args: { actorUserId?: string; domainId: string },
+  ) => Promise<OrganizationDomainVerificationChallenge>;
+  markDomainVerified: (
+    ctx: RunsMutations,
+    args: { actorUserId?: string; domainId: string },
+  ) => Promise<OrganizationDomain>;
+  removeDomain: (
+    ctx: RunsMutations,
+    args: { actorUserId?: string; domainId: string },
+  ) => Promise<void>;
+  resolveOrganizationByHost: (
+    ctx: RunsQueries,
+    args: { host: string },
+  ) => Promise<Organization | null>;
+  hasRole: (
+    ctx: RunsQueries,
+    args: {
+      actorUserId?: string;
+      organizationId: string;
+    } & OrganizationRoleInput<TOrganizationRole>,
+  ) => Promise<boolean>;
+  requireRole: (
+    ctx: RunsQueries,
+    args: {
+      actorUserId?: string;
+      organizationId: string;
+    } & OrganizationRoleInput<TOrganizationRole>,
+  ) => Promise<OrganizationMembership>;
+  hasPermission: (
+    ctx: RunsQueries,
+    args: {
+      actorUserId?: string;
+      organizationId: string;
+      permission: TOrganizationPermission;
+    },
+  ) => Promise<boolean>;
+  requirePermission: (
+    ctx: RunsQueries,
+    args: {
+      actorUserId?: string;
+      organizationId: string;
+      permission: TOrganizationPermission;
+    },
+  ) => Promise<OrganizationMembership>;
+}
+
+/**
+ * Context-aware facade that wraps {@link OrganizationPlugin}.
+ *
+ * Each method accepts an optional `actorUserId`.  When omitted the facade
+ * resolves it automatically via the injected `requireActorUserId` /
+ * `resolveUserId` helpers so callers don't have to thread the identity through
+ * every call site.
+ *
+ * This class lives in the organisation plugin module so that all organisation-
+ * related code stays in one place, while `ConvexZen` simply constructs and
+ * stores an instance.
+ */
+export class ConvexZenOrganizationFacade<
+  TCustomAccessControl extends OrganizationCustomAccessControl = {},
+  TCustomRoles extends OrganizationCustomRoleDefinitions<
+    OrganizationAccessControl<TCustomAccessControl>
+  > = {},
+> implements
+    OrganizationFacade<
+      OrganizationRoleName<TCustomRoles>,
+      OrganizationPermission<OrganizationAccessControl<TCustomAccessControl>>
+    >
+{
+  constructor(
+    private readonly plugin: OrganizationPlugin<
+      TCustomAccessControl,
+      TCustomRoles
+    >,
+    private readonly requireActorUserId: (
+      ctx: unknown,
+    ) => Promise<string>,
+    private readonly resolveUserId: (
+      ctx: unknown,
+    ) => Promise<string | null>,
+  ) {}
+
+  async checkSlug(
+    ctx: RunsQueries,
+    args: { slug: string },
+  ): Promise<OrganizationSlugCheckResult> {
+    return this.plugin.checkSlug(ctx, args);
+  }
+
+  async createOrganization(
+    ctx: RunsMutations,
+    args: { actorUserId?: string; name: string; slug: string; logo?: string },
+  ): Promise<{ organization: Organization; membership: OrganizationMembership }> {
+    const actorUserId = args.actorUserId ?? (await this.requireActorUserId(ctx));
+    const payload: {
+      actorUserId: string;
+      name: string;
+      slug: string;
+      logo?: string;
+    } = { actorUserId, name: args.name, slug: args.slug };
+    if (args.logo !== undefined) payload.logo = args.logo;
+    return this.plugin.createOrganization(ctx, payload);
+  }
+
+  async updateOrganization(
+    ctx: RunsMutations,
+    args: {
+      actorUserId?: string;
+      organizationId: string;
+      name?: string;
+      slug?: string;
+      logo?: string;
+    },
+  ): Promise<Organization> {
+    const actorUserId = args.actorUserId ?? (await this.requireActorUserId(ctx));
+    const payload: {
+      actorUserId: string;
+      organizationId: string;
+      name?: string;
+      slug?: string;
+      logo?: string;
+    } = { actorUserId, organizationId: args.organizationId };
+    if (args.name !== undefined) payload.name = args.name;
+    if (args.slug !== undefined) payload.slug = args.slug;
+    if (args.logo !== undefined) payload.logo = args.logo;
+    return this.plugin.updateOrganization(ctx, payload);
+  }
+
+  async deleteOrganization(
+    ctx: RunsMutations,
+    args: { actorUserId?: string; organizationId: string },
+  ): Promise<void> {
+    const actorUserId = args.actorUserId ?? (await this.requireActorUserId(ctx));
+    return this.plugin.deleteOrganization(ctx, {
+      actorUserId,
+      organizationId: args.organizationId,
+    });
+  }
+
+  async listOrganizations(
+    ctx: RunsQueries,
+    args: { actorUserId?: string } = {},
+  ): Promise<OrganizationListResult> {
+    const actorUserId = args.actorUserId ?? (await this.requireActorUserId(ctx));
+    return this.plugin.listOrganizations(ctx, { actorUserId });
+  }
+
+  async getOrganization(
+    ctx: RunsQueries,
+    args: { actorUserId?: string; organizationId: string },
+  ): Promise<Organization | null> {
+    const actorUserId = args.actorUserId ?? (await this.requireActorUserId(ctx));
+    return this.plugin.getOrganization(ctx, {
+      actorUserId,
+      organizationId: args.organizationId,
+    });
+  }
+
+  async getMembership(
+    ctx: RunsQueries,
+    args: { actorUserId?: string; organizationId: string },
+  ): Promise<OrganizationMembership | null> {
+    const actorUserId = args.actorUserId ?? (await this.requireActorUserId(ctx));
+    return this.plugin.getMembership(ctx, {
+      actorUserId,
+      organizationId: args.organizationId,
+    });
+  }
+
+  async listMembers(
+    ctx: RunsQueries,
+    args: { actorUserId?: string; organizationId: string },
+  ): Promise<OrganizationMember[]> {
+    const actorUserId = args.actorUserId ?? (await this.requireActorUserId(ctx));
+    return this.plugin.listMembers(ctx, {
+      actorUserId,
+      organizationId: args.organizationId,
+    });
+  }
+
+  async inviteMember(
+    ctx: RunsMutations,
+    args: {
+      actorUserId?: string;
+      organizationId: string;
+      email: string;
+      role: OrganizationRoleAssignmentInput;
+    },
+  ): Promise<OrganizationInviteResult> {
+    const actorUserId = args.actorUserId ?? (await this.requireActorUserId(ctx));
+    return this.plugin.inviteMember(ctx, {
+      actorUserId,
+      organizationId: args.organizationId,
+      email: args.email,
+      role: args.role,
+    });
+  }
+
+  async listInvitations(
+    ctx: RunsQueries,
+    args: { actorUserId?: string; organizationId: string },
+  ): Promise<OrganizationInvitation[]> {
+    const actorUserId = args.actorUserId ?? (await this.requireActorUserId(ctx));
+    return this.plugin.listInvitations(ctx, {
+      actorUserId,
+      organizationId: args.organizationId,
+    });
+  }
+
+  async listIncomingInvitations(
+    ctx: RunsQueries,
+    args: { actorUserId?: string } = {},
+  ): Promise<OrganizationIncomingInvitation[]> {
+    const actorUserId = args.actorUserId ?? (await this.requireActorUserId(ctx));
+    return this.plugin.listIncomingInvitations(ctx, { actorUserId });
+  }
+
+  async acceptInvitation(
+    ctx: RunsMutations,
+    args: { actorUserId?: string; token: string },
+  ): Promise<OrganizationInvitation> {
+    const actorUserId = args.actorUserId ?? (await this.requireActorUserId(ctx));
+    return this.plugin.acceptInvitation(ctx, { actorUserId, token: args.token });
+  }
+
+  async acceptIncomingInvitation(
+    ctx: RunsMutations,
+    args: { actorUserId?: string; invitationId: string },
+  ): Promise<OrganizationInvitation> {
+    const actorUserId = args.actorUserId ?? (await this.requireActorUserId(ctx));
+    return this.plugin.acceptIncomingInvitation(ctx, {
+      actorUserId,
+      invitationId: args.invitationId,
+    });
+  }
+
+  async cancelInvitation(
+    ctx: RunsMutations,
+    args: { actorUserId?: string; invitationId: string },
+  ): Promise<OrganizationInvitation> {
+    const actorUserId = args.actorUserId ?? (await this.requireActorUserId(ctx));
+    return this.plugin.cancelInvitation(ctx, {
+      actorUserId,
+      invitationId: args.invitationId,
+    });
+  }
+
+  async declineIncomingInvitation(
+    ctx: RunsMutations,
+    args: { actorUserId?: string; invitationId: string },
+  ): Promise<OrganizationInvitation> {
+    const actorUserId = args.actorUserId ?? (await this.requireActorUserId(ctx));
+    return this.plugin.declineIncomingInvitation(ctx, {
+      actorUserId,
+      invitationId: args.invitationId,
+    });
+  }
+
+  async removeMember(
+    ctx: RunsMutations,
+    args: { actorUserId?: string; organizationId: string; userId: string },
+  ): Promise<void> {
+    const actorUserId = args.actorUserId ?? (await this.requireActorUserId(ctx));
+    return this.plugin.removeMember(ctx, {
+      actorUserId,
+      organizationId: args.organizationId,
+      userId: args.userId,
+    });
+  }
+
+  async setMemberRole(
+    ctx: RunsMutations,
+    args: {
+      actorUserId?: string;
+      organizationId: string;
+      userId: string;
+      role: OrganizationRoleAssignmentInput;
+    },
+  ): Promise<OrganizationMembership> {
+    const actorUserId = args.actorUserId ?? (await this.requireActorUserId(ctx));
+    return this.plugin.setMemberRole(ctx, {
+      actorUserId,
+      organizationId: args.organizationId,
+      userId: args.userId,
+      role: args.role,
+    });
+  }
+
+  async createRole(
+    ctx: RunsMutations,
+    args: {
+      actorUserId?: string;
+      organizationId: string;
+      name: string;
+      slug: string;
+      description?: string;
+      permissions: string[];
+    },
+  ): Promise<OrganizationRoleRecord> {
+    const actorUserId = args.actorUserId ?? (await this.requireActorUserId(ctx));
+    const payload: {
+      actorUserId: string;
+      organizationId: string;
+      name: string;
+      slug: string;
+      description?: string;
+      permissions: string[];
+    } = {
+      actorUserId,
+      organizationId: args.organizationId,
+      name: args.name,
+      slug: args.slug,
+      permissions: args.permissions,
+    };
+    if (args.description !== undefined) payload.description = args.description;
+    return this.plugin.createRole(ctx, payload);
+  }
+
+  async listRoles(
+    ctx: RunsQueries,
+    args: { actorUserId?: string; organizationId: string },
+  ): Promise<OrganizationRoleListResult> {
+    const actorUserId = args.actorUserId ?? (await this.requireActorUserId(ctx));
+    return this.plugin.listRoles(ctx, {
+      actorUserId,
+      organizationId: args.organizationId,
+    });
+  }
+
+  async listAvailablePermissions(
+    ctx: RunsQueries,
+    args: { actorUserId?: string; organizationId: string },
+  ): Promise<OrganizationAvailablePermissionsResult> {
+    const actorUserId = args.actorUserId ?? (await this.requireActorUserId(ctx));
+    return this.plugin.listAvailablePermissions(ctx, {
+      actorUserId,
+      organizationId: args.organizationId,
+    });
+  }
+
+  async getRole(
+    ctx: RunsQueries,
+    args: { actorUserId?: string; roleId: string },
+  ): Promise<OrganizationRoleRecord | null> {
+    const actorUserId = args.actorUserId ?? (await this.requireActorUserId(ctx));
+    return this.plugin.getRole(ctx, { actorUserId, roleId: args.roleId });
+  }
+
+  async updateRole(
+    ctx: RunsMutations,
+    args: {
+      actorUserId?: string;
+      roleId: string;
+      name?: string;
+      slug?: string;
+      description?: string;
+      permissions?: string[];
+    },
+  ): Promise<OrganizationRoleRecord> {
+    const actorUserId = args.actorUserId ?? (await this.requireActorUserId(ctx));
+    const payload: {
+      actorUserId: string;
+      roleId: string;
+      name?: string;
+      slug?: string;
+      description?: string;
+      permissions?: string[];
+    } = { actorUserId, roleId: args.roleId };
+    if (args.name !== undefined) payload.name = args.name;
+    if (args.slug !== undefined) payload.slug = args.slug;
+    if (args.description !== undefined) payload.description = args.description;
+    if (args.permissions !== undefined) payload.permissions = args.permissions;
+    return this.plugin.updateRole(ctx, payload);
+  }
+
+  async deleteRole(
+    ctx: RunsMutations,
+    args: { actorUserId?: string; roleId: string },
+  ): Promise<void> {
+    const actorUserId = args.actorUserId ?? (await this.requireActorUserId(ctx));
+    return this.plugin.deleteRole(ctx, { actorUserId, roleId: args.roleId });
+  }
+
+  async transferOwnership(
+    ctx: RunsMutations,
+    args: {
+      actorUserId?: string;
+      organizationId: string;
+      newOwnerUserId: string;
+    },
+  ): Promise<void> {
+    const actorUserId = args.actorUserId ?? (await this.requireActorUserId(ctx));
+    return this.plugin.transferOwnership(ctx, {
+      actorUserId,
+      organizationId: args.organizationId,
+      newOwnerUserId: args.newOwnerUserId,
+    });
+  }
+
+  async addDomain(
+    ctx: RunsMutations,
+    args: { actorUserId?: string; organizationId: string; hostname: string },
+  ): Promise<OrganizationDomain> {
+    const actorUserId = args.actorUserId ?? (await this.requireActorUserId(ctx));
+    return this.plugin.addDomain(ctx, {
+      actorUserId,
+      organizationId: args.organizationId,
+      hostname: args.hostname,
+    });
+  }
+
+  async listDomains(
+    ctx: RunsQueries,
+    args: { actorUserId?: string; organizationId: string },
+  ): Promise<OrganizationDomain[]> {
+    const actorUserId = args.actorUserId ?? (await this.requireActorUserId(ctx));
+    return this.plugin.listDomains(ctx, {
+      actorUserId,
+      organizationId: args.organizationId,
+    });
+  }
+
+  async getDomainVerificationChallenge(
+    ctx: RunsQueries,
+    args: { actorUserId?: string; domainId: string },
+  ): Promise<OrganizationDomainVerificationChallenge> {
+    const actorUserId = args.actorUserId ?? (await this.requireActorUserId(ctx));
+    return this.plugin.getDomainVerificationChallenge(ctx, {
+      actorUserId,
+      domainId: args.domainId,
+    });
+  }
+
+  async markDomainVerified(
+    ctx: RunsMutations,
+    args: { actorUserId?: string; domainId: string },
+  ): Promise<OrganizationDomain> {
+    const actorUserId = args.actorUserId ?? (await this.requireActorUserId(ctx));
+    return this.plugin.markDomainVerified(ctx, {
+      actorUserId,
+      domainId: args.domainId,
+    });
+  }
+
+  async removeDomain(
+    ctx: RunsMutations,
+    args: { actorUserId?: string; domainId: string },
+  ): Promise<void> {
+    const actorUserId = args.actorUserId ?? (await this.requireActorUserId(ctx));
+    return this.plugin.removeDomain(ctx, {
+      actorUserId,
+      domainId: args.domainId,
+    });
+  }
+
+  async resolveOrganizationByHost(
+    ctx: RunsQueries,
+    args: { host: string },
+  ): Promise<Organization | null> {
+    return this.plugin.resolveOrganizationByHost(ctx, args);
+  }
+
+  async hasRole(
+    ctx: RunsQueries,
+    args: {
+      actorUserId?: string;
+      organizationId: string;
+    } & OrganizationRoleInput<OrganizationRoleName<TCustomRoles>>,
+  ): Promise<boolean> {
+    const actorUserId = args.actorUserId ?? (await this.resolveUserId(ctx));
+    if (!actorUserId) return false;
+    const payload: {
+      actorUserId: string;
+      organizationId: string;
+      role?: OrganizationRoleName<TCustomRoles>;
+      roles?: readonly OrganizationRoleName<TCustomRoles>[];
+    } = { actorUserId, organizationId: args.organizationId };
+    if (args.role !== undefined) payload.role = args.role;
+    if (args.roles !== undefined) payload.roles = args.roles;
+    return this.plugin.hasRole(ctx, payload);
+  }
+
+  async requireRole(
+    ctx: RunsQueries,
+    args: {
+      actorUserId?: string;
+      organizationId: string;
+    } & OrganizationRoleInput<OrganizationRoleName<TCustomRoles>>,
+  ): Promise<OrganizationMembership> {
+    const actorUserId = args.actorUserId ?? (await this.requireActorUserId(ctx));
+    const payload: {
+      actorUserId: string;
+      organizationId: string;
+      role?: OrganizationRoleName<TCustomRoles>;
+      roles?: readonly OrganizationRoleName<TCustomRoles>[];
+    } = { actorUserId, organizationId: args.organizationId };
+    if (args.role !== undefined) payload.role = args.role;
+    if (args.roles !== undefined) payload.roles = args.roles;
+    return this.plugin.requireRole(ctx, payload);
+  }
+
+  async hasPermission(
+    ctx: RunsQueries,
+    args: {
+      actorUserId?: string;
+      organizationId: string;
+      permission: OrganizationPermission<OrganizationAccessControl<TCustomAccessControl>>;
+    },
+  ): Promise<boolean> {
+    const actorUserId = args.actorUserId ?? (await this.resolveUserId(ctx));
+    if (!actorUserId) return false;
+    return this.plugin.hasPermission(ctx, {
+      actorUserId,
+      organizationId: args.organizationId,
+      permission: args.permission,
+    });
+  }
+
+  async requirePermission(
+    ctx: RunsQueries,
+    args: {
+      actorUserId?: string;
+      organizationId: string;
+      permission: OrganizationPermission<OrganizationAccessControl<TCustomAccessControl>>;
+    },
+  ): Promise<OrganizationMembership> {
+    const actorUserId = args.actorUserId ?? (await this.requireActorUserId(ctx));
+    return this.plugin.requirePermission(ctx, {
+      actorUserId,
+      organizationId: args.organizationId,
+      permission: args.permission,
+    });
   }
 }
