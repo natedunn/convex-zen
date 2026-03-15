@@ -1,4 +1,13 @@
 import type { AdminListUsersResult, AdminPluginConfig } from "../../types";
+import { resolveComponentFn } from "../helpers";
+
+type RunsQueries = {
+  runQuery: (fn: unknown, args: Record<string, unknown>) => Promise<unknown>;
+};
+
+type RunsMutations = {
+  runMutation: (fn: unknown, args: Record<string, unknown>) => Promise<unknown>;
+};
 
 /**
  * Create an admin plugin configuration.
@@ -50,37 +59,11 @@ export class AdminPlugin {
    * e.g. "plugins/admin:listUsers" → component.plugins.admin.listUsers
    */
   private fn(path: string): unknown {
-    const [modulePath, funcName] = path.split(":");
-    if (!modulePath || !funcName) {
-      throw new Error(`Invalid function path: ${path}`);
-    }
-    const parts = modulePath.split("/");
-    let ref: Record<string, unknown> = this.componentApi;
-    for (const part of parts) {
-      const next = ref[part];
-      if (
-        !next ||
-        typeof next !== "object" ||
-        Array.isArray(next)
-      ) {
-        throw new Error(`Invalid function path segment: ${part}`);
-      }
-      ref = next as Record<string, unknown>;
-    }
-    const resolved = ref[funcName];
-    if (!resolved) {
-      throw new Error(`Function not found: ${path}`);
-    }
-    return resolved;
+    return resolveComponentFn(this.componentApi, path);
   }
 
   private async runAdminGatewayMutation(
-    ctx: {
-      runMutation: (
-        fn: unknown,
-        args: Record<string, unknown>
-      ) => Promise<unknown>;
-    },
+    ctx: RunsMutations,
     path: string,
     args: Record<string, unknown>
   ): Promise<unknown> {
@@ -88,12 +71,7 @@ export class AdminPlugin {
   }
 
   private async runAdminGatewayQuery(
-    ctx: {
-      runQuery: (
-        fn: unknown,
-        args: Record<string, unknown>
-      ) => Promise<unknown>;
-    },
+    ctx: RunsQueries,
     path: string,
     args: Record<string, unknown>
   ): Promise<unknown> {
@@ -104,12 +82,7 @@ export class AdminPlugin {
    * Returns true when the actor has an active admin role.
    */
   async isAdmin(
-    ctx: {
-      runQuery: (
-        fn: unknown,
-        args: Record<string, unknown>
-      ) => Promise<unknown>;
-    },
+    ctx: RunsQueries,
     args: {
       actorUserId: string;
     }
@@ -128,12 +101,7 @@ export class AdminPlugin {
    * List users with pagination.
    */
   async listUsers(
-    ctx: {
-      runQuery: (
-        fn: unknown,
-        args: Record<string, unknown>
-      ) => Promise<unknown>;
-    },
+    ctx: RunsQueries,
     args: {
       actorUserId: string;
       limit?: number;
@@ -154,12 +122,7 @@ export class AdminPlugin {
    * Ban a user, invalidating all their sessions.
    */
   async banUser(
-    ctx: {
-      runMutation: (
-        fn: unknown,
-        args: Record<string, unknown>
-      ) => Promise<unknown>;
-    },
+    ctx: RunsMutations,
     args: {
       actorUserId: string;
       userId: string;
@@ -181,12 +144,7 @@ export class AdminPlugin {
    * Unban a user.
    */
   async unbanUser(
-    ctx: {
-      runMutation: (
-        fn: unknown,
-        args: Record<string, unknown>
-      ) => Promise<unknown>;
-    },
+    ctx: RunsMutations,
     args: {
       actorUserId: string;
       userId: string;
@@ -206,12 +164,7 @@ export class AdminPlugin {
    * Set a user's role.
    */
   async setRole(
-    ctx: {
-      runMutation: (
-        fn: unknown,
-        args: Record<string, unknown>
-      ) => Promise<unknown>;
-    },
+    ctx: RunsMutations,
     args: {
       actorUserId: string;
       userId: string;
@@ -232,12 +185,7 @@ export class AdminPlugin {
    * Permanently delete a user and all associated data.
    */
   async deleteUser(
-    ctx: {
-      runMutation: (
-        fn: unknown,
-        args: Record<string, unknown>
-      ) => Promise<unknown>;
-    },
+    ctx: RunsMutations,
     args: {
       actorUserId: string;
       userId: string;

@@ -22,6 +22,7 @@ import {
 	ConvexZenOrganizationFacade,
 	type OrganizationFacade,
 } from "./plugins/organization";
+import { resolveComponentFn } from "./helpers";
 
 /**
  * Minimal Convex context interfaces. Using `unknown` for the function
@@ -836,24 +837,7 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 	 * component.providers.emailPassword.signUp via nested property traversal.
 	 */
 	private fn(path: string): unknown {
-		const [modulePath, funcName] = path.split(":");
-		if (!modulePath || !funcName) {
-			throw new Error(`Invalid function path: ${path}`);
-		}
-		const parts = modulePath.split("/");
-		let ref: Record<string, unknown> = this.component;
-		for (const part of parts) {
-			const next = ref[part];
-			if (!next || typeof next !== "object" || Array.isArray(next)) {
-				throw new Error(`Invalid function path segment: ${part}`);
-			}
-			ref = next as Record<string, unknown>;
-		}
-		const resolved = ref[funcName];
-		if (!resolved) {
-			throw new Error(`Function not found: ${path}`);
-		}
-		return resolved;
+		return resolveComponentFn(this.component, path);
 	}
 }
 
@@ -990,17 +974,17 @@ export type {
 	NextConvexAuthServerFactory,
 	NextConvexAuthServerFactoryOptions,
 	NextConvexAuthServerOptions,
-		NextCookieOptions,
-		NextCookieSameSite,
-		NextRequestFromHeadersOptions,
-		NextResolveClientIpContext,
-		NextServerAuth,
-		NextServerGetSession,
-		NextServerGetToken,
-		NextServerAuthOptions,
-		NextSignInResult,
-		NextSignOutResult,
-		NextTrustedOriginsConfig,
+	NextCookieOptions,
+	NextCookieSameSite,
+	NextRequestFromHeadersOptions,
+	NextResolveClientIpContext,
+	NextServerAuth,
+	NextServerGetSession,
+	NextServerGetToken,
+	NextServerAuthOptions,
+	NextSignInResult,
+	NextSignOutResult,
+	NextTrustedOriginsConfig,
 	NextTrustedOriginsFromEnvOptions,
 	NextTrustedProxyConfig,
 } from "./next";

@@ -22,6 +22,7 @@ import type {
   OrganizationRoleRecord,
   OrganizationSlugCheckResult,
 } from "../../types";
+import { resolveComponentFn } from "../helpers";
 
 const DEFAULT_INVITE_EXPIRES_MS = 7 * 24 * 60 * 60 * 1000;
 const BUILT_IN_ACCESS_CONTROL = {
@@ -204,24 +205,7 @@ export class OrganizationPlugin<
   ) {}
 
   private fn(path: string): unknown {
-    const [modulePath, funcName] = path.split(":");
-    if (!modulePath || !funcName) {
-      throw new Error(`Invalid function path: ${path}`);
-    }
-    const parts = modulePath.split("/");
-    let ref: Record<string, unknown> = this.componentApi;
-    for (const part of parts) {
-      const next = ref[part];
-      if (!next || typeof next !== "object" || Array.isArray(next)) {
-        throw new Error(`Invalid function path segment: ${part}`);
-      }
-      ref = next as Record<string, unknown>;
-    }
-    const resolved = ref[funcName];
-    if (!resolved) {
-      throw new Error(`Function not found: ${path}`);
-    }
-    return resolved;
+    return resolveComponentFn(this.componentApi, path);
   }
 
   private async runGatewayMutation(
