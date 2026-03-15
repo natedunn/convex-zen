@@ -1,12 +1,20 @@
 import type { AdminListUsersResult, AdminPluginConfig } from "../../types";
 import { resolveComponentFn } from "../helpers";
 
+/**
+ * Admin plugin client module.
+ *
+ * This file is intentionally small: it owns the admin plugin config factory and
+ * the raw `auth.plugins.admin` wrapper. Higher-level app-facing composition
+ * still happens in the main client entrypoint.
+ */
+
 type RunsQueries = {
-  runQuery: (fn: unknown, args: Record<string, unknown>) => Promise<unknown>;
+  runQuery(fn: unknown, args: Record<string, unknown>): Promise<unknown>;
 };
 
 type RunsMutations = {
-  runMutation: (fn: unknown, args: Record<string, unknown>) => Promise<unknown>;
+  runMutation(fn: unknown, args: Record<string, unknown>): Promise<unknown>;
 };
 
 /**
@@ -40,8 +48,7 @@ export function adminPlugin(config?: {
 }
 
 /**
- * AdminPlugin client class — exposes admin operations as typed methods.
- * Obtained via `auth.plugins.admin` after ConvexZen is initialized with adminPlugin.
+ * Raw admin plugin API exposed at `auth.plugins.admin`.
  */
 export class AdminPlugin {
   constructor(
