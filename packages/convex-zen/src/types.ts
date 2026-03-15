@@ -67,8 +67,6 @@ export interface OAuthProviderConfig {
 
 /**
  * Normalized token payload used by OAuth provider runtimes.
- *
- * @experimental Subject to change until the custom provider API is stabilized.
  */
 export interface OAuthTokenResponse {
   accessToken: string;
@@ -78,8 +76,6 @@ export interface OAuthTokenResponse {
 
 /**
  * Normalized profile payload used by OAuth provider runtimes.
- *
- * @experimental Subject to change until the custom provider API is stabilized.
  */
 export interface OAuthProfile {
   accountId: string;
@@ -91,8 +87,6 @@ export interface OAuthProfile {
 
 /**
  * Arguments passed to a custom provider's authorization URL builder.
- *
- * @experimental Subject to change until the custom provider API is stabilized.
  */
 export interface BuildOAuthAuthorizationUrlArgs {
   state: string;
@@ -102,8 +96,6 @@ export interface BuildOAuthAuthorizationUrlArgs {
 
 /**
  * Arguments passed to a custom provider's token exchange implementation.
- *
- * @experimental Subject to change until the custom provider API is stabilized.
  */
 export interface ExchangeOAuthAuthorizationCodeArgs {
   code: string;
@@ -116,8 +108,6 @@ export interface ExchangeOAuthAuthorizationCodeArgs {
  *
  * This API is fully functional but not yet considered stable. Built-in providers
  * use the same contract so custom providers follow the same architecture.
- *
- * @experimental Subject to change until the custom provider API is stabilized.
  */
 export interface OAuthProviderRuntime<
   TProvider extends OAuthProviderConfig = OAuthProviderConfig,
@@ -144,8 +134,6 @@ export interface OAuthProviderRuntime<
 /**
  * Provider factory definition used to create built-in and custom
  * provider helpers that share the same runtime contract.
- *
- * @experimental Subject to change until the custom provider API is stabilized.
  */
 export interface OAuthProviderDefinition<
   TOptions,

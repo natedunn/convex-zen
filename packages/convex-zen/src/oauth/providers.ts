@@ -82,8 +82,6 @@ function withOptionalNumberProp<TKey extends string>(
 /**
  * Default verified-email enforcement used by built-in providers and available
  * to custom providers.
- *
- * @experimental Subject to change until the custom provider API is stabilized.
  */
 export function requireOAuthVerifiedEmail(
   profile: OAuthProfile
@@ -100,8 +98,6 @@ export function requireOAuthVerifiedEmail(
 /**
  * Shared authorization URL builder for providers that follow standard OAuth
  * query parameters.
- *
- * @experimental Subject to change until the custom provider API is stabilized.
  */
 export function buildOAuthAuthorizationUrl(
   provider: OAuthProviderConfig,
@@ -188,8 +184,6 @@ async function readTokenResponse(
 /**
  * Shared code exchange helper for providers that use the standard form-encoded
  * OAuth token exchange flow.
- *
- * @experimental Subject to change until the custom provider API is stabilized.
  */
 export async function exchangeOAuthAuthorizationCode(
   provider: OAuthProviderConfig,
@@ -312,8 +306,6 @@ export function resolveOAuthProviderRuntime(
  * This returns a helper that produces serializable provider configs while also
  * registering a runtime implementation for the provider id. Built-in providers
  * use the exact same mechanism.
- *
- * @experimental Subject to change until the custom provider API is stabilized.
  */
 export function defineOAuthProvider<
   TOptions,
