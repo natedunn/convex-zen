@@ -1,3 +1,11 @@
+## [1.8.1](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.8.0...convex-zen-v1.8.1) (2026-03-15)
+
+
+### Bug Fixes
+
+* **types:** fix broken import in convex-direct-client-methods.ts; rename _ctx to _ in handler ([b04d985](https://github.com/natedunn/convex-zen/commit/b04d9855ba4600deba17f588507579f05eeaccf3))
+* **types:** replace explicit any types with proper types in index.ts ([88e7230](https://github.com/natedunn/convex-zen/commit/88e723039abbb4fd030a77df41fd0f07c1c0ae2d))
+
 # [1.8.0](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.7.1...convex-zen-v1.8.0) (2026-03-14)
 
 
