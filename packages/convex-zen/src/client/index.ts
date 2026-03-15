@@ -904,7 +904,7 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 			http.route({
 				path,
 				method: "GET",
-				handler: httpActionGeneric(async (_ctx, req) => {
+				handler: httpActionGeneric(async (_, req) => {
 					const url = new URL(req.url);
 					const code = url.searchParams.get("code");
 					const state = url.searchParams.get("state");
