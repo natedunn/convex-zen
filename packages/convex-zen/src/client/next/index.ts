@@ -36,7 +36,7 @@ import {
   type NextAuthPluginMeta,
   type NextAuthMeta,
 } from "./plugins";
-import { isRecord, hasFunctionRefCandidate, hasPluginFunctionRefs } from "./helpers";
+import { isRecord, hasFunctionRefCandidate, hasPluginFunctionRefs } from "../helpers";
 
 type MaybePromise<T> = T | Promise<T>;
 const DEFAULT_COOKIE_MAX_AGE_SECONDS = 14 * 24 * 60 * 60;

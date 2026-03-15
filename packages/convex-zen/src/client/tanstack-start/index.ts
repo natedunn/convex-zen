@@ -27,6 +27,12 @@ import {
 } from "../primitives";
 import { createConvexFetchers } from "../convex-fetchers";
 import type { OAuthProviderId } from "../../types";
+import {
+  isRecord,
+  hasFunctionRefCandidate,
+  readMember,
+  hasPluginFunctionRefs,
+} from "../helpers";
 
 type SetCookieOptions = Exclude<Parameters<typeof setCookieFn>[2], undefined>;
 type DeleteCookieOptions = Exclude<
@@ -273,27 +279,6 @@ export interface TanStackStartConvexReactStart
   handler: (request: Request) => Promise<Response>;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
-}
-
-function hasFunctionRefCandidate(value: unknown): boolean {
-  return (
-    value !== null &&
-    (typeof value === "object" || typeof value === "function")
-  );
-}
-
-function readMember(source: unknown, key: string): unknown {
-  if (
-    source === null ||
-    (typeof source !== "object" && typeof source !== "function")
-  ) {
-    return undefined;
-  }
-  return (source as Record<string, unknown>)[key];
-}
-
 function resolveNamedConvexFunctionRef(
   convexFunctions: TanStackStartConvexActionRefs,
   name: string,
@@ -366,17 +351,6 @@ function resolveCoreMeta(
   options: Pick<TanStackStartConvexReactStartOptions, "meta" | "coreMeta">
 ): TanStackAuthCoreMeta | undefined {
   return options.meta?.core ?? options.coreMeta;
-}
-
-function hasPluginFunctionRefs(convexFunctions: unknown): boolean {
-  const pluginFunctions = readMember(convexFunctions, "plugin");
-  if (
-    pluginFunctions === null ||
-    (typeof pluginFunctions !== "object" && typeof pluginFunctions !== "function")
-  ) {
-    return false;
-  }
-  return Object.keys(pluginFunctions as Record<string, unknown>).length > 0;
 }
 
 function isProductionRuntime(): boolean {

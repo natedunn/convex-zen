@@ -29,7 +29,7 @@ import {
   readMember,
   readFunctionRef,
   hasPluginFunctionRefs,
-} from "./helpers";
+} from "../helpers";
 
 export interface NextAuthClientOptions extends RouteAuthRuntimeAdapterOptions {}
 
