@@ -338,10 +338,11 @@ function serializeAvailablePermissions(accessControl?: AccessControlMap) {
 }
 
 async function requireUser(
-  _db: DatabaseReader,
+  db: DatabaseReader,
   userId: Id<"users">
 ): Promise<void> {
-  if (userId.trim().length === 0) {
+  const user = await db.get(userId);
+  if (user === null) {
     throw new Error("Unauthorized");
   }
 }
