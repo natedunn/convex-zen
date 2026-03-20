@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { convexQuery, useConvex } from "@convex-dev/react-query";
 import { useQuery } from "@tanstack/react-query";
 import type { FunctionArgs } from "convex/server";
-import { authApi } from "@/lib/auth-refs";
+import { api } from "../../../convex/_generated/api";
 import {
   EMPTY_PERMISSION_LIST,
   messageFromError,
@@ -17,7 +17,7 @@ export function PermissionProbeSection({
 }) {
   const convex = useConvex();
   const permissionListQuery = useQuery(
-    convexQuery(authApi.plugin.organization.listAvailablePermissions, {
+    convexQuery(api.auth.plugin.organization.listAvailablePermissions, {
       organizationId,
     })
   );
@@ -43,14 +43,14 @@ export function PermissionProbeSection({
     setError(null);
     try {
       const allowed = await convex.query(
-        authApi.plugin.organization.hasPermission,
+        api.auth.plugin.organization.hasPermission,
         {
           organizationId,
           permission: {
             resource: permissionResource,
             action: permissionAction,
           },
-        } as FunctionArgs<typeof authApi.plugin.organization.hasPermission>
+        } as FunctionArgs<typeof api.auth.plugin.organization.hasPermission>
       );
       setPermissionResult({
         allowed,

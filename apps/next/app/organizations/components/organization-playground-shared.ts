@@ -1,24 +1,24 @@
 "use client";
 
 import type { FunctionArgs, FunctionReturnType } from "convex/server";
-import { authApi } from "@/lib/auth-refs";
+import { api } from "../../../convex/_generated/api";
 
 export type OrganizationListEntry =
-  FunctionReturnType<typeof authApi.plugin.organization.listOrganizations>["organizations"][number];
+  FunctionReturnType<typeof api.auth.plugin.organization.listOrganizations>["organizations"][number];
 export type OrganizationMembership =
-  FunctionReturnType<typeof authApi.plugin.organization.getMembership>;
+  FunctionReturnType<typeof api.auth.plugin.organization.getMembership>;
 export type OrganizationMember =
-  FunctionReturnType<typeof authApi.plugin.organization.listMembers>[number];
+  FunctionReturnType<typeof api.auth.plugin.organization.listMembers>[number];
 export type OrganizationInvitation =
-  FunctionReturnType<typeof authApi.plugin.organization.listInvitations>[number];
+  FunctionReturnType<typeof api.auth.plugin.organization.listInvitations>[number];
 export type OrganizationRole =
-  FunctionReturnType<typeof authApi.plugin.organization.listRoles>["roles"][number];
+  FunctionReturnType<typeof api.auth.plugin.organization.listRoles>["roles"][number];
 export type OrganizationDomain =
-  FunctionReturnType<typeof authApi.plugin.organization.listDomains>[number];
+  FunctionReturnType<typeof api.auth.plugin.organization.listDomains>[number];
 export type OrganizationPermissionList =
-  FunctionReturnType<typeof authApi.plugin.organization.listAvailablePermissions>;
+  FunctionReturnType<typeof api.auth.plugin.organization.listAvailablePermissions>;
 export type OrganizationRoleAssignmentInput =
-  FunctionArgs<typeof authApi.plugin.organization.inviteMember>["role"];
+  FunctionArgs<typeof api.auth.plugin.organization.inviteMember>["role"];
 
 export type RoleOption = {
   value: string;

@@ -19,8 +19,8 @@
 			"convex-zen/plugins/organization": [
 				"../../../packages/convex-zen/src/client/plugins/organization.ts"
 			],
-			"convex-zen/convex.config": [
-				"../../../packages/convex-zen/src/component/convex.config.ts"
+			"convex-zen/component": [
+				"../../../packages/convex-zen/src/component/index.ts"
 			]
 		},
 

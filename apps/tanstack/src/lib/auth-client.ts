@@ -1,6 +1,6 @@
 import { createTanStackAuthClient } from "convex-zen/tanstack-start";
 import { api } from "../../convex/_generated/api";
-import { authMeta } from "../../convex/auth/metaGenerated";
+import { authMeta } from "../../convex/auth/generated";
 
 export const authClient = createTanStackAuthClient({
 	convexFunctions: api.auth,

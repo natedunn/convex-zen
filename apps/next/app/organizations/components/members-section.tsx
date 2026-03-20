@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { convexQuery, useConvexMutation } from "@convex-dev/react-query";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { authApi } from "@/lib/auth-refs";
+import { api } from "../../../convex/_generated/api";
 import {
   buildRoleOptions,
   messageFromError,
@@ -16,25 +16,25 @@ export function MembersSection({
   organizationId: string;
 }) {
   const membersQuery = useQuery(
-    convexQuery(authApi.plugin.organization.listMembers, { organizationId })
+    convexQuery(api.auth.plugin.organization.listMembers, { organizationId })
   );
   const rolesQuery = useQuery(
-    convexQuery(authApi.plugin.organization.listRoles, { organizationId })
+    convexQuery(api.auth.plugin.organization.listRoles, { organizationId })
   );
   const canUpdateMembersQuery = useQuery(
-    convexQuery(authApi.plugin.organization.hasPermission, {
+    convexQuery(api.auth.plugin.organization.hasPermission, {
       organizationId,
       permission: { resource: "member", action: "update" },
     })
   );
   const canDeleteMembersQuery = useQuery(
-    convexQuery(authApi.plugin.organization.hasPermission, {
+    convexQuery(api.auth.plugin.organization.hasPermission, {
       organizationId,
       permission: { resource: "member", action: "delete" },
     })
   );
   const canTransferQuery = useQuery(
-    convexQuery(authApi.plugin.organization.hasPermission, {
+    convexQuery(api.auth.plugin.organization.hasPermission, {
       organizationId,
       permission: { resource: "organization", action: "transfer" },
     })
@@ -61,19 +61,19 @@ export function MembersSection({
   }, [members]);
 
   const setMemberRoleMutation = useMutation({
-    mutationFn: useConvexMutation(authApi.plugin.organization.setMemberRole),
+    mutationFn: useConvexMutation(api.auth.plugin.organization.setMemberRole),
     onSuccess: () => {
       void membersQuery.refetch();
     },
   });
   const removeMemberMutation = useMutation({
-    mutationFn: useConvexMutation(authApi.plugin.organization.removeMember),
+    mutationFn: useConvexMutation(api.auth.plugin.organization.removeMember),
     onSuccess: () => {
       void membersQuery.refetch();
     },
   });
   const transferOwnershipMutation = useMutation({
-    mutationFn: useConvexMutation(authApi.plugin.organization.transferOwnership),
+    mutationFn: useConvexMutation(api.auth.plugin.organization.transferOwnership),
     onSuccess: () => {
       void membersQuery.refetch();
     },

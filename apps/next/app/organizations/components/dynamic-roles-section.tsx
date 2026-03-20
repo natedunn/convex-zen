@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { convexQuery, useConvexMutation } from "@convex-dev/react-query";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { authApi } from "@/lib/auth-refs";
+import { api } from "../../../convex/_generated/api";
 import {
   EMPTY_PERMISSION_LIST,
   messageFromError,
@@ -15,27 +15,27 @@ export function DynamicRolesSection({
   organizationId: string;
 }) {
   const rolesQuery = useQuery(
-    convexQuery(authApi.plugin.organization.listRoles, { organizationId })
+    convexQuery(api.auth.plugin.organization.listRoles, { organizationId })
   );
   const permissionsQuery = useQuery(
-    convexQuery(authApi.plugin.organization.listAvailablePermissions, {
+    convexQuery(api.auth.plugin.organization.listAvailablePermissions, {
       organizationId,
     })
   );
   const canCreateRoleQuery = useQuery(
-    convexQuery(authApi.plugin.organization.hasPermission, {
+    convexQuery(api.auth.plugin.organization.hasPermission, {
       organizationId,
       permission: { resource: "role", action: "create" },
     })
   );
   const canUpdateRoleQuery = useQuery(
-    convexQuery(authApi.plugin.organization.hasPermission, {
+    convexQuery(api.auth.plugin.organization.hasPermission, {
       organizationId,
       permission: { resource: "role", action: "update" },
     })
   );
   const canDeleteRoleQuery = useQuery(
-    convexQuery(authApi.plugin.organization.hasPermission, {
+    convexQuery(api.auth.plugin.organization.hasPermission, {
       organizationId,
       permission: { resource: "role", action: "delete" },
     })
@@ -77,7 +77,7 @@ export function DynamicRolesSection({
   };
 
   const createRoleMutation = useMutation({
-    mutationFn: useConvexMutation(authApi.plugin.organization.createRole),
+    mutationFn: useConvexMutation(api.auth.plugin.organization.createRole),
     onSuccess: () => {
       setRoleName("");
       setRoleSlug("");
@@ -85,14 +85,14 @@ export function DynamicRolesSection({
     },
   });
   const updateRoleMutation = useMutation({
-    mutationFn: useConvexMutation(authApi.plugin.organization.updateRole),
+    mutationFn: useConvexMutation(api.auth.plugin.organization.updateRole),
     onSuccess: () => {
       resetEditor();
       refresh();
     },
   });
   const deleteRoleMutation = useMutation({
-    mutationFn: useConvexMutation(authApi.plugin.organization.deleteRole),
+    mutationFn: useConvexMutation(api.auth.plugin.organization.deleteRole),
     onSuccess: () => {
       refresh();
     },

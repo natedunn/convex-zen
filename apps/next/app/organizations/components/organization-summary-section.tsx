@@ -2,7 +2,7 @@
 
 import { convexQuery } from "@convex-dev/react-query";
 import { useQuery } from "@tanstack/react-query";
-import { authApi } from "@/lib/auth-refs";
+import { api } from "../../../convex/_generated/api";
 import type {
   OrganizationListEntry,
 } from "./organization-playground-shared";
@@ -14,7 +14,7 @@ export function OrganizationSummarySection({
   organization: OrganizationListEntry["organization"];
 }) {
   const membershipQuery = useQuery(
-    convexQuery(authApi.plugin.organization.getMembership, {
+    convexQuery(api.auth.plugin.organization.getMembership, {
       organizationId: organization._id,
     })
   );

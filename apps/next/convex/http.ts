@@ -1,5 +1,5 @@
 import { httpRouter } from "convex/server";
-import { auth } from "./zen.config";
+import { auth } from "./auth/generated";
 
 const http = httpRouter();
 

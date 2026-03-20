@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { convexQuery } from "@convex-dev/react-query";
 import { useQuery } from "@tanstack/react-query";
-import { authApi } from "@/lib/auth-refs";
+import { api } from "../../convex/_generated/api";
 import { DomainsSection } from "./components/domains-section";
 import { DynamicRolesSection } from "./components/dynamic-roles-section";
 import { InvitationsSection } from "./components/invitations-section";
@@ -16,7 +16,7 @@ import { messageFromError } from "./components/organization-playground-shared";
 
 export function OrganizationPlayground() {
   const organizationsQuery = useQuery(
-    convexQuery(authApi.plugin.organization.listOrganizations, {})
+    convexQuery(api.auth.plugin.organization.listOrganizations, {})
   );
   const organizations = organizationsQuery.data?.organizations ?? [];
   const [selectedOrganizationId, setSelectedOrganizationId] = useState("");

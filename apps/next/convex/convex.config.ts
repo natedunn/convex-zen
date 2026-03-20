@@ -1,7 +1,7 @@
 import { defineApp } from "convex/server";
-import convexAuth from "convex-zen/convex.config";
+import auth from "./auth/zen/convex.config";
 
 const app = defineApp();
-app.use(convexAuth);
+app.use(auth);
 
 export default app;

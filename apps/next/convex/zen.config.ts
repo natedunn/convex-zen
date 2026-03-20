@@ -1,12 +1,6 @@
-import {
-	ConvexZen,
-	discordProvider,
-	githubProvider,
-	googleProvider,
-} from "convex-zen";
+import { createConvexZenClient, defineConvexZen, discordProvider, githubProvider, googleProvider } from "convex-zen";
 import { adminPlugin } from "convex-zen/plugins/admin";
 import { organizationPlugin } from "convex-zen/plugins/organization";
-import { components } from "./_generated/api";
 
 function readRequiredOAuthEnv(
 	key: "DISCORD_CLIENT_ID" | "DISCORD_CLIENT_SECRET" | "GITHUB_CLIENT_ID" | "GITHUB_CLIENT_SECRET" | "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET"
@@ -43,10 +37,7 @@ const providers = [
 		: null,
 ].filter((provider) => provider !== null);
 
-/**
- * Source of truth for auth setup used by the generator.
- */
-export const authOptions = {
+export const zenConfig = defineConvexZen({
 	emailProvider: {
 		sendVerificationEmail: async (to: string, code: string) => {
 			console.log(`\n📧 Verification email → ${to}\n   Code: ${code}\n`);
@@ -74,6 +65,8 @@ export const authOptions = {
 			subdomainSuffix: "example.com",
 		}),
 	],
-};
+});
 
-export const auth = new ConvexZen(components.convexAuth, authOptions);
+export function createAuth(component: Record<string, unknown>) {
+	return createConvexZenClient(component, zenConfig);
+}
