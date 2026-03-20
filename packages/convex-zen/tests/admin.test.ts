@@ -51,7 +51,7 @@ async function getAdminUser(
   return await t.run((ctx) =>
     ctx.db
       .query("adminUsers")
-      .withIndex("by_userId", (q) => q.eq("userId", userId as any))
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
       .unique()
   );
 }
