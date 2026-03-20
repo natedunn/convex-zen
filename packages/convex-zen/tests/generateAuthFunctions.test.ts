@@ -1,10 +1,21 @@
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
+import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { generateAuthFunctions } from "../src/cli/generate";
 
 const tempDirs: string[] = [];
+const packageDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const convexZenEntry = path.join(packageDir, "src", "client", "index.ts");
+const adminPluginEntry = path.join(packageDir, "src", "client", "plugins", "admin.ts");
+const organizationPluginEntry = path.join(
+  packageDir,
+  "src",
+  "client",
+  "plugins",
+  "organization.ts"
+);
 
 async function createTempWorkspace(): Promise<string> {
   const cwd = await mkdtemp(path.join(tmpdir(), "convex-zen-generate-"));
@@ -13,12 +24,48 @@ async function createTempWorkspace(): Promise<string> {
   return cwd;
 }
 
-async function writeZenConvexFile(cwd: string, source: string): Promise<void> {
-  await writeFile(path.join(cwd, "convex", "zenConvex.ts"), source, "utf8");
-}
-
 async function writeZenConfigFile(cwd: string, source: string): Promise<void> {
   await writeFile(path.join(cwd, "convex", "zen.config.ts"), source, "utf8");
+}
+
+async function writeCustomPluginFile(cwd: string): Promise<void> {
+  await mkdir(path.join(cwd, "convex", "customPlugin"), { recursive: true });
+  await writeFile(
+    path.join(cwd, "convex", "customPlugin", "convex.config.ts"),
+    `
+import { defineComponent } from "convex/server";
+
+const custom = defineComponent("custom_plugin");
+
+export default custom;
+`,
+    "utf8"
+  );
+  await writeFile(
+    path.join(cwd, "convex", "customPlugin.ts"),
+    `
+import { defineAuthPlugin } from ${JSON.stringify(convexZenEntry)};
+
+export const customPlugin = defineAuthPlugin({
+  id: "custom",
+  component: { importPath: "./customPlugin/convex.config" },
+  createClientRuntime: () => ({
+    getMessage: async () => "hello",
+  }),
+  publicFunctions: {
+    functions: {
+      getMessage: {
+        kind: "query",
+        auth: "public",
+        runtimeMethod: "getMessage",
+        argsSource: "{}",
+      },
+    },
+  },
+});
+`,
+    "utf8"
+  );
 }
 
 afterEach(async () => {
@@ -30,19 +77,17 @@ afterEach(async () => {
 });
 
 describe("generateAuthFunctions", () => {
-  it("generates core, plugin admin wrapper, and plugin metadata from zenConvex.ts", async () => {
+  it("generates a component-first auth surface with admin enabled", async () => {
     const cwd = await createTempWorkspace();
-    await writeZenConvexFile(
+    await writeZenConfigFile(
       cwd,
       `
-import { ConvexZen } from "convex-zen";
-import { adminPlugin } from "convex-zen/plugins/admin";
+import { defineConvexZen } from ${JSON.stringify(convexZenEntry)};
+import { adminPlugin } from ${JSON.stringify(adminPluginEntry)};
 
-export const authOptions = {
+export const zenConfig = defineConvexZen({
   plugins: [adminPlugin()],
-};
-
-export const auth = new ConvexZen({} as Record<string, unknown>, authOptions);
+});
 `
     );
 
@@ -52,73 +97,71 @@ export const auth = new ConvexZen({} as Record<string, unknown>, authOptions);
       verbose: false,
     });
 
+    expect(result.created).toContain(path.join("convex", "auth", "zen", "convex.config.ts"));
     expect(result.created).toContain(path.join("convex", "auth", "core.ts"));
-    expect(result.created).toContain(
-      path.join("convex", "auth", "metaGenerated.ts")
+    expect(result.created).toContain(path.join("convex", "auth", "generated.ts"));
+    expect(result.created).toContain(path.join("convex", "auth", "plugin", "admin.ts"));
+    expect(result.created).toContain(path.join("convex", "auth", "zen", "_runtime.ts"));
+    expect(result.created).toContain(path.join("convex", "auth", "zen", "gateway.ts"));
+    expect(result.created).not.toContain(path.join("convex", "auth", "gateway.ts"));
+
+    const componentSource = await readFile(
+      path.join(cwd, "convex", "auth", "zen", "convex.config.ts"),
+      "utf8"
     );
-    expect(result.created).toContain(
-      path.join("convex", "auth", "clientGenerated.ts")
+    expect(componentSource).toContain('import core from "convex-zen/core/convex.config";');
+    expect(componentSource).toContain('import adminComponent from "convex-zen/plugins/admin/convex.config";');
+    expect(componentSource).toContain('const zenComponent = defineComponent("zenComponent");');
+    expect(componentSource).toContain('zenComponent.use(core, { name: "core" });');
+    expect(componentSource).toContain('zenComponent.use(adminComponent, { name: "adminComponent" });');
+
+    const runtimeSource = await readFile(
+      path.join(cwd, "convex", "auth", "generated.ts"),
+      "utf8"
     );
-    expect(result.created).toContain(
-      path.join("convex", "auth", "plugin", "admin.ts")
-    );
-    expect(result.created).toContain(
-      path.join("convex", "auth", "plugin", "metaGenerated.ts")
-    );
+    expect(runtimeSource).toContain('import { components } from "../_generated/api";');
+    expect(runtimeSource).toContain("components.zenComponent as Record<string, unknown>");
+    expect(runtimeSource).toContain("export const auth = createConvexZenClient(");
+    expect(runtimeSource).not.toContain("export const componentAuth = createConvexZenClient(");
 
     const coreSource = await readFile(
       path.join(cwd, "convex", "auth", "core.ts"),
       "utf8"
     );
-    expect(coreSource).toContain('import { auth } from "../zenConvex";');
+    expect(coreSource).toContain('import { auth } from "./generated";');
     expect(coreSource).toContain("export const signInWithEmail = mutation({");
-    expect(coreSource).toContain("export const invalidateSession = mutation({");
     expect(coreSource).toContain("export const currentUser = query({");
     expect(coreSource).not.toContain("export const signOut = mutation({");
-    expect(coreSource).not.toContain("export const signInWithEmailCore = mutation({");
 
-    const metaSource = await readFile(
-      path.join(cwd, "convex", "auth", "metaGenerated.ts"),
+    const generatedSource = await readFile(
+      path.join(cwd, "convex", "auth", "generated.ts"),
       "utf8"
     );
-    expect(metaSource).toContain('"core"');
-    expect(metaSource).toContain('"plugin"');
-    expect(metaSource).toContain('"currentUser": "query"');
+    expect(generatedSource).toContain("export const auth = createConvexZenClient(");
+    expect(generatedSource).toContain('"plugin": {');
+    expect(generatedSource).toContain('"admin": {');
+    expect(generatedSource).toContain('"signInWithEmail": "mutation"');
+    expect(generatedSource).toContain('"admin"');
 
-    const pluginMetaSource = await readFile(
-      path.join(cwd, "convex", "auth", "plugin", "metaGenerated.ts"),
+    const adminSource = await readFile(
+      path.join(cwd, "convex", "auth", "plugin", "admin.ts"),
       "utf8"
     );
-    expect(pluginMetaSource).toContain('export { authPluginMeta }');
-
-    const clientGeneratedSource = await readFile(
-      path.join(cwd, "convex", "auth", "clientGenerated.ts"),
-      "utf8"
-    );
-    expect(clientGeneratedSource).toContain(
-      'import type { ApiFromModules } from "convex/server";'
-    );
-    expect(clientGeneratedSource).toContain('import * as core from "./core";');
-    expect(clientGeneratedSource).toContain('import * as plugin_admin from "./plugin/admin";');
-    expect(clientGeneratedSource).toContain('type AuthApi = ApiFromModules<{');
-    expect(clientGeneratedSource).toContain(
-      'core: core as unknown as AuthApi["core"],'
-    );
-    expect(clientGeneratedSource).toContain("export const authConvexFunctions = {");
+    expect(adminSource).toContain('import { auth } from "../generated";');
+    expect(adminSource).toContain("export const listUsers = query({");
+    expect(adminSource).toContain("return auth.plugins.admin.listUsers(ctx, {");
   });
 
-  it("deletes generated admin plugin wrapper when admin plugin is disabled", async () => {
+  it("removes disabled plugin files and unmounts them from the generated component", async () => {
     const cwd = await createTempWorkspace();
-    await writeZenConvexFile(
+    await writeZenConfigFile(
       cwd,
       `
-import { ConvexZen } from "convex-zen";
+import { defineConvexZen } from ${JSON.stringify(convexZenEntry)};
 
-export const authOptions = {
+export const zenConfig = defineConvexZen({
   plugins: [],
-};
-
-export const auth = new ConvexZen({} as Record<string, unknown>, authOptions);
+});
 `
     );
     await mkdir(path.join(cwd, "convex", "auth", "plugin"), { recursive: true });
@@ -134,123 +177,111 @@ export const auth = new ConvexZen({} as Record<string, unknown>, authOptions);
       verbose: false,
     });
 
-    expect(result.deleted).toContain(
-      path.join("convex", "auth", "plugin", "admin.ts")
-    );
+    expect(result.deleted).toContain(path.join("convex", "auth", "plugin", "admin.ts"));
 
-    const metaSource = await readFile(
-      path.join(cwd, "convex", "auth", "metaGenerated.ts"),
+    const generatedSource = await readFile(
+      path.join(cwd, "convex", "auth", "generated.ts"),
       "utf8"
     );
-    expect(metaSource).toContain('"plugin": {}');
+    expect(generatedSource).toContain('"plugin": {}');
 
-    const pluginMetaSource = await readFile(
-      path.join(cwd, "convex", "auth", "plugin", "metaGenerated.ts"),
+    const componentSource = await readFile(
+      path.join(cwd, "convex", "auth", "zen", "convex.config.ts"),
       "utf8"
     );
-    expect(pluginMetaSource).toContain('export { authPluginMeta }');
+    expect(componentSource).toContain('zenComponent.use(core, { name: "core" });');
+    expect(componentSource).not.toContain('zenComponent.use(adminComponent, { name: "adminComponent" });');
   });
 
-  it("generates wrappers from zen.config.ts when present", async () => {
+  it("ignores commented-out plugin factories and mounts only active plugins", async () => {
     const cwd = await createTempWorkspace();
     await writeZenConfigFile(
       cwd,
       `
-import { ConvexZen } from "convex-zen";
-import { adminPlugin } from "convex-zen/plugins/admin";
+import { defineConvexZen } from ${JSON.stringify(convexZenEntry)};
+import { adminPlugin } from ${JSON.stringify(adminPluginEntry)};
+import { organizationPlugin } from ${JSON.stringify(organizationPluginEntry)};
 
-export const authOptions = {
-  plugins: [adminPlugin()],
-};
-
-export const auth = new ConvexZen({} as Record<string, unknown>, authOptions);
+export const zenConfig = defineConvexZen({
+  plugins: [
+    // adminPlugin(),
+    organizationPlugin(),
+  ],
+});
 `
     );
 
-    const result = await generateAuthFunctions({
+    await generateAuthFunctions({
       cwd,
       check: false,
       verbose: false,
     });
 
-    expect(result.created).toContain(path.join("convex", "auth", "core.ts"));
-    const coreSource = await readFile(
-      path.join(cwd, "convex", "auth", "core.ts"),
+    const generatedSource = await readFile(
+      path.join(cwd, "convex", "auth", "generated.ts"),
       "utf8"
     );
-    expect(coreSource).toContain('import { auth } from "../zen.config";');
-    const clientGeneratedSource = await readFile(
-      path.join(cwd, "convex", "auth", "clientGenerated.ts"),
+    expect(generatedSource).toContain('"organization"');
+    expect(generatedSource).not.toContain('"admin"');
+
+    const componentSource = await readFile(
+      path.join(cwd, "convex", "auth", "zen", "convex.config.ts"),
       "utf8"
     );
-    expect(clientGeneratedSource).toContain('import * as plugin_admin from "./plugin/admin";');
-    expect(clientGeneratedSource).toContain(
-      'admin: plugin_admin as unknown as AuthApi["plugin"]["admin"],'
-    );
+    expect(componentSource).toContain('zenComponent.use(organizationComponent, { name: "organizationComponent" });');
+    expect(componentSource).not.toContain('zenComponent.use(adminComponent, { name: "adminComponent" });');
   });
 
-  it("generates organization plugin wrappers and plugin metadata when enabled", async () => {
+  it("generates third-party plugin component mounts and function refs without built-in special casing", async () => {
     const cwd = await createTempWorkspace();
+    await writeCustomPluginFile(cwd);
     await writeZenConfigFile(
       cwd,
       `
-import { ConvexZen } from "convex-zen";
-import { organizationPlugin } from "convex-zen/plugins/organization";
+import { defineConvexZen } from ${JSON.stringify(convexZenEntry)};
+import { customPlugin } from "./customPlugin";
 
-export const authOptions = {
-  plugins: [organizationPlugin()],
-};
-
-export const auth = new ConvexZen({} as Record<string, unknown>, authOptions);
+export const zenConfig = defineConvexZen({
+  plugins: [customPlugin()],
+});
 `
     );
 
-    const result = await generateAuthFunctions({
+    await generateAuthFunctions({
       cwd,
       check: false,
       verbose: false,
     });
 
-    expect(result.created).toContain(
-      path.join("convex", "auth", "plugin", "organization.ts")
-    );
-    expect(result.created).toContain(
-      path.join("convex", "auth", "clientGenerated.ts")
-    );
-
-    const organizationSource = await readFile(
-      path.join(cwd, "convex", "auth", "plugin", "organization.ts"),
+    const componentSource = await readFile(
+      path.join(cwd, "convex", "auth", "zen", "convex.config.ts"),
       "utf8"
     );
-    expect(organizationSource).toContain("export const createOrganization = mutation({");
-    expect(organizationSource).toContain("auth.organization.createOrganization");
-    expect(organizationSource).toContain("export const listAvailablePermissions = query({");
-    expect(organizationSource).toContain("export const hasPermission = query({");
+    expect(componentSource).toContain('import custom from "../../customPlugin/convex.config";');
+    expect(componentSource).toContain('zenComponent.use(custom, { name: "custom" });');
 
-    const metaSource = await readFile(
-      path.join(cwd, "convex", "auth", "metaGenerated.ts"),
+    const pluginSource = await readFile(
+      path.join(cwd, "convex", "auth", "plugin", "custom.ts"),
       "utf8"
     );
-    expect(metaSource).toContain('"organization"');
-    expect(metaSource).toContain('"createOrganization": "mutation"');
-    expect(metaSource).toContain('"hasPermission": "query"');
+    expect(pluginSource).toContain('import { auth } from "../generated";');
+    expect(pluginSource).toContain("export const getMessage = query({");
+    expect(pluginSource).toContain("return auth.plugins.custom.getMessage(ctx, args as any);");
 
-    const clientGeneratedSource = await readFile(
-      path.join(cwd, "convex", "auth", "clientGenerated.ts"),
+    const generatedSource = await readFile(
+      path.join(cwd, "convex", "auth", "generated.ts"),
       "utf8"
     );
-    expect(clientGeneratedSource).toContain(
-      'import * as plugin_organization from "./plugin/organization";'
-    );
-    expect(clientGeneratedSource).toContain("organization: plugin_organization");
+    expect(generatedSource).toContain('"custom"');
+    expect(generatedSource).toContain('"getMessage": "query"');
   });
 
-  it("generates oauth wrappers when providers use the generic provider array", async () => {
+  it("generates oauth handlers on the component root gateway when providers are configured", async () => {
     const cwd = await createTempWorkspace();
     await writeZenConfigFile(
       cwd,
       `
-import { ConvexZen, defineOAuthProvider } from "convex-zen";
+import { defineConvexZen, defineOAuthProvider } from ${JSON.stringify(convexZenEntry)};
 
 const acmeProvider = defineOAuthProvider({
   id: "acme",
@@ -274,26 +305,22 @@ const acmeProvider = defineOAuthProvider({
   },
 });
 
-export const authOptions = {
+export const zenConfig = defineConvexZen({
   providers: [
     acmeProvider({
       clientId: "client-id",
       clientSecret: "client-secret",
     }),
   ],
-};
-
-export const auth = new ConvexZen({} as Record<string, unknown>, authOptions);
+});
 `
     );
 
-    const result = await generateAuthFunctions({
+    await generateAuthFunctions({
       cwd,
       check: false,
       verbose: false,
     });
-
-    expect(result.created).toContain(path.join("convex", "auth", "core.ts"));
 
     const coreSource = await readFile(
       path.join(cwd, "convex", "auth", "core.ts"),
@@ -301,6 +328,14 @@ export const auth = new ConvexZen({} as Record<string, unknown>, authOptions);
     );
     expect(coreSource).toContain("export const getOAuthUrl = mutation({");
     expect(coreSource).toContain("return auth.getOAuthUrl(ctx, args.providerId, {");
+    expect(coreSource).toContain("export const handleOAuthCallback = action({");
     expect(coreSource).toContain("return auth.handleCallback(ctx, args);");
+
+    const generatedSource = await readFile(
+      path.join(cwd, "convex", "auth", "generated.ts"),
+      "utf8"
+    );
+    expect(generatedSource).toContain('"getOAuthUrl": "mutation"');
+    expect(generatedSource).toContain('"handleOAuthCallback": "action"');
   });
 });

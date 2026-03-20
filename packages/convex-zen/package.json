@@ -57,6 +57,22 @@
       "types": "./src/client/plugins/organization.ts",
       "import": "./src/client/plugins/organization.ts"
     },
+    "./core/convex.config": {
+      "types": "./src/component/core/convex.config.ts",
+      "import": "./src/component/core/convex.config.ts"
+    },
+    "./plugins/admin/convex.config": {
+      "types": "./src/component/plugins/admin/convex.config.ts",
+      "import": "./src/component/plugins/admin/convex.config.ts"
+    },
+    "./plugins/organization/convex.config": {
+      "types": "./src/component/plugins/organization/convex.config.ts",
+      "import": "./src/component/plugins/organization/convex.config.ts"
+    },
+    "./component": {
+      "types": "./src/component/index.ts",
+      "import": "./src/component/index.ts"
+    },
     "./convex.config": {
       "types": "./src/component/convex.config.ts",
       "import": "./src/component/convex.config.ts"
@@ -109,6 +125,22 @@
       "./plugins/organization": {
         "types": "./dist/client/plugins/organization.d.ts",
         "import": "./dist/client/plugins/organization.js"
+      },
+      "./core/convex.config": {
+        "types": "./dist/component/core/convex.config.d.ts",
+        "import": "./dist/component/core/convex.config.js"
+      },
+      "./plugins/admin/convex.config": {
+        "types": "./dist/component/plugins/admin/convex.config.d.ts",
+        "import": "./dist/component/plugins/admin/convex.config.js"
+      },
+      "./plugins/organization/convex.config": {
+        "types": "./dist/component/plugins/organization/convex.config.d.ts",
+        "import": "./dist/component/plugins/organization/convex.config.js"
+      },
+      "./component": {
+        "types": "./dist/component/index.d.ts",
+        "import": "./dist/component/index.js"
       },
       "./convex.config": {
         "types": "./dist/component/convex.config.d.ts",

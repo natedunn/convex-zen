@@ -2,6 +2,18 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export default defineSchema({
+  adminUsers: defineTable({
+    userId: v.string(),
+    role: v.string(),
+    banned: v.boolean(),
+    banReason: v.optional(v.string()),
+    banExpires: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_role", ["role"]),
+
   // Core identity table
   users: defineTable({
     email: v.string(),
@@ -10,11 +22,6 @@ export default defineSchema({
     image: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
-    // Admin plugin fields (always present, only populated when admin plugin active)
-    role: v.optional(v.string()),
-    banned: v.optional(v.boolean()),
-    banReason: v.optional(v.string()),
-    banExpires: v.optional(v.number()),
   })
     .index("by_email", ["email"]),
 

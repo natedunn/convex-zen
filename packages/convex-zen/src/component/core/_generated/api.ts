@@ -8,16 +8,13 @@
  * @module
  */
 
+import type * as core_users from "../core/users.js";
+import type * as core_verifications from "../core/verifications.js";
 import type * as gateway from "../gateway.js";
-import type * as index from "../index.js";
-import type * as lib_crypto from "../lib/crypto.js";
-import type * as lib_internalApi from "../lib/internalApi.js";
-import type * as lib_rateLimit from "../lib/rateLimit.js";
-import type * as lib_validators from "../lib/validators.js";
-import type * as plugins_admin from "../plugins/admin.js";
-import type * as plugins_organization from "../plugins/organization.js";
-import type * as providers_emailPassword from "../providers/emailPassword.js";
 import type * as providers_oauth from "../providers/oauth.js";
+import type * as sessions from "../sessions.js";
+import type * as users from "../users.js";
+import type * as verifications from "../verifications.js";
 
 import type {
   ApiFromModules,
@@ -27,16 +24,13 @@ import type {
 import { anyApi, componentsGeneric } from "convex/server";
 
 const fullApi: ApiFromModules<{
+  "core/users": typeof core_users;
+  "core/verifications": typeof core_verifications;
   gateway: typeof gateway;
-  index: typeof index;
-  "lib/crypto": typeof lib_crypto;
-  "lib/internalApi": typeof lib_internalApi;
-  "lib/rateLimit": typeof lib_rateLimit;
-  "lib/validators": typeof lib_validators;
-  "plugins/admin": typeof plugins_admin;
-  "plugins/organization": typeof plugins_organization;
-  "providers/emailPassword": typeof providers_emailPassword;
   "providers/oauth": typeof providers_oauth;
+  sessions: typeof sessions;
+  users: typeof users;
+  verifications: typeof verifications;
 }> = anyApi as any;
 
 /**

@@ -9,10 +9,6 @@ type UserPatchFields = {
   emailVerified?: boolean;
   name?: string;
   image?: string;
-  role?: string;
-  banned?: boolean;
-  banReason?: string;
-  banExpires?: number;
 };
 
 type AccountPatchFields = {
@@ -28,7 +24,6 @@ export async function insertUser(
     emailVerified: boolean;
     name?: string;
     image?: string;
-    role?: string;
   }
 ): Promise<Id<"users">> {
   const now = Date.now();
@@ -39,7 +34,6 @@ export async function insertUser(
     updatedAt: number;
     name?: string;
     image?: string;
-    role?: string;
   } = {
     email: args.email,
     emailVerified: args.emailVerified,
@@ -51,9 +45,6 @@ export async function insertUser(
   }
   if (args.image !== undefined) {
     userDoc.image = args.image;
-  }
-  if (args.role !== undefined) {
-    userDoc.role = args.role;
   }
 
   return await db.insert("users", userDoc);
@@ -88,6 +79,105 @@ export async function patchUser(
     }
   }
   await db.patch(userId, patch);
+}
+
+export type AdminState = {
+  role: string;
+  banned: boolean;
+  banReason?: string;
+  banExpires?: number;
+};
+
+type AdminUserRecord = AdminState & {
+  _id: Id<"adminUsers">;
+  userId: string;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export async function getAdminUserRecord(
+  db: DatabaseReader | DatabaseWriter,
+  userId: Id<"users">
+): Promise<AdminUserRecord | null> {
+  return await db
+    .query("adminUsers")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .unique();
+}
+
+export async function getAdminStateForUser(
+  db: DatabaseReader | DatabaseWriter,
+  userId: Id<"users">
+): Promise<AdminState | null> {
+  const record = await getAdminUserRecord(db, userId);
+  if (!record) {
+    return null;
+  }
+  return {
+    role: record.role,
+    banned: record.banned,
+    banReason: record.banReason,
+    banExpires: record.banExpires,
+  };
+}
+
+export function isAdminStateCurrentlyBanned(
+  adminState: Pick<AdminState, "banned" | "banExpires">,
+  now: number
+): boolean {
+  return !!(
+    adminState.banned &&
+    (adminState.banExpires === undefined || adminState.banExpires > now)
+  );
+}
+
+export async function upsertAdminStateForUser(
+  db: DatabaseWriter,
+  userId: Id<"users">,
+  patch: Partial<AdminState> & { role?: string }
+): Promise<Id<"adminUsers">> {
+  const now = Date.now();
+  const existing = await getAdminUserRecord(db, userId);
+  if (existing) {
+    await db.patch(existing._id, {
+      ...patch,
+      updatedAt: now,
+    });
+    return existing._id;
+  }
+
+  const role = patch.role?.trim();
+  await db.insert("adminUsers", {
+    userId,
+    role: role && role.length > 0 ? role : "user",
+    banned: patch.banned ?? false,
+    banReason: patch.banReason,
+    banExpires: patch.banExpires,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  const created = await getAdminUserRecord(db, userId);
+  if (!created) {
+    throw new Error("Failed to create admin user record");
+  }
+  return created._id;
+}
+
+export async function clearExpiredAdminBan(
+  db: DatabaseWriter,
+  userId: Id<"users">
+): Promise<void> {
+  const existing = await getAdminUserRecord(db, userId);
+  if (!existing) {
+    return;
+  }
+  await db.patch(existing._id, {
+    banned: false,
+    banReason: undefined,
+    banExpires: undefined,
+    updatedAt: Date.now(),
+  });
 }
 
 export async function deleteUserWithRelations(
@@ -205,7 +295,6 @@ export const create = internalMutation({
     emailVerified: v.boolean(),
     name: v.optional(v.string()),
     image: v.optional(v.string()),
-    role: v.optional(v.string()),
   },
   handler: async (ctx, args) => await insertUser(ctx.db, args),
 });
@@ -230,10 +319,6 @@ export const update = internalMutation({
     emailVerified: v.optional(v.boolean()),
     name: v.optional(v.string()),
     image: v.optional(v.string()),
-    role: v.optional(v.string()),
-    banned: v.optional(v.boolean()),
-    banReason: v.optional(v.string()),
-    banExpires: v.optional(v.number()),
   },
   handler: async (ctx, { userId, ...fields }) =>
     await patchUser(ctx.db, userId, fields),

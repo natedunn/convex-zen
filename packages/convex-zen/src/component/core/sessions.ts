@@ -7,6 +7,11 @@ import {
 } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { generateToken, hashToken } from "../lib/crypto";
+import {
+  clearExpiredAdminBan,
+  getAdminStateForUser,
+  isAdminStateCurrentlyBanned,
+} from "./users";
 
 /** Session duration: 24 hours. */
 const SESSION_DURATION_MS = 24 * 60 * 60 * 1000;
@@ -155,16 +160,14 @@ export async function validateSessionToken(
   }
 
   if (args.checkBanned) {
-    const user = await db.get(session.userId);
-    if (user?.banned) {
-      const banExpires = user.banExpires;
-      if (banExpires === undefined || banExpires > now) {
+    const adminState = await getAdminStateForUser(db, session.userId);
+    if (adminState) {
+      if (isAdminStateCurrentlyBanned(adminState, now)) {
         return null;
       }
-      await db.patch(session.userId, {
-        banned: false,
-        updatedAt: now,
-      });
+      if (adminState.banned) {
+        await clearExpiredAdminBan(db, session.userId);
+      }
     }
   }
 
@@ -192,12 +195,9 @@ export async function validateSessionTokenReadOnly(
   }
 
   if (args.checkBanned) {
-    const user = await db.get(session.userId);
-    if (user?.banned) {
-      const banExpires = user.banExpires;
-      if (banExpires === undefined || banExpires > now) {
-        return null;
-      }
+    const adminState = await getAdminStateForUser(db, session.userId);
+    if (adminState && isAdminStateCurrentlyBanned(adminState, now)) {
+      return null;
     }
   }
 

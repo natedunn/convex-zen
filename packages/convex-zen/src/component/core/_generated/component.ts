@@ -1,0 +1,169 @@
+/* eslint-disable */
+/**
+ * Generated `ComponentApi` utility.
+ *
+ * THIS CODE IS AUTOMATICALLY GENERATED.
+ *
+ * To regenerate, run `npx convex dev`.
+ * @module
+ */
+
+import type { FunctionReference } from "convex/server";
+
+/**
+ * A utility for referencing a Convex component's exposed API.
+ *
+ * Useful when expecting a parameter like `components.myComponent`.
+ * Usage:
+ * ```ts
+ * async function myFunction(ctx: QueryCtx, component: ComponentApi) {
+ *   return ctx.runQuery(component.someFile.someQuery, { ...args });
+ * }
+ * ```
+ */
+export type ComponentApi<Name extends string | undefined = string | undefined> =
+  {
+    gateway: {
+      getAuthorizationUrl: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          callbackUrl?: string;
+          errorRedirectTo?: string;
+          provider: {
+            accessType?: "offline" | "online";
+            authorizationUrl: string;
+            clientId: string;
+            clientSecret: string;
+            hostedDomain?: string;
+            id: string;
+            prompt?: "none" | "consent" | "select_account";
+            runtimeConfig?: any;
+            scopes: Array<string>;
+            tokenEncryptionSecret?: string;
+            tokenUrl: string;
+            trustVerifiedEmail?: boolean;
+            userInfoUrl: string;
+          };
+          redirectTo?: string;
+          redirectUrl?: string;
+        },
+        any,
+        Name
+      >;
+      getCurrentUser: FunctionReference<
+        "query",
+        "internal",
+        { checkBanned?: boolean; token: string },
+        any,
+        Name
+      >;
+      getUserById: FunctionReference<
+        "query",
+        "internal",
+        { checkBanned?: boolean; userId: string },
+        any,
+        Name
+      >;
+      handleCallback: FunctionReference<
+        "action",
+        "internal",
+        {
+          callbackUrl?: string;
+          code: string;
+          defaultRole?: string;
+          errorRedirectTo?: string;
+          ipAddress?: string;
+          provider: {
+            accessType?: "offline" | "online";
+            authorizationUrl: string;
+            clientId: string;
+            clientSecret: string;
+            hostedDomain?: string;
+            id: string;
+            prompt?: "none" | "consent" | "select_account";
+            runtimeConfig?: any;
+            scopes: Array<string>;
+            tokenEncryptionSecret?: string;
+            tokenUrl: string;
+            trustVerifiedEmail?: boolean;
+            userInfoUrl: string;
+          };
+          redirectTo?: string;
+          redirectUrl?: string;
+          state: string;
+          userAgent?: string;
+        },
+        any,
+        Name
+      >;
+      invalidateAllSessions: FunctionReference<
+        "mutation",
+        "internal",
+        { userId: string },
+        any,
+        Name
+      >;
+      invalidateSession: FunctionReference<
+        "mutation",
+        "internal",
+        { token: string },
+        any,
+        Name
+      >;
+      requestPasswordReset: FunctionReference<
+        "mutation",
+        "internal",
+        { email: string; ipAddress?: string },
+        any,
+        Name
+      >;
+      resetPassword: FunctionReference<
+        "mutation",
+        "internal",
+        { code: string; email: string; newPassword: string },
+        any,
+        Name
+      >;
+      signIn: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          email: string;
+          ipAddress?: string;
+          password: string;
+          requireEmailVerified?: boolean;
+          userAgent?: string;
+        },
+        any,
+        Name
+      >;
+      signUp: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          defaultRole?: string;
+          email: string;
+          ipAddress?: string;
+          name?: string;
+          password: string;
+        },
+        any,
+        Name
+      >;
+      validateSession: FunctionReference<
+        "mutation",
+        "internal",
+        { checkBanned?: boolean; token: string },
+        any,
+        Name
+      >;
+      verifyEmail: FunctionReference<
+        "mutation",
+        "internal",
+        { code: string; email: string },
+        any,
+        Name
+      >;
+    };
+  };

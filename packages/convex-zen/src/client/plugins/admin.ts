@@ -1,4 +1,8 @@
-import type { AdminListUsersResult, AdminPluginConfig } from "../../types";
+import {
+  defineAuthPlugin,
+  type AdminListUsersResult,
+  type AdminPluginOptions,
+} from "../../types";
 import { resolveComponentFn } from "../helpers";
 
 /**
@@ -18,47 +22,29 @@ type RunsMutations = {
 };
 
 /**
- * Create an admin plugin configuration.
- *
- * @example
- * ```ts
- * import { adminPlugin } from "convex-zen/plugins/admin";
- *
- * export const auth = new ConvexZen(components.convexAuth, {
- *   plugins: [adminPlugin({ defaultRole: "user", adminRole: "admin" })],
- * });
- * ```
- */
-export function adminPlugin(config?: {
-  defaultRole?: string;
-  adminRole?: string;
-}): AdminPluginConfig {
-  const plugin: AdminPluginConfig = {
-    id: "admin",
-    defaultRole: "user",
-    adminRole: "admin",
-  };
-  if (config?.defaultRole !== undefined) {
-    plugin.defaultRole = config.defaultRole;
-  }
-  if (config?.adminRole !== undefined) {
-    plugin.adminRole = config.adminRole;
-  }
-  return plugin;
-}
-
-/**
  * Raw admin plugin API exposed at `auth.plugins.admin`.
  */
 export class AdminPlugin {
   constructor(
     private readonly componentApi: Record<string, unknown>,
-    private readonly config: AdminPluginConfig
+    private readonly config: AdminPluginOptions,
+    private readonly childName: string = "admin",
+    private readonly runtimeKind: "app" | "component" = "app"
   ) {}
 
   private resolveAdminRole(): string {
     const normalized = this.config.adminRole?.trim();
     return normalized && normalized.length > 0 ? normalized : "admin";
+  }
+
+  private withAdminRole<T extends Record<string, unknown>>(args: T): T | (T & { adminRole: string }) {
+    if (this.runtimeKind === "app") {
+      return args;
+    }
+    return {
+      ...args,
+      adminRole: this.resolveAdminRole(),
+    };
   }
 
   /**
@@ -67,6 +53,13 @@ export class AdminPlugin {
    */
   private fn(path: string): unknown {
     return resolveComponentFn(this.componentApi, path);
+  }
+
+  private gatewayPath(functionName: string): string {
+    if (this.runtimeKind === "app") {
+      return `admin/gateway:${functionName}`;
+    }
+    return `${this.childName}/gateway:${functionName}`;
   }
 
   private async runAdminGatewayMutation(
@@ -96,11 +89,8 @@ export class AdminPlugin {
   ): Promise<boolean> {
     return this.runAdminGatewayQuery(
       ctx,
-      "gateway:adminIsAdmin",
-      {
-        ...args,
-        adminRole: this.resolveAdminRole(),
-      }
+      this.gatewayPath("isAdmin"),
+      this.withAdminRole(args)
     ) as Promise<boolean>;
   }
 
@@ -117,11 +107,8 @@ export class AdminPlugin {
   ): Promise<AdminListUsersResult> {
     return this.runAdminGatewayQuery(
       ctx,
-      "gateway:adminListUsers",
-      {
-        ...args,
-        adminRole: this.resolveAdminRole(),
-      }
+      this.gatewayPath("listUsers"),
+      this.withAdminRole(args)
     ) as Promise<AdminListUsersResult>;
   }
 
@@ -139,11 +126,8 @@ export class AdminPlugin {
   ): Promise<void> {
     return this.runAdminGatewayMutation(
       ctx,
-      "gateway:adminBanUser",
-      {
-        ...args,
-        adminRole: this.resolveAdminRole(),
-      }
+      this.gatewayPath("banUser"),
+      this.withAdminRole(args)
     ) as Promise<void>;
   }
 
@@ -159,11 +143,8 @@ export class AdminPlugin {
   ): Promise<void> {
     return this.runAdminGatewayMutation(
       ctx,
-      "gateway:adminUnbanUser",
-      {
-        ...args,
-        adminRole: this.resolveAdminRole(),
-      }
+      this.gatewayPath("unbanUser"),
+      this.withAdminRole(args)
     ) as Promise<void>;
   }
 
@@ -180,11 +161,8 @@ export class AdminPlugin {
   ): Promise<void> {
     return this.runAdminGatewayMutation(
       ctx,
-      "gateway:adminSetRole",
-      {
-        ...args,
-        adminRole: this.resolveAdminRole(),
-      }
+      this.gatewayPath("setRole"),
+      this.withAdminRole(args)
     ) as Promise<void>;
   }
 
@@ -200,11 +178,8 @@ export class AdminPlugin {
   ): Promise<void> {
     return this.runAdminGatewayMutation(
       ctx,
-      "gateway:adminDeleteUser",
-      {
-        ...args,
-        adminRole: this.resolveAdminRole(),
-      }
+      this.gatewayPath("deleteUser"),
+      this.withAdminRole(args)
     ) as Promise<void>;
   }
 
@@ -216,3 +191,78 @@ export class AdminPlugin {
     return this.config.adminRole;
   }
 }
+
+export const adminPlugin = defineAuthPlugin({
+  id: "admin",
+  component: {
+    importPath: "convex-zen/plugins/admin/convex.config",
+    childName: "adminComponent",
+  },
+  normalizeOptions: (config?: AdminPluginOptions): AdminPluginOptions => ({
+    ...(config?.defaultRole !== undefined
+      ? { defaultRole: config.defaultRole }
+      : {}),
+    ...(config?.adminRole !== undefined ? { adminRole: config.adminRole } : {}),
+  }),
+  createClientRuntime: ({ component, childName, options, runtimeKind }) =>
+    new AdminPlugin(component, options, childName, runtimeKind),
+  publicFunctions: {
+    functions: {
+      isAdmin: {
+        kind: "query",
+        auth: "optionalActor",
+        runtimeMethod: "isAdmin",
+        componentPath: "admin/gateway:isAdmin",
+        argsSource: "{}",
+      },
+      listUsers: {
+        kind: "query",
+        auth: "actor",
+        runtimeMethod: "listUsers",
+        componentPath: "admin/gateway:listUsers",
+        argsSource: "{\n    limit: v.optional(v.number()),\n    cursor: v.optional(v.string()),\n  }",
+      },
+      banUser: {
+        kind: "mutation",
+        auth: "actor",
+        runtimeMethod: "banUser",
+        componentPath: "admin/gateway:banUser",
+        argsSource:
+          "{\n    userId: v.string(),\n    reason: v.optional(v.string()),\n    expiresAt: v.optional(v.number()),\n  }",
+      },
+      unbanUser: {
+        kind: "mutation",
+        auth: "actor",
+        runtimeMethod: "unbanUser",
+        componentPath: "admin/gateway:unbanUser",
+        argsSource: "{\n    userId: v.string(),\n  }",
+      },
+      setRole: {
+        kind: "mutation",
+        auth: "actor",
+        runtimeMethod: "setRole",
+        componentPath: "admin/gateway:setRole",
+        argsSource: "{\n    userId: v.string(),\n    role: v.string(),\n  }",
+      },
+      deleteUser: {
+        kind: "mutation",
+        auth: "actor",
+        runtimeMethod: "deleteUser",
+        componentPath: "admin/gateway:deleteUser",
+        argsSource: "{\n    userId: v.string(),\n  }",
+      },
+    },
+  },
+  hooks: {
+    onUserCreated: {
+      defaultRole: (options) => {
+        const role = options.defaultRole?.trim();
+        return role && role.length > 0 ? role : "user";
+      },
+    },
+    assertCanCreateSession: true,
+    assertCanResolveSession: true,
+    assertCanReadAuthUser: true,
+    onUserDeleted: true,
+  },
+});

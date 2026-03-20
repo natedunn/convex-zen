@@ -29,10 +29,13 @@ import {
   findAccount,
   findUserByEmail,
   findUserById,
+  getAdminStateForUser,
+  isAdminStateCurrentlyBanned,
   insertAccount,
   insertUser,
   patchAccount,
   patchUser,
+  upsertAdminStateForUser,
 } from "../core/users";
 import { createSession } from "../core/sessions";
 
@@ -433,8 +436,10 @@ export const finalizeCallback = internalMutation({
           emailVerified: true,
           name: args.name,
           image: args.image,
-          role: args.defaultRole,
         });
+        if (args.defaultRole !== undefined) {
+          await upsertAdminStateForUser(ctx.db, userId, { role: args.defaultRole });
+        }
       } else {
         userId = existingUser._id;
         await patchUser(ctx.db, existingUser._id, {
@@ -455,13 +460,13 @@ export const finalizeCallback = internalMutation({
     }
 
     const user = await findUserById(ctx.db, userId);
-    if (user?.banned) {
-      const now = Date.now();
-      if (user.banExpires === undefined || user.banExpires > now) {
+    const adminState = user
+      ? await getAdminStateForUser(ctx.db, user._id)
+      : null;
+    if (adminState && isAdminStateCurrentlyBanned(adminState, Date.now())) {
         throw new Error(
-          `Account banned${user.banReason ? ": " + user.banReason : ""}`
+          `Account banned${adminState.banReason ? ": " + adminState.banReason : ""}`
         );
-      }
     }
 
     const sessionToken = await createSession(ctx.db, {

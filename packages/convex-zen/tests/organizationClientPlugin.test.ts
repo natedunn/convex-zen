@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ConvexZen } from "../src/client";
+import { createConvexZenClient, defineConvexZen } from "../src/client";
 import {
   OrganizationPlugin,
   organizationPlugin,
@@ -8,45 +8,52 @@ import {
 function makeOrganizationPlugin() {
   return new OrganizationPlugin(
     {
-      gateway: {
-        organizationCheckSlug: "gateway:organizationCheckSlug",
-        organizationCreate: "gateway:organizationCreate",
-        organizationUpdate: "gateway:organizationUpdate",
-        organizationDelete: "gateway:organizationDelete",
-        organizationList: "gateway:organizationList",
-        organizationGet: "gateway:organizationGet",
-        organizationGetMembership: "gateway:organizationGetMembership",
-        organizationListMembers: "gateway:organizationListMembers",
-        organizationInviteMember: "gateway:organizationInviteMember",
-        organizationListInvitations: "gateway:organizationListInvitations",
-        organizationListIncomingInvitations: "gateway:organizationListIncomingInvitations",
-        organizationAcceptInvitation: "gateway:organizationAcceptInvitation",
-        organizationAcceptIncomingInvitation:
-          "gateway:organizationAcceptIncomingInvitation",
-        organizationCancelInvitation: "gateway:organizationCancelInvitation",
-        organizationDeclineIncomingInvitation:
-          "gateway:organizationDeclineIncomingInvitation",
-        organizationRemoveMember: "gateway:organizationRemoveMember",
-        organizationSetMemberRole: "gateway:organizationSetMemberRole",
-        organizationTransferOwnership: "gateway:organizationTransferOwnership",
-        organizationCreateRole: "gateway:organizationCreateRole",
-        organizationListRoles: "gateway:organizationListRoles",
-        organizationListAvailablePermissions:
-          "gateway:organizationListAvailablePermissions",
-        organizationGetRole: "gateway:organizationGetRole",
-        organizationUpdateRole: "gateway:organizationUpdateRole",
-        organizationDeleteRole: "gateway:organizationDeleteRole",
-        organizationAddDomain: "gateway:organizationAddDomain",
-        organizationListDomains: "gateway:organizationListDomains",
-        organizationGetDomainVerificationChallenge:
-          "gateway:organizationGetDomainVerificationChallenge",
-        organizationMarkDomainVerified: "gateway:organizationMarkDomainVerified",
-        organizationRemoveDomain: "gateway:organizationRemoveDomain",
-        organizationResolveByHost: "gateway:organizationResolveByHost",
-        organizationHasRole: "gateway:organizationHasRole",
-        organizationRequireRole: "gateway:organizationRequireRole",
-        organizationHasPermission: "gateway:organizationHasPermission",
-        organizationRequirePermission: "gateway:organizationRequirePermission",
+      core: {
+        gateway: {
+          getUserById: "core/gateway:getUserById",
+        },
+      },
+      organization: {
+        gateway: {
+          checkSlug: "organization/gateway:checkSlug",
+          createOrganization: "organization/gateway:createOrganization",
+          updateOrganization: "organization/gateway:updateOrganization",
+          deleteOrganization: "organization/gateway:deleteOrganization",
+          listOrganizations: "organization/gateway:listOrganizations",
+          getOrganization: "organization/gateway:getOrganization",
+          getMembership: "organization/gateway:getMembership",
+          listMembers: "organization/gateway:listMembers",
+          inviteMember: "organization/gateway:inviteMember",
+          listInvitations: "organization/gateway:listInvitations",
+          listIncomingInvitations: "organization/gateway:listIncomingInvitations",
+          acceptInvitation: "organization/gateway:acceptInvitation",
+          acceptIncomingInvitation:
+            "organization/gateway:acceptIncomingInvitation",
+          cancelInvitation: "organization/gateway:cancelInvitation",
+          declineIncomingInvitation:
+            "organization/gateway:declineIncomingInvitation",
+          removeMember: "organization/gateway:removeMember",
+          setMemberRole: "organization/gateway:setMemberRole",
+          transferOwnership: "organization/gateway:transferOwnership",
+          createRole: "organization/gateway:createRole",
+          listRoles: "organization/gateway:listRoles",
+          listAvailablePermissions:
+            "organization/gateway:listAvailablePermissions",
+          getRole: "organization/gateway:getRole",
+          updateRole: "organization/gateway:updateRole",
+          deleteRole: "organization/gateway:deleteRole",
+          addDomain: "organization/gateway:addDomain",
+          listDomains: "organization/gateway:listDomains",
+          getDomainVerificationChallenge:
+            "organization/gateway:getDomainVerificationChallenge",
+          markDomainVerified: "organization/gateway:markDomainVerified",
+          removeDomain: "organization/gateway:removeDomain",
+          resolveOrganizationByHost: "organization/gateway:resolveOrganizationByHost",
+          hasRole: "organization/gateway:hasRole",
+          requireRole: "organization/gateway:requireRole",
+          hasPermission: "organization/gateway:hasPermission",
+          requirePermission: "organization/gateway:requirePermission",
+        },
       },
     },
     organizationPlugin({
@@ -63,7 +70,9 @@ function makeOrganizationPlugin() {
         },
       },
       subdomainSuffix: "example.com",
-    })
+    }).options,
+    "organization",
+    "component"
   );
 }
 
@@ -88,10 +97,10 @@ describe("OrganizationPlugin client", () => {
     );
     await plugin.resolveOrganizationByHost({ runQuery }, { host: "acme.example.com" });
 
-    expect(runQuery).toHaveBeenNthCalledWith(1, "gateway:organizationCheckSlug", {
+    expect(runQuery).toHaveBeenNthCalledWith(1, "organization/gateway:checkSlug", {
       slug: "acme",
     });
-    expect(runMutation).toHaveBeenCalledWith("gateway:organizationInviteMember", {
+    expect(runMutation).toHaveBeenCalledWith("organization/gateway:inviteMember", {
       actorUserId: "user_1",
       organizationId: "org_1",
       email: "hello@example.com",
@@ -115,7 +124,7 @@ describe("OrganizationPlugin client", () => {
         member: expect.arrayContaining(["organization:read"]),
       },
     });
-    expect(runQuery).toHaveBeenNthCalledWith(2, "gateway:organizationResolveByHost", {
+    expect(runQuery).toHaveBeenNthCalledWith(2, "organization/gateway:resolveOrganizationByHost", {
       host: "acme.example.com",
       subdomainSuffix: "example.com",
     });
@@ -137,7 +146,7 @@ describe("OrganizationPlugin client", () => {
     ).resolves.toBe(true);
 
     expect(runQuery).toHaveBeenCalledWith(
-      "gateway:organizationHasPermission",
+      "organization/gateway:hasPermission",
       expect.objectContaining({
         actorUserId: "user_1",
         organizationId: "org_1",
@@ -151,6 +160,47 @@ describe("OrganizationPlugin client", () => {
 
   it("loads incoming invitations for the current actor through the gateway", async () => {
     const plugin = makeOrganizationPlugin();
+    const runQuery = vi.fn(async (fn: string) => {
+      if (fn === "core/gateway:getUserById") {
+        return { email: "user@example.com" };
+      }
+      return [];
+    });
+
+    await plugin.listIncomingInvitations(
+      { runQuery },
+      {
+        actorUserId: "user_1",
+      }
+    );
+
+    expect(runQuery).toHaveBeenNthCalledWith(1, "core/gateway:getUserById", {
+      userId: "user_1",
+    });
+    expect(runQuery).toHaveBeenNthCalledWith(
+      2,
+      "organization/gateway:listIncomingInvitations",
+      {
+        actorUserId: "user_1",
+        actorEmail: "user@example.com",
+      }
+    );
+  });
+
+  it("skips actorEmail enrichment when only app wrapper gateway refs are available", async () => {
+    const plugin = new OrganizationPlugin(
+      {
+        organization: {
+          gateway: {
+            listIncomingInvitations:
+              "organization/gateway:listIncomingInvitations",
+          },
+        },
+      },
+      organizationPlugin({}).options,
+      "organizationComponent",
+      "app"
+    );
     const runQuery = vi.fn(async () => []);
 
     await plugin.listIncomingInvitations(
@@ -160,8 +210,9 @@ describe("OrganizationPlugin client", () => {
       }
     );
 
+    expect(runQuery).toHaveBeenCalledTimes(1);
     expect(runQuery).toHaveBeenCalledWith(
-      "gateway:organizationListIncomingInvitations",
+      "organization/gateway:listIncomingInvitations",
       {
         actorUserId: "user_1",
       }
@@ -170,30 +221,39 @@ describe("OrganizationPlugin client", () => {
 
   it("accepts and declines incoming invitations through dedicated gateway mutations", async () => {
     const plugin = makeOrganizationPlugin();
+    const runQuery = vi.fn(async () => ({ email: "user@example.com" }));
     const runMutation = vi.fn(async () => ({ ok: true }));
 
     await plugin.acceptIncomingInvitation(
-      { runMutation },
+      { runMutation, runQuery },
       { actorUserId: "user_1", invitationId: "invite_1" }
     );
     await plugin.declineIncomingInvitation(
-      { runMutation },
+      { runMutation, runQuery },
       { actorUserId: "user_1", invitationId: "invite_2" }
     );
 
+    expect(runQuery).toHaveBeenNthCalledWith(1, "core/gateway:getUserById", {
+      userId: "user_1",
+    });
+    expect(runQuery).toHaveBeenNthCalledWith(2, "core/gateway:getUserById", {
+      userId: "user_1",
+    });
     expect(runMutation).toHaveBeenNthCalledWith(
       1,
-      "gateway:organizationAcceptIncomingInvitation",
+      "organization/gateway:acceptIncomingInvitation",
       {
         actorUserId: "user_1",
+        actorEmail: "user@example.com",
         invitationId: "invite_1",
       }
     );
     expect(runMutation).toHaveBeenNthCalledWith(
       2,
-      "gateway:organizationDeclineIncomingInvitation",
+      "organization/gateway:declineIncomingInvitation",
       {
         actorUserId: "user_1",
+        actorEmail: "user@example.com",
         invitationId: "invite_2",
       }
     );
@@ -215,7 +275,7 @@ describe("OrganizationPlugin client", () => {
     );
 
     expect(runMutation).toHaveBeenCalledWith(
-      "gateway:organizationCreateRole",
+      "organization/gateway:createRole",
       expect.objectContaining({
         actorUserId: "user_1",
         organizationId: "org_1",
@@ -250,7 +310,7 @@ describe("OrganizationPlugin client", () => {
     );
 
     expect(runQuery).toHaveBeenCalledWith(
-      "gateway:organizationListAvailablePermissions",
+      "organization/gateway:listAvailablePermissions",
       expect.objectContaining({
         actorUserId: "user_1",
         organizationId: "org_1",
@@ -267,17 +327,18 @@ describe("OrganizationPlugin client", () => {
   });
 });
 
-describe("ConvexZen organization facade", () => {
-  it("auto-resolves actorUserId for organization methods", async () => {
-    const auth = new ConvexZen(
+describe("ConvexZen organization plugins", () => {
+  it("exposes configured organization runtime under auth.plugins", async () => {
+    const auth = createConvexZenClient(
       {
-        gateway: {
-          organizationList: "gateway:organizationList",
-          organizationGetMembership: "gateway:organizationGetMembership",
-          organizationHasPermission: "gateway:organizationHasPermission",
+        organization: {
+          gateway: {
+            listOrganizations: "organization/gateway:listOrganizations",
+            hasPermission: "organization/gateway:hasPermission",
+          },
         },
       },
-      {
+      defineConvexZen({
         plugins: [
           organizationPlugin({
             accessControl: {
@@ -290,36 +351,38 @@ describe("ConvexZen organization facade", () => {
             },
           }),
         ] as const,
-        resolveUserId: async () => "resolved_user",
-      }
+      })
     );
     const runQuery = vi.fn(async (_fn, args) =>
       (args as { permission?: unknown }).permission ? true : { organizations: [] }
     );
 
-    await auth.organization!.listOrganizations({ runQuery });
-    const hasPermission = await auth.organization!.hasPermission(
+    await auth.plugins.organization.listOrganizations(
       { runQuery },
       {
+        actorUserId: "resolved_user",
+      }
+    );
+    const hasPermission = await auth.plugins.organization.hasPermission(
+      { runQuery },
+      {
+        actorUserId: "resolved_user",
         organizationId: "org_1",
         permission: { resource: "project", action: "write" },
       }
     );
 
-    expect(runQuery).toHaveBeenNthCalledWith(1, "gateway:organizationList", {
+    expect(runQuery).toHaveBeenNthCalledWith(1, "organization/gateway:listOrganizations", {
       actorUserId: "resolved_user",
     });
     expect(runQuery).toHaveBeenNthCalledWith(
       2,
-      "gateway:organizationHasPermission",
-      expect.objectContaining({
+      "organization/gateway:hasPermission",
+      {
         actorUserId: "resolved_user",
         organizationId: "org_1",
         permission: { resource: "project", action: "write" },
-        rolePermissions: expect.objectContaining({
-          admin: expect.arrayContaining(["project:write"]),
-        }),
-      })
+      }
     );
     expect(hasPermission).toBe(true);
   });
