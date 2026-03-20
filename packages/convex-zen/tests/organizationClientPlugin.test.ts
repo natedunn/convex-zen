@@ -160,12 +160,7 @@ describe("OrganizationPlugin client", () => {
 
   it("loads incoming invitations for the current actor through the gateway", async () => {
     const plugin = makeOrganizationPlugin();
-    const runQuery = vi.fn(async (fn: string) => {
-      if (fn === "core/gateway:getUserById") {
-        return { email: "user@example.com" };
-      }
-      return [];
-    });
+    const runQuery = vi.fn(async () => []);
 
     await plugin.listIncomingInvitations(
       { runQuery },
@@ -174,20 +169,16 @@ describe("OrganizationPlugin client", () => {
       }
     );
 
-    expect(runQuery).toHaveBeenNthCalledWith(1, "core/gateway:getUserById", {
-      userId: "user_1",
-    });
-    expect(runQuery).toHaveBeenNthCalledWith(
-      2,
+    expect(runQuery).toHaveBeenCalledTimes(1);
+    expect(runQuery).toHaveBeenCalledWith(
       "organization/gateway:listIncomingInvitations",
       {
         actorUserId: "user_1",
-        actorEmail: "user@example.com",
       }
     );
   });
 
-  it("skips actorEmail enrichment when only app wrapper gateway refs are available", async () => {
+  it("passes only actorUserId when listing incoming invitations (no app/component distinction)", async () => {
     const plugin = new OrganizationPlugin(
       {
         organization: {
@@ -221,30 +212,22 @@ describe("OrganizationPlugin client", () => {
 
   it("accepts and declines incoming invitations through dedicated gateway mutations", async () => {
     const plugin = makeOrganizationPlugin();
-    const runQuery = vi.fn(async () => ({ email: "user@example.com" }));
     const runMutation = vi.fn(async () => ({ ok: true }));
 
     await plugin.acceptIncomingInvitation(
-      { runMutation, runQuery },
+      { runMutation },
       { actorUserId: "user_1", invitationId: "invite_1" }
     );
     await plugin.declineIncomingInvitation(
-      { runMutation, runQuery },
+      { runMutation },
       { actorUserId: "user_1", invitationId: "invite_2" }
     );
 
-    expect(runQuery).toHaveBeenNthCalledWith(1, "core/gateway:getUserById", {
-      userId: "user_1",
-    });
-    expect(runQuery).toHaveBeenNthCalledWith(2, "core/gateway:getUserById", {
-      userId: "user_1",
-    });
     expect(runMutation).toHaveBeenNthCalledWith(
       1,
       "organization/gateway:acceptIncomingInvitation",
       {
         actorUserId: "user_1",
-        actorEmail: "user@example.com",
         invitationId: "invite_1",
       }
     );
@@ -253,7 +236,6 @@ describe("OrganizationPlugin client", () => {
       "organization/gateway:declineIncomingInvitation",
       {
         actorUserId: "user_1",
-        actorEmail: "user@example.com",
         invitationId: "invite_2",
       }
     );
