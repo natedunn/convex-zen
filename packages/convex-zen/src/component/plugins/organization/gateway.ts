@@ -224,26 +224,22 @@ export const listInvitations = query({
 export const listIncomingInvitations = query({
   args: {
     actorUserId: v.string(),
-    actorEmail: v.string(),
   },
-  handler: async (ctx, { actorUserId, actorEmail }) =>
+  handler: async (ctx, { actorUserId }) =>
     await listIncomingOrganizationInvitationsForUser(ctx.db, {
       actorUserId: actorUserId as Id<"users">,
-      actorEmail,
     }),
 });
 
 export const acceptInvitation = mutation({
   args: {
     actorUserId: v.string(),
-    actorEmail: v.string(),
     token: v.string(),
     rolePermissions: v.optional(rolePermissionsValidator),
   },
-  handler: async (ctx, { actorUserId, actorEmail, token, rolePermissions }) =>
+  handler: async (ctx, { actorUserId, token, rolePermissions }) =>
     await acceptOrganizationInvitation(ctx.db, {
       actorUserId: actorUserId as Id<"users">,
-      actorEmail,
       token,
       rolePermissions,
     }),
@@ -252,13 +248,11 @@ export const acceptInvitation = mutation({
 export const acceptIncomingInvitation = mutation({
   args: {
     actorUserId: v.string(),
-    actorEmail: v.string(),
     invitationId: v.string(),
   },
-  handler: async (ctx, { actorUserId, actorEmail, invitationId }) =>
+  handler: async (ctx, { actorUserId, invitationId }) =>
     await acceptIncomingOrganizationInvitation(ctx.db, {
       actorUserId: actorUserId as Id<"users">,
-      actorEmail,
       invitationId: invitationId as Id<"organizationInvitations">,
     }),
 });
@@ -280,13 +274,11 @@ export const cancelInvitation = mutation({
 export const declineIncomingInvitation = mutation({
   args: {
     actorUserId: v.string(),
-    actorEmail: v.string(),
     invitationId: v.string(),
   },
-  handler: async (ctx, { actorUserId, actorEmail, invitationId }) =>
+  handler: async (ctx, { actorUserId, invitationId }) =>
     await declineIncomingOrganizationInvitation(ctx.db, {
       actorUserId: actorUserId as Id<"users">,
-      actorEmail,
       invitationId: invitationId as Id<"organizationInvitations">,
     }),
 });

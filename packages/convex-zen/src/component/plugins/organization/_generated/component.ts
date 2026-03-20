@@ -27,7 +27,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       acceptIncomingInvitation: FunctionReference<
         "mutation",
         "internal",
-        { actorEmail: string; actorUserId: string; invitationId: string },
+        { actorUserId: string; invitationId: string },
         any,
         Name
       >;
@@ -35,7 +35,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "mutation",
         "internal",
         {
-          actorEmail: string;
           actorUserId: string;
           rolePermissions?: Record<string, Array<string>>;
           token: string;
@@ -105,7 +104,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       declineIncomingInvitation: FunctionReference<
         "mutation",
         "internal",
-        { actorEmail: string; actorUserId: string; invitationId: string },
+        { actorUserId: string; invitationId: string },
         any,
         Name
       >;
@@ -238,7 +237,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
       listIncomingInvitations: FunctionReference<
         "query",
         "internal",
-        { actorEmail: string; actorUserId: string },
+        { actorUserId: string },
         any,
         Name
       >;
