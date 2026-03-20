@@ -1,23 +1,16 @@
 import type {
 	EmailProvider,
 	ConvexAuthPlugin,
+	AuthPluginDefinition,
 	OAuthCallbackInput,
 	OAuthCallbackResult,
 	OAuthProviderConfig,
 	OAuthStartOptions,
 	OAuthStartResult,
-	AdminPluginConfig,
-	OrganizationPluginConfig,
 } from "../types";
+import { defineAuthPlugin } from "../types";
 import type { HttpRouter } from "convex/server";
 import { httpActionGeneric } from "convex/server";
-import { AdminPlugin } from "./plugins/admin";
-import {
-	OrganizationPlugin,
-	ConvexZenOrganizationFacade,
-	type OrganizationFacadeFromConfig,
-	type OrganizationPluginFromConfig,
-} from "./plugins/organization";
 import { resolveComponentFn } from "./helpers";
 
 /**
@@ -45,19 +38,15 @@ interface RunsActions {
 }
 type ConvexCtx = RunsQueries & RunsMutations;
 type PluginList = readonly ConvexAuthPlugin[];
-
-/** Plugin-tuple extraction belongs here because `ConvexZen` owns `TPlugins`. */
-type AdminPluginFor<TPlugins extends PluginList> =
-	Extract<TPlugins[number], { id: "admin" }> extends never ? null : AdminPlugin;
-type OrganizationPluginConfigFor<TPlugins extends PluginList> = Extract<
-	TPlugins[number],
-	OrganizationPluginConfig<any, any>
->;
-
-/** Plugin modules derive their own runtime and facade shapes from config. */
-type OrganizationPluginFor<TPlugins extends PluginList> = OrganizationPluginFromConfig<
-	OrganizationPluginConfigFor<TPlugins>
->;
+type PluginRuntimeMap<TPlugins extends PluginList> = {
+	[TPlugin in TPlugins[number] as TPlugin["id"]]: TPlugin["definition"] extends AuthPluginDefinition<
+		any,
+		any,
+		infer TRuntime
+	>
+		? TRuntime
+		: never;
+};
 type MaybePromise<T> = T | Promise<T>;
 type AuthIdentity = {
 	subject?: string | null;
@@ -99,20 +88,12 @@ type PasswordValidationConfig = PasswordValidationFn | PasswordSchema;
 const DEFAULT_MIN_PASSWORD_LENGTH = 12;
 const DEFAULT_MAX_PASSWORD_LENGTH = 128;
 
-type OrganizationFacadeFor<TPlugins extends PluginList> = OrganizationFacadeFromConfig<
-	OrganizationPluginConfigFor<TPlugins>
->;
-
 export interface AuthUser {
 	_id: string;
 	email: string;
 	emailVerified: boolean;
 	name?: string;
 	image?: string;
-	role?: string;
-	banned?: boolean;
-	banReason?: string;
-	banExpires?: number;
 	createdAt?: number;
 	updatedAt?: number;
 }
@@ -147,6 +128,38 @@ export interface ConvexZenOptions<TPlugins extends PluginList = PluginList> {
 	resolveUserId?: (ctx: unknown) => MaybePromise<string | null>;
 }
 
+export type ConvexZenDefinition<TPlugins extends PluginList = PluginList> =
+	ConvexZenOptions<TPlugins>;
+
+function assertUniquePluginIds(plugins: PluginList): void {
+	const ids = new Set<string>();
+	for (const plugin of plugins) {
+		if (ids.has(plugin.id)) {
+			throw new Error(`Duplicate auth plugin id "${plugin.id}"`);
+		}
+		ids.add(plugin.id);
+	}
+}
+
+export function defineConvexZen<TPlugins extends PluginList>(
+	options: ConvexZenDefinition<TPlugins>,
+): ConvexZenDefinition<TPlugins> {
+	assertUniquePluginIds(options.plugins ?? []);
+	return options;
+}
+
+export function createConvexZenClient<TPlugins extends PluginList>(
+	component: Record<string, unknown>,
+	definition: ConvexZenDefinition<TPlugins>,
+	runtimeOptions?: { runtimeKind?: "app" | "component" },
+): ConvexZen<TPlugins> {
+	return new ConvexZen(
+		component,
+		definition,
+		runtimeOptions?.runtimeKind ?? "app",
+	);
+}
+
 /**
  * ConvexZen — the main integration class for convex-zen.
  *
@@ -155,12 +168,12 @@ export interface ConvexZenOptions<TPlugins extends PluginList = PluginList> {
  *
  * @example
  * ```ts
- * // convex/auth.ts
+ * // convex/zen.runtime.ts
  * import { ConvexZen, googleProvider } from "convex-zen";
  * import { adminPlugin } from "convex-zen/plugins/admin";
  * import { components } from "./_generated/api";
  *
- * export const auth = new ConvexZen(components.convexAuth, {
+ * export const auth = new ConvexZen(components.authComponent, {
  *   providers: [googleProvider({ clientId: "...", clientSecret: "..." })],
  *   emailProvider: {
  *     sendVerificationEmail: async (to, code) => { ... },
@@ -173,21 +186,19 @@ export interface ConvexZenOptions<TPlugins extends PluginList = PluginList> {
 export class ConvexZen<TPlugins extends PluginList = PluginList> {
 	private readonly component: Record<string, unknown>;
 	private readonly options: ConvexZenOptions<TPlugins>;
-	private readonly _adminPlugin: AdminPlugin | null;
-	/** Raw plugin instance exposed at `auth.plugins.organization`. */
-	private readonly _organizationPlugin: OrganizationPluginFor<TPlugins>;
-	/** Context-aware facade exposed at `auth.organization`. */
-	private readonly _organizationFacade: OrganizationFacadeFor<TPlugins>;
+	private readonly pluginRuntimes: PluginRuntimeMap<TPlugins>;
 	private readonly providerMap: Map<string, OAuthProviderConfig>;
-	private readonly adminConfig: AdminPluginConfig | null;
-	private readonly organizationConfig: OrganizationPluginConfigFor<TPlugins> | null;
+	private readonly runtimeKind: "app" | "component";
 
 	constructor(
 		component: Record<string, unknown>,
 		options: ConvexZenOptions<TPlugins> = {},
+		runtimeKind: "app" | "component" = "app",
 	) {
 		this.component = component;
 		this.options = options;
+		this.runtimeKind = runtimeKind;
+		assertUniquePluginIds(options.plugins ?? []);
 		const tokenEncryptionSecret = this.resolveTokenEncryptionSecret();
 		const normalizedProviders = (options.providers ?? []).map((provider) => {
 			if (provider.tokenEncryptionSecret !== undefined) {
@@ -203,66 +214,24 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 		});
 
 		this.providerMap = new Map(normalizedProviders.map((p) => [p.id, p]));
-
-		const rawAdminConfig =
-			options.plugins?.find((p): p is AdminPluginConfig => p.id === "admin") ??
-			null;
-		this.adminConfig = rawAdminConfig
-			? {
-					...rawAdminConfig,
-					defaultRole: rawAdminConfig.defaultRole?.trim() || "user",
-					adminRole: rawAdminConfig.adminRole?.trim() || "admin",
-				}
-			: null;
-		const rawOrganizationConfig =
-			options.plugins?.find(
-				(
-					p,
-				): p is OrganizationPluginConfigFor<TPlugins> => p.id === "organization",
-			) ?? null;
-		this.organizationConfig = rawOrganizationConfig
-			? {
-					...rawOrganizationConfig,
-					allowUserOrganizationCreation:
-						rawOrganizationConfig.allowUserOrganizationCreation !== false,
-					inviteExpiresInMs:
-						rawOrganizationConfig.inviteExpiresInMs ?? 7 * 24 * 60 * 60 * 1000,
-					...(rawOrganizationConfig.subdomainSuffix?.trim()
-						? { subdomainSuffix: rawOrganizationConfig.subdomainSuffix.trim() }
-						: {}),
-				} as OrganizationPluginConfigFor<TPlugins>
-			: null;
-
-		this._adminPlugin = this.adminConfig
-			? new AdminPlugin(component, this.adminConfig)
-			: null;
-		this._organizationPlugin = this.organizationConfig
-			? (new OrganizationPlugin(component, this.organizationConfig) as OrganizationPluginFor<TPlugins>)
-			: null as OrganizationPluginFor<TPlugins>;
-		this._organizationFacade = this._organizationPlugin
-			? (new ConvexZenOrganizationFacade(
-					this._organizationPlugin as OrganizationPlugin,
-					(ctx) => this.requireActorUserId(ctx),
-					(ctx) => this.resolveUserId(ctx),
-				) as unknown as OrganizationFacadeFor<TPlugins>)
-			: null as OrganizationFacadeFor<TPlugins>;
+		this.pluginRuntimes = Object.fromEntries(
+			(options.plugins ?? []).map((plugin) => [
+				plugin.id,
+				plugin.definition.createClientRuntime({
+					component,
+					childName: plugin.definition.component.childName ?? plugin.id,
+					runtimeKind: this.runtimeKind,
+					options: plugin.options,
+					requireActorUserId: (ctx) => this.requireActorUserId(ctx),
+					resolveUserId: (ctx) => this.resolveUserId(ctx),
+				}),
+			]),
+		) as PluginRuntimeMap<TPlugins>;
 	}
 
 	/** Access plugin instances after initialization. */
-	get plugins() {
-		return {
-			admin: this._adminPlugin as AdminPluginFor<TPlugins>,
-			organization: this._organizationPlugin as OrganizationPluginFor<TPlugins>,
-		};
-	}
-
-	/** Alias for plugins to support auth.plugin.admin style access. */
-	get plugin() {
-		return this.plugins;
-	}
-
-	get organization(): OrganizationFacadeFor<TPlugins> {
-		return this._organizationFacade;
+	get plugins(): PluginRuntimeMap<TPlugins> {
+		return this.pluginRuntimes;
 	}
 
 	/** Session helpers available directly on auth object. */
@@ -297,7 +266,7 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 	 * ```ts
 	 * // convex/http.ts
 	 * import { httpRouter } from "convex/server";
-	 * import { auth } from "./auth";
+	 * import { auth } from "./zen.runtime";
 	 * const http = httpRouter();
 	 * auth.registerRoutes(http);
 	 * export default http;
@@ -530,7 +499,7 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 	): Promise<{ userId: string; sessionId: string } | null> {
 		return ctx.runMutation(this.fn("gateway:validateSession"), {
 			token,
-			checkBanned: this.adminConfig !== null,
+			checkBanned: this.shouldCheckResolvedSession(),
 		}) as Promise<{ userId: string; sessionId: string } | null>;
 	}
 
@@ -572,7 +541,21 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 	): Promise<AuthUser | null> {
 		return ctx.runQuery(this.fn("gateway:getCurrentUser"), {
 			token,
-			checkBanned: this.adminConfig !== null,
+			checkBanned: this.shouldCheckAuthUserRead(),
+		}) as Promise<AuthUser | null>;
+	}
+
+	/**
+	 * Resolve a user directly by id.
+	 * Returns null when the user does not exist or is denied by plugin checks.
+	 */
+	async getAuthUserById(
+		ctx: RunsQueries,
+		userId: string,
+	): Promise<AuthUser | null> {
+		return ctx.runQuery(this.fn("gateway:getUserById"), {
+			userId,
+			checkBanned: this.shouldCheckAuthUserRead(),
 		}) as Promise<AuthUser | null>;
 	}
 
@@ -601,7 +584,7 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 
 		return ctx.runQuery(this.fn("gateway:getUserById"), {
 			userId,
-			checkBanned: this.adminConfig !== null,
+			checkBanned: this.shouldCheckAuthUserRead(),
 		}) as Promise<AuthUser | null>;
 	}
 
@@ -632,11 +615,28 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 	}
 
 	private resolveDefaultRole(): string | undefined {
-		if (!this.adminConfig) {
-			return undefined;
+		for (const plugin of this.options.plugins ?? []) {
+			const role = plugin.definition.hooks?.onUserCreated?.defaultRole?.(
+				plugin.options,
+			);
+			if (role !== undefined) {
+				const trimmed = role.trim();
+				return trimmed.length > 0 ? trimmed : undefined;
+			}
 		}
-		const role = this.adminConfig.defaultRole?.trim();
-		return role && role.length > 0 ? role : "user";
+		return undefined;
+	}
+
+	private shouldCheckResolvedSession(): boolean {
+		return (this.options.plugins ?? []).some(
+			(plugin) => plugin.definition.hooks?.assertCanResolveSession === true,
+		);
+	}
+
+	private shouldCheckAuthUserRead(): boolean {
+		return (this.options.plugins ?? []).some(
+			(plugin) => plugin.definition.hooks?.assertCanReadAuthUser === true,
+		);
 	}
 
 	private async assertPasswordPolicy(
@@ -806,11 +806,15 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 	 * component.providers.emailPassword.signUp via nested property traversal.
 	 */
 	private fn(path: string): unknown {
+		if (this.runtimeKind === "component") {
+			return resolveComponentFn(this.component, `core/${path}`);
+		}
 		return resolveComponentFn(this.component, path);
 	}
-}
+	}
 
 // Named exports for convenience
+export { defineAuthPlugin };
 export {
 	buildOAuthAuthorizationUrl,
 	discordProvider,
@@ -846,6 +850,14 @@ export {
 	resolveNextTrustedOriginsFromEnv,
 } from "./next";
 export type {
+	AuthPluginClientRuntimeContext,
+	AuthPluginDefinition,
+	AuthPluginFactory,
+	AuthPluginFunctionAuth,
+	AuthPluginFunctionKind,
+	AuthPluginHooks,
+	AuthPluginPublicFunction,
+	AuthPluginPublicFunctions,
 	BuiltInOAuthProviderId,
 	BuildOAuthAuthorizationUrlArgs,
 	ConvexAuthPlugin,
@@ -865,6 +877,7 @@ export type {
 	OAuthStartResult,
 	OAuthTokenResponse,
 	AdminPluginConfig,
+	AdminPluginOptions,
 	Organization,
 	OrganizationDomain,
 	OrganizationDomainVerificationChallenge,
@@ -882,6 +895,7 @@ export type {
 	OrganizationCustomRoleDefinitions,
 	OrganizationPermission,
 	OrganizationPluginConfig,
+	OrganizationPluginOptions,
 	OrganizationRole,
 	OrganizationRoleDefinition,
 	OrganizationRoleDefinitions,

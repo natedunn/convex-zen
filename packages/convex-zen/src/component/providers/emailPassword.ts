@@ -4,11 +4,15 @@ import { internalMutation, type MutationCtx } from "../_generated/server";
 import { internal } from "../lib/internalApi";
 import {
   findAccount,
+  getAdminStateForUser,
+  isAdminStateCurrentlyBanned,
+  findAccountsByUserId,
   findUserByEmail,
   findUserById,
   insertAccount,
   insertUser,
   patchUser,
+  upsertAdminStateForUser,
 } from "../core/users";
 import {
   checkRateLimit,
@@ -111,8 +115,10 @@ export async function signUpWithEmailPassword(
     email: normalizedEmail,
     emailVerified: false,
     name,
-    role: defaultRole,
   });
+  if (defaultRole !== undefined) {
+    await upsertAdminStateForUser(ctx.db, userId, { role: defaultRole });
+  }
   await insertAccount(ctx.db, {
     userId,
     providerId: "credential",
@@ -166,9 +172,34 @@ export async function signInWithEmailPassword(
     }
   };
 
-  const account = await findAccount(ctx.db, "credential", normalizedEmail);
+  let account = await findAccount(ctx.db, "credential", normalizedEmail);
+  let existingUser = await findUserByEmail(ctx.db, normalizedEmail);
+  let existingAccounts = existingUser
+    ? await findAccountsByUserId(ctx.db, existingUser._id)
+    : [];
+
+  // Backward-compatible fallback: treat any account with a password hash
+  // as credential-capable, even if provider/account IDs differ.
+  if (!account) {
+    account =
+      existingAccounts.find((existingAccount) => existingAccount.passwordHash !== undefined) ??
+      null;
+  }
 
   if (!account || !account.passwordHash) {
+    if (existingUser) {
+      const hasOAuthAccount = existingAccounts.some(
+        (existingAccount) =>
+          existingAccount.providerId !== "credential" &&
+          existingAccount.passwordHash === undefined
+      );
+      if (hasOAuthAccount) {
+        await recordFailure();
+        throw new Error(
+          "This email is registered via OAuth. Continue with OAuth or use password reset to create an email/password login."
+        );
+      }
+    }
     await recordFailure();
     throw new Error("Invalid email or password");
   }
@@ -183,19 +214,45 @@ export async function signInWithEmailPassword(
     throw new Error("Invalid email or password");
   }
 
-  const user = await findUserById(ctx.db, account.userId);
+  let user = await findUserById(ctx.db, account.userId);
+  if (!user) {
+    // Self-heal orphaned credential accounts by re-linking to the
+    // canonical email user (or creating one if missing).
+    const emailUser = await findUserByEmail(ctx.db, normalizedEmail);
+    if (emailUser) {
+      user = emailUser;
+      if (emailUser._id !== account.userId) {
+        await ctx.db.patch(account._id, {
+          userId: emailUser._id,
+          updatedAt: Date.now(),
+        });
+        account = { ...account, userId: emailUser._id };
+      }
+    } else {
+      const repairedUserId = await insertUser(ctx.db, {
+        email: normalizedEmail,
+        emailVerified: false,
+      });
+      await ctx.db.patch(account._id, {
+        userId: repairedUserId,
+        updatedAt: Date.now(),
+      });
+      user = await findUserById(ctx.db, repairedUserId);
+      account = { ...account, userId: repairedUserId };
+    }
+  }
 
   if (requireEmailVerified && !user?.emailVerified) {
     throw new Error("Email address not verified");
   }
 
-  if (user?.banned) {
-    const now = Date.now();
-    if (user.banExpires === undefined || user.banExpires > now) {
+  const adminState = user
+    ? await getAdminStateForUser(ctx.db, user._id)
+    : null;
+  if (adminState && isAdminStateCurrentlyBanned(adminState, Date.now())) {
       throw new Error(
-        `Account banned${user.banReason ? ": " + user.banReason : ""}`
+        `Account banned${adminState.banReason ? ": " + adminState.banReason : ""}`
       );
-    }
   }
 
   for (const key of rateLimitKeys) {
@@ -227,7 +284,31 @@ export async function verifyEmailCode(
     return result;
   }
 
-  const user = await findUserByEmail(ctx.db, normalizedEmail);
+  let user = await findUserByEmail(ctx.db, normalizedEmail);
+  if (!user) {
+    // Backward-compatible fallback: resolve user through credential account
+    // when email lookups don't match historical account/user data.
+    const credentialAccount = await findAccount(
+      ctx.db,
+      "credential",
+      normalizedEmail
+    );
+    if (credentialAccount) {
+      user = await findUserById(ctx.db, credentialAccount.userId);
+      if (!user) {
+        const repairedUserId = await insertUser(ctx.db, {
+          email: normalizedEmail,
+          emailVerified: true,
+        });
+        await ctx.db.patch(credentialAccount._id, {
+          userId: repairedUserId,
+          updatedAt: Date.now(),
+        });
+        user = await findUserById(ctx.db, repairedUserId);
+      }
+    }
+  }
+
   if (user) {
     await patchUser(ctx.db, user._id, {
       emailVerified: true,
@@ -297,13 +378,21 @@ export async function resetPasswordWithCode(
 
   const passwordHash = await hashPassword(args.newPassword);
 
-  const account = await findAccount(ctx.db, "credential", normalizedEmail);
-  if (!account) {
-    const user = await findUserByEmail(ctx.db, normalizedEmail);
-    if (!user) {
-      throw new Error("Account not found");
-    }
+  let account = await findAccount(ctx.db, "credential", normalizedEmail);
+  const user = await findUserByEmail(ctx.db, normalizedEmail);
+  if (!user) {
+    throw new Error("Account not found");
+  }
 
+  if (!account) {
+    const existingAccounts = await findAccountsByUserId(ctx.db, user._id);
+    account =
+      existingAccounts.find(
+        (existingAccount) => existingAccount.passwordHash !== undefined
+      ) ?? null;
+  }
+
+  if (!account) {
     await insertAccount(ctx.db, {
       userId: user._id,
       providerId: "credential",

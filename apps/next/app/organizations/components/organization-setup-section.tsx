@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useConvexMutation } from "@convex-dev/react-query";
 import { useMutation } from "@tanstack/react-query";
-import { authApi } from "@/lib/auth-refs";
+import { api } from "../../../convex/_generated/api";
 import type { OrganizationListEntry } from "./organization-playground-shared";
 import { messageFromError } from "./organization-playground-shared";
 
@@ -23,7 +23,7 @@ export function OrganizationSetupSection({
   const [organizationName, setOrganizationName] = useState("");
   const [organizationSlug, setOrganizationSlug] = useState("");
   const createOrganizationMutation = useMutation({
-    mutationFn: useConvexMutation(authApi.plugin.organization.createOrganization),
+    mutationFn: useConvexMutation(api.auth.plugin.organization.createOrganization),
     onSuccess: async () => {
       setOrganizationName("");
       setOrganizationSlug("");

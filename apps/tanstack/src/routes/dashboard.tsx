@@ -35,6 +35,13 @@ function DashboardPage() {
 
 	const loadDashboardData = async () => {
 		const currentUser = await authClient.currentUser();
+		if (!currentUser) {
+			setUser(null);
+			setOrganizations([]);
+			setIncomingInvitations([]);
+			setInviteError(null);
+			return;
+		}
 		const [organizationResult, incomingResult] = await Promise.all([
 			authClient.plugin.organization.listOrganizations(),
 			authClient.plugin.organization.listIncomingInvitations(),
@@ -69,40 +76,56 @@ function DashboardPage() {
 			};
 		}
 
-			void Promise.all([
-				authClient.currentUser(),
-				authClient.plugin.organization.listOrganizations(),
-				authClient.plugin.organization.listIncomingInvitations(),
-			])
-				.then(([currentUser, organizationResult, incomingResult]) => {
-					if (!cancelled) {
-						setUser(currentUser);
-						setOrganizations(
-							organizationResult.organizations.map((entry) => ({
-								_id: entry.organization._id,
-								name: entry.organization.name,
-								slug: entry.organization.slug,
-								roleName: entry.membership.roleName,
-							})),
-						);
-						setIncomingInvitations(
-							incomingResult.map((invitation) => ({
-								_id: invitation._id,
-								organizationName: invitation.organization.name,
-								organizationSlug: invitation.organization.slug,
-								roleName: invitation.roleName,
-							})),
-						);
-						setInviteError(null);
-					}
-				})
-				.catch(() => {
-					if (!cancelled) {
-						setUser(null);
+		void (async () => {
+			try {
+				const currentUser = await authClient.currentUser();
+				if (cancelled) {
+					return;
+				}
+
+				if (!currentUser) {
+					setUser(null);
+					setOrganizations([]);
+					setIncomingInvitations([]);
+					setInviteError(null);
+					return;
+				}
+
+				const [organizationResult, incomingResult] = await Promise.all([
+					authClient.plugin.organization.listOrganizations(),
+					authClient.plugin.organization.listIncomingInvitations(),
+				]);
+
+				if (cancelled) {
+					return;
+				}
+
+				setUser(currentUser);
+				setOrganizations(
+					organizationResult.organizations.map((entry) => ({
+						_id: entry.organization._id,
+						name: entry.organization.name,
+						slug: entry.organization.slug,
+						roleName: entry.membership.roleName,
+					})),
+				);
+				setIncomingInvitations(
+					incomingResult.map((invitation) => ({
+						_id: invitation._id,
+						organizationName: invitation.organization.name,
+						organizationSlug: invitation.organization.slug,
+						roleName: invitation.roleName,
+					})),
+				);
+				setInviteError(null);
+			} catch {
+				if (!cancelled) {
+					setUser(null);
 					setOrganizations([]);
 					setIncomingInvitations([]);
 				}
-				});
+			}
+		})();
 
 		return () => {
 			cancelled = true;

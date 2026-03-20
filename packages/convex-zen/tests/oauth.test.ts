@@ -566,9 +566,15 @@ describe("oauth", () => {
       const t = convexTest(schema, modules);
 
       await t.run(async (ctx) => {
-        await ctx.db.insert("users", {
+        const userId = await ctx.db.insert("users", {
           email: "banned@example.com",
           emailVerified: true,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        });
+        await ctx.db.insert("adminUsers", {
+          userId,
+          role: "user",
           banned: true,
           banReason: "Spammer",
           createdAt: Date.now(),

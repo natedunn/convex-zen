@@ -2,7 +2,7 @@
 
 ## Source of truth
 
-- user-authored file: `convex/zenConvex.ts`
+- user-authored file: `convex/authConvex.ts`
   - exports `authOptions`
   - exports `auth`
 
@@ -28,7 +28,7 @@ Flags:
 
 Behavior:
 
-1. Read `convex/zenConvex.ts`.
+1. Read `convex/authConvex.ts`.
 2. Detect enabled built-in plugins (currently admin).
 3. Generate core + plugin wrappers.
 4. Generate `metaGenerated.ts` by collecting plugin function kinds (`query|mutation|action`) from plugin wrapper files.

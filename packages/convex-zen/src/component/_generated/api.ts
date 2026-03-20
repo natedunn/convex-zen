@@ -8,10 +8,8 @@
  * @module
  */
 
-import type * as core_sessions from "../core/sessions.js";
-import type * as core_users from "../core/users.js";
-import type * as core_verifications from "../core/verifications.js";
 import type * as gateway from "../gateway.js";
+import type * as index from "../index.js";
 import type * as lib_crypto from "../lib/crypto.js";
 import type * as lib_internalApi from "../lib/internalApi.js";
 import type * as lib_rateLimit from "../lib/rateLimit.js";
@@ -29,10 +27,8 @@ import type {
 import { anyApi, componentsGeneric } from "convex/server";
 
 const fullApi: ApiFromModules<{
-  "core/sessions": typeof core_sessions;
-  "core/users": typeof core_users;
-  "core/verifications": typeof core_verifications;
   gateway: typeof gateway;
+  index: typeof index;
   "lib/crypto": typeof lib_crypto;
   "lib/internalApi": typeof lib_internalApi;
   "lib/rateLimit": typeof lib_rateLimit;

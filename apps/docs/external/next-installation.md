@@ -110,7 +110,7 @@ export const auth = new ConvexZen(components.convexAuth, authOptions);
 
 ## 5. Add Convex auth provider config
 
-Create `convex/auth.config.ts`:
+Create `convex/zen.config.ts`:
 
 ```ts
 import type { AuthConfig } from "convex/server";

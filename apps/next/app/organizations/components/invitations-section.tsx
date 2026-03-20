@@ -4,7 +4,7 @@ import { useState } from "react";
 import { convexQuery, useConvexMutation } from "@convex-dev/react-query";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { FunctionReturnType } from "convex/server";
-import { authApi } from "@/lib/auth-refs";
+import { api } from "../../../convex/_generated/api";
 import {
   buildRoleOptions,
   formatTimestamp,
@@ -20,15 +20,15 @@ export function InvitationsSection({
   onMembershipChanged: () => Promise<unknown>;
 }) {
   const invitationsQuery = useQuery(
-    convexQuery(authApi.plugin.organization.listInvitations, {
+    convexQuery(api.auth.plugin.organization.listInvitations, {
       organizationId,
     })
   );
   const rolesQuery = useQuery(
-    convexQuery(authApi.plugin.organization.listRoles, { organizationId })
+    convexQuery(api.auth.plugin.organization.listRoles, { organizationId })
   );
   const canCreateInvitationQuery = useQuery(
-    convexQuery(authApi.plugin.organization.hasPermission, {
+    convexQuery(api.auth.plugin.organization.hasPermission, {
       organizationId,
       permission: { resource: "invitation", action: "create" },
     })
@@ -41,9 +41,9 @@ export function InvitationsSection({
 
   const roleOptions = buildRoleOptions(rolesQuery.data?.roles ?? []);
   const inviteMemberMutation = useMutation({
-    mutationFn: useConvexMutation(authApi.plugin.organization.inviteMember),
+    mutationFn: useConvexMutation(api.auth.plugin.organization.inviteMember),
     onSuccess: (
-      result: FunctionReturnType<typeof authApi.plugin.organization.inviteMember>
+      result: FunctionReturnType<typeof api.auth.plugin.organization.inviteMember>
     ) => {
       setInviteEmail("");
       setInviteRoleValue("member");
@@ -52,7 +52,7 @@ export function InvitationsSection({
     },
   });
   const acceptByTokenMutation = useMutation({
-    mutationFn: useConvexMutation(authApi.plugin.organization.acceptInvitation),
+    mutationFn: useConvexMutation(api.auth.plugin.organization.acceptInvitation),
     onSuccess: async () => {
       setAcceptToken("");
       await Promise.all([invitationsQuery.refetch(), onMembershipChanged()]);

@@ -4,13 +4,15 @@ import { AdminPlugin } from "../src/client/plugins/admin";
 function makePlugin() {
   return new AdminPlugin(
     {
-      gateway: {
-        adminIsAdmin: "gateway:adminIsAdmin",
-        adminListUsers: "gateway:adminListUsers",
-        adminBanUser: "gateway:adminBanUser",
-        adminUnbanUser: "gateway:adminUnbanUser",
-        adminSetRole: "gateway:adminSetRole",
-        adminDeleteUser: "gateway:adminDeleteUser",
+      admin: {
+        gateway: {
+          isAdmin: "admin/gateway:isAdmin",
+          listUsers: "admin/gateway:listUsers",
+          banUser: "admin/gateway:banUser",
+          unbanUser: "admin/gateway:unbanUser",
+          setRole: "admin/gateway:setRole",
+          deleteUser: "admin/gateway:deleteUser",
+        },
       },
     },
     { id: "admin" }
@@ -29,7 +31,7 @@ describe("AdminPlugin client", () => {
 
     expect(result).toBe(true);
     expect(runQuery).toHaveBeenCalledTimes(1);
-    expect(runQuery).toHaveBeenCalledWith("gateway:adminIsAdmin", {
+    expect(runQuery).toHaveBeenCalledWith("admin/gateway:isAdmin", {
       actorUserId: "user_admin",
       adminRole: "admin",
     });
@@ -45,11 +47,11 @@ describe("AdminPlugin client", () => {
     );
 
     expect(runQuery).toHaveBeenCalledTimes(1);
-    expect(runQuery).toHaveBeenCalledWith("gateway:adminListUsers", {
+    expect(runQuery).toHaveBeenCalledWith("admin/gateway:listUsers", {
       actorUserId: "user_admin",
-      adminRole: "admin",
       limit: 20,
       cursor: "c1",
+      adminRole: "admin",
     });
   });
 
@@ -63,11 +65,55 @@ describe("AdminPlugin client", () => {
     );
 
     expect(runMutation).toHaveBeenCalledTimes(1);
-    expect(runMutation).toHaveBeenCalledWith("gateway:adminSetRole", {
+    expect(runMutation).toHaveBeenCalledWith("admin/gateway:setRole", {
       actorUserId: "user_admin",
-      adminRole: "admin",
       userId: "user_1",
       role: "admin",
+      adminRole: "admin",
+    });
+  });
+
+  it("forwards configured adminRole to gateway in app runtime mode", async () => {
+    const plugin = new AdminPlugin(
+      {
+        admin: {
+          gateway: {
+            isAdmin: "admin/gateway:isAdmin",
+          },
+        },
+      },
+      { id: "admin", adminRole: "superadmin" }
+    );
+    const runQuery = vi.fn(async () => true);
+
+    await plugin.isAdmin({ runQuery }, { actorUserId: "user_admin" });
+
+    expect(runQuery).toHaveBeenCalledWith("admin/gateway:isAdmin", {
+      actorUserId: "user_admin",
+      adminRole: "superadmin",
+    });
+  });
+
+  it("routes through component child refs in component runtime mode", async () => {
+    const plugin = new AdminPlugin(
+      {
+        adminComponent: {
+          gateway: {
+            isAdmin: "adminComponent/gateway:isAdmin",
+          },
+        },
+      },
+      { id: "admin" },
+      "adminComponent",
+      "component"
+    );
+    const runQuery = vi.fn(async () => true);
+
+    await plugin.isAdmin({ runQuery }, { actorUserId: "user_admin" });
+
+    expect(runQuery).toHaveBeenCalledWith("adminComponent/gateway:isAdmin", {
+      actorUserId: "user_admin",
+      adminRole: "admin",
     });
   });
 });

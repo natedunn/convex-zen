@@ -18,16 +18,16 @@ function actionRef(name: string): FunctionReference<"action", "public"> {
 
 export const authFunctions = {
   core: {
-    signInWithEmail: mutationRef("auth/core:signInWithEmail"),
-    validateSession: mutationRef("auth/core:validateSession"),
-    invalidateSession: mutationRef("auth/core:invalidateSession"),
-    getOAuthUrl: mutationRef("auth/core:getOAuthUrl"),
-    handleOAuthCallback: actionRef("auth/core:handleOAuthCallback"),
-    currentUser: queryRef("auth/core:currentUser"),
+    signInWithEmail: mutationRef("zen/core:signInWithEmail"),
+    validateSession: mutationRef("zen/core:validateSession"),
+    invalidateSession: mutationRef("zen/core:invalidateSession"),
+    getOAuthUrl: mutationRef("zen/core:getOAuthUrl"),
+    handleOAuthCallback: actionRef("zen/core:handleOAuthCallback"),
+    currentUser: queryRef("zen/core:currentUser"),
   },
   plugin: {
     admin: {
-      listUsers: queryRef("auth/plugin/admin:listUsers"),
+      listUsers: queryRef("zen/plugin/admin:listUsers"),
     },
   },
 } as const;

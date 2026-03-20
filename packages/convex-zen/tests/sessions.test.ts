@@ -206,14 +206,21 @@ describe("sessions", () => {
     const t = convexTest(schema, modules);
 
     const userId = await t.run(async (ctx) => {
-      return await ctx.db.insert("users", {
+      const userId = await ctx.db.insert("users", {
         email: "banned@example.com",
         emailVerified: true,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+      await ctx.db.insert("adminUsers", {
+        userId,
+        role: "user",
         banned: true,
         banReason: "Test ban",
         createdAt: Date.now(),
         updatedAt: Date.now(),
       });
+      return userId;
     });
 
     const token = await t.mutation(internal.core.sessions.create, { userId });
@@ -231,15 +238,22 @@ describe("sessions", () => {
 
     const now = Date.now();
     const userId = await t.run(async (ctx) => {
-      return await ctx.db.insert("users", {
+      const userId = await ctx.db.insert("users", {
         email: "banned@example.com",
         emailVerified: true,
-        banned: true,
-        banReason: "Temp ban",
-        banExpires: now - 1000, // Already expired
         createdAt: now,
         updatedAt: now,
       });
+      await ctx.db.insert("adminUsers", {
+        userId,
+        role: "user",
+        banned: true,
+        banReason: "Temp ban",
+        banExpires: now - 1000,
+        createdAt: now,
+        updatedAt: now,
+      });
+      return userId;
     });
 
     const token = await t.mutation(internal.core.sessions.create, { userId });
@@ -254,7 +268,12 @@ describe("sessions", () => {
     expect(result!.userId).toBe(userId);
 
     // User should be unbanned
-    const user = await t.run((ctx) => ctx.db.get(userId));
-    expect(user!.banned).toBe(false);
+    const adminUser = await t.run((ctx) =>
+      ctx.db
+        .query("adminUsers")
+        .withIndex("by_userId", (q) => q.eq("userId", userId))
+        .unique()
+    );
+    expect(adminUser!.banned).toBe(false);
   });
 });

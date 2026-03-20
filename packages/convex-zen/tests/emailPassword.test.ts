@@ -115,9 +115,16 @@ describe("emailPassword", () => {
           .withIndex("by_email", (q) => q.eq("email", "role-default@example.com"))
           .unique();
       });
+      const adminUser = await t.run(async (ctx) => {
+        return ctx.db
+          .query("adminUsers")
+          .withIndex("by_userId", (q) => q.eq("userId", user!._id))
+          .unique();
+      });
 
       expect(user).not.toBeNull();
-      expect(user!.role).toBe("member");
+      expect(adminUser).not.toBeNull();
+      expect(adminUser!.role).toBe("member");
     });
 
     it("applies IP rate limiting", async () => {
@@ -206,9 +213,24 @@ describe("emailPassword", () => {
       const { userId } = await createVerifiedUser(t);
 
       await t.run(async (ctx) => {
-        await ctx.db.patch(userId, {
+        const adminUser = await ctx.db
+          .query("adminUsers")
+          .withIndex("by_userId", (q) => q.eq("userId", userId))
+          .unique();
+        if (adminUser) {
+          await ctx.db.patch(adminUser._id, {
+            banned: true,
+            banReason: "Violating TOS",
+            updatedAt: Date.now(),
+          });
+          return;
+        }
+        await ctx.db.insert("adminUsers", {
+          userId,
+          role: "user",
           banned: true,
           banReason: "Violating TOS",
+          createdAt: Date.now(),
           updatedAt: Date.now(),
         });
       });

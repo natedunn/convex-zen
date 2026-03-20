@@ -1,5 +1,5 @@
 import { defineComponent } from "convex/server";
 
-const convexAuth = defineComponent("convexAuth");
+const auth = defineComponent("auth");
 
-export default convexAuth;
+export default auth;

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { convexQuery, useConvexMutation } from "@convex-dev/react-query";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { authApi } from "@/lib/auth-refs";
+import { api } from "../../../convex/_generated/api";
 import { formatTimestamp, messageFromError } from "./organization-playground-shared";
 
 export function DomainsSection({
@@ -12,16 +12,16 @@ export function DomainsSection({
   organizationId: string;
 }) {
   const domainsQuery = useQuery(
-    convexQuery(authApi.plugin.organization.listDomains, { organizationId })
+    convexQuery(api.auth.plugin.organization.listDomains, { organizationId })
   );
   const canCreateDomainQuery = useQuery(
-    convexQuery(authApi.plugin.organization.hasPermission, {
+    convexQuery(api.auth.plugin.organization.hasPermission, {
       organizationId,
       permission: { resource: "domain", action: "create" },
     })
   );
   const canVerifyDomainQuery = useQuery(
-    convexQuery(authApi.plugin.organization.hasPermission, {
+    convexQuery(api.auth.plugin.organization.hasPermission, {
       organizationId,
       permission: { resource: "domain", action: "verify" },
     })
@@ -29,14 +29,14 @@ export function DomainsSection({
 
   const [domainHostname, setDomainHostname] = useState("");
   const addDomainMutation = useMutation({
-    mutationFn: useConvexMutation(authApi.plugin.organization.addDomain),
+    mutationFn: useConvexMutation(api.auth.plugin.organization.addDomain),
     onSuccess: () => {
       setDomainHostname("");
       void domainsQuery.refetch();
     },
   });
   const verifyDomainMutation = useMutation({
-    mutationFn: useConvexMutation(authApi.plugin.organization.markDomainVerified),
+    mutationFn: useConvexMutation(api.auth.plugin.organization.markDomainVerified),
     onSuccess: () => {
       void domainsQuery.refetch();
     },

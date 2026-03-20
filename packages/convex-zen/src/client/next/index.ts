@@ -1953,7 +1953,7 @@ export function createNextAuthServer(
   ) {
     throw new Error(
       'createNextAuthServer requires "pluginMeta" when plugins is "auto". ' +
-        "Pass generated authMeta/authPluginMeta (convex/auth/metaGenerated.ts) " +
+        "Pass generated authMeta/authPluginMeta (convex/auth/generated.ts) " +
         'or disable auto plugins with plugins: [].'
     );
   }

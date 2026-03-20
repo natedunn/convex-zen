@@ -9,14 +9,15 @@
 		"dev:web:direct": "node ./scripts/with-local-env.mjs --require VITE_CONVEX_URL -- vite dev",
 		"dev:vite": "pnpm dev:web",
 		"dev:vite:direct": "pnpm dev:web:direct",
+		"auth:generate": "node -e \"if (process.env.CONVEX_ZEN_DEV !== '1') throw new Error('Set CONVEX_ZEN_DEV=1 to run this dev-only command')\" && tsx ../../packages/convex-zen/src/cli/index.ts generate",
 		"build": "vite build",
 		"preview": "vite preview",
 		"convex:dev": "node ./scripts/with-local-env.mjs -- pnpm exec convex dev",
 		"convex:dev:noninteractive": "node ./scripts/with-local-env.mjs --require CONVEX_DEPLOYMENT -- pnpm exec convex dev"
 	},
 	"dependencies": {
-		"@convex-zen/playground-ui": "workspace:*",
 		"@convex-dev/react-query": "^0.1.0",
+		"@convex-zen/playground-ui": "workspace:*",
 		"@tanstack/react-query": "^5.90.21",
 		"@tanstack/react-router": "^1.162.1",
 		"@tanstack/react-router-devtools": "^1.162.1",
@@ -34,6 +35,7 @@
 		"@vitejs/plugin-react": "^4.3.4",
 		"concurrently": "^9.2.1",
 		"portless": "^0.5.2",
+		"tsx": "^4.21.0",
 		"typescript": "^5.7.2",
 		"vite": "^7.3.1",
 		"vite-tsconfig-paths": "^5.1.4"

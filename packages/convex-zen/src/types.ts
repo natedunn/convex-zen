@@ -184,17 +184,119 @@ export interface OAuthCallbackInput {
   redirectUrl?: string;
 }
 
-/** Base plugin interface. */
-export interface ConvexAuthPlugin {
-  id: string;
+export type AuthPluginFunctionKind = "query" | "mutation" | "action";
+
+export type AuthPluginFunctionAuth = "public" | "actor" | "optionalActor";
+
+export interface AuthPluginPublicFunction {
+  kind: AuthPluginFunctionKind;
+  auth: AuthPluginFunctionAuth;
+  runtimeMethod: string;
+  componentPath?: string;
+  argsSource: string;
+  castType?: string;
 }
 
-/** Admin plugin configuration. */
-export interface AdminPluginConfig extends ConvexAuthPlugin {
-  id: "admin";
+export interface AuthPluginPublicFunctions {
+  preambleSource?: string;
+  functions: Record<string, AuthPluginPublicFunction>;
+}
+
+export interface AuthPluginHooks<TOptions = unknown> {
+  onUserCreated?: {
+    defaultRole?: (options: TOptions) => string | undefined;
+  };
+  assertCanCreateSession?: boolean;
+  assertCanResolveSession?: boolean;
+  assertCanReadAuthUser?: boolean;
+  onUserDeleted?: boolean;
+}
+
+export interface AuthPluginClientRuntimeContext<TOptions = unknown> {
+  component: Record<string, unknown>;
+  childName: string;
+  runtimeKind: "app" | "component";
+  options: TOptions;
+  requireActorUserId: (ctx: unknown) => Promise<string>;
+  resolveUserId: (ctx: unknown) => Promise<string | null>;
+}
+
+export interface AuthPluginComponentDefinition {
+  importPath: string;
+  childName?: string;
+}
+
+export interface AuthPluginDefinition<
+  TId extends string = string,
+  TOptions = unknown,
+  TRuntime = unknown,
+> {
+  id: TId;
+  component: AuthPluginComponentDefinition;
+  normalizeOptions?: (options: TOptions | undefined) => TOptions;
+  createClientRuntime: (
+    context: AuthPluginClientRuntimeContext<TOptions>
+  ) => TRuntime;
+  publicFunctions?: AuthPluginPublicFunctions;
+  hooks?: AuthPluginHooks<TOptions>;
+}
+
+export interface ConvexAuthPlugin<
+  TDefinition extends AuthPluginDefinition<any, any, any> = AuthPluginDefinition<
+    any,
+    any,
+    any
+  >,
+> {
+  id: TDefinition["id"];
+  definition: TDefinition;
+  options: TDefinition extends AuthPluginDefinition<any, infer TOptions, any>
+    ? TOptions
+    : never;
+}
+
+export interface AuthPluginFactory<
+  TDefinition extends AuthPluginDefinition<any, any, any> = AuthPluginDefinition<
+    any,
+    any,
+    any
+  >,
+> {
+  (
+    options?: TDefinition extends AuthPluginDefinition<any, infer TOptions, any>
+      ? TOptions
+      : never
+  ): ConvexAuthPlugin<TDefinition>;
+  definition: TDefinition;
+}
+
+export function defineAuthPlugin<
+  TId extends string,
+  TOptions,
+  TRuntime,
+>(
+  definition: AuthPluginDefinition<TId, TOptions, TRuntime>
+): AuthPluginFactory<AuthPluginDefinition<TId, TOptions, TRuntime>> {
+  const factory = ((
+    options?: TOptions
+  ): ConvexAuthPlugin<AuthPluginDefinition<TId, TOptions, TRuntime>> => ({
+    id: definition.id,
+    definition,
+    options: definition.normalizeOptions
+      ? definition.normalizeOptions(options)
+      : (options as TOptions),
+  })) as AuthPluginFactory<AuthPluginDefinition<TId, TOptions, TRuntime>>;
+  factory.definition = definition;
+  return factory;
+}
+
+/** Admin plugin options. */
+export interface AdminPluginOptions {
   defaultRole?: string;
   adminRole?: string;
 }
+
+export type AdminPluginConfig = AdminPluginOptions;
 
 export type BuiltInOrganizationRole = "owner" | "admin" | "member";
 export type OrganizationRole = BuiltInOrganizationRole;
@@ -262,13 +364,12 @@ export type OrganizationPermission<
     }
   : never;
 
-export interface OrganizationPluginConfig<
+export interface OrganizationPluginOptions<
   TCustomAccessControl extends OrganizationCustomAccessControl = {},
   TCustomRoles extends OrganizationCustomRoleDefinitions<
     OrganizationAccessControl<TCustomAccessControl>
   > = {},
-> extends ConvexAuthPlugin {
-  id: "organization";
+> {
   allowUserOrganizationCreation?: boolean;
   inviteExpiresInMs?: number;
   subdomainSuffix?: string;
@@ -278,6 +379,13 @@ export interface OrganizationPluginConfig<
     TCustomRoles
   >;
 }
+
+export type OrganizationPluginConfig<
+  TCustomAccessControl extends OrganizationCustomAccessControl = {},
+  TCustomRoles extends OrganizationCustomRoleDefinitions<
+    OrganizationAccessControl<TCustomAccessControl>
+  > = {},
+> = OrganizationPluginOptions<TCustomAccessControl, TCustomRoles>;
 
 /** Result of a successful auth operation. */
 export interface AuthResult {

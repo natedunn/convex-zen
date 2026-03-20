@@ -1,14 +1,39 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery, type DatabaseReader, type DatabaseWriter } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
-import { deleteUserWithRelations } from "../core/users";
+import {
+  deleteUserWithRelations,
+  getAdminStateForUser,
+  getAdminUserRecord,
+  isAdminStateCurrentlyBanned,
+  upsertAdminStateForUser,
+} from "../core/users";
 import { invalidateAllUserSessions } from "../core/sessions";
 
-function normalizeAdminRole(adminRole?: string): string {
+export function normalizeAdminRole(adminRole?: string): string {
   const normalizedRole = adminRole?.trim();
   return normalizedRole && normalizedRole.length > 0
     ? normalizedRole
     : "admin";
+}
+
+function mergeAdminStateIntoUser<T extends {
+  _id: Id<"users">;
+  role?: string;
+  banned?: boolean;
+  banReason?: string;
+  banExpires?: number;
+}>(user: T, adminState: Awaited<ReturnType<typeof getAdminStateForUser>>): T {
+  if (!adminState) {
+    return user;
+  }
+  return {
+    ...user,
+    role: adminState.role ?? user.role,
+    banned: adminState.banned ?? user.banned,
+    banReason: adminState.banReason ?? user.banReason,
+    banExpires: adminState.banExpires ?? user.banExpires,
+  };
 }
 
 export async function assertAdminActor(
@@ -16,16 +41,13 @@ export async function assertAdminActor(
   actorUserId: Id<"users">,
   adminRole?: string
 ): Promise<void> {
-  const actor = await db.get(actorUserId);
+  const actor = await getAdminStateForUser(db, actorUserId);
   const requiredRole = normalizeAdminRole(adminRole);
   if (!actor) {
     throw new Error("Unauthorized");
   }
-  if (actor.banned) {
-    const now = Date.now();
-    if (actor.banExpires === undefined || actor.banExpires > now) {
-      throw new Error("Unauthorized");
-    }
+  if (isAdminStateCurrentlyBanned(actor, Date.now())) {
+    throw new Error("Unauthorized");
   }
   if (actor.role !== requiredRole) {
     throw new Error("Forbidden");
@@ -56,9 +78,14 @@ export async function listUsersForAdmin(
   const page = hasMore ? rows.slice(0, limit) : rows;
   const last = page.at(-1);
   const nextCursor = hasMore && last ? String(last._creationTime) : null;
+  const users = await Promise.all(
+    page.map(async (user) =>
+      mergeAdminStateIntoUser(user, await getAdminStateForUser(db, user._id))
+    )
+  );
 
   return {
-    users: page,
+    users,
     cursor: nextCursor,
     isDone: !hasMore,
   };
@@ -81,11 +108,10 @@ export async function banUserByAdmin(
     throw new Error("User not found");
   }
 
-  await db.patch(args.userId, {
+  await upsertAdminStateForUser(db, args.userId, {
     banned: true,
     banReason: args.reason,
     banExpires: args.expiresAt,
-    updatedAt: Date.now(),
   });
 
   const sessions = await db
@@ -112,11 +138,10 @@ export async function unbanUserByAdmin(
     throw new Error("User not found");
   }
 
-  await db.patch(args.userId, {
+  await upsertAdminStateForUser(db, args.userId, {
     banned: false,
     banReason: undefined,
     banExpires: undefined,
-    updatedAt: Date.now(),
   });
 }
 
@@ -136,9 +161,8 @@ export async function setUserRoleByAdmin(
     throw new Error("User not found");
   }
 
-  await db.patch(args.userId, {
+  await upsertAdminStateForUser(db, args.userId, {
     role: args.role,
-    updatedAt: Date.now(),
   });
 
   // Invalidate all active sessions so that the new role takes effect
@@ -159,6 +183,11 @@ export async function deleteUserByAdmin(
   const user = await db.get(args.userId);
   if (!user) {
     throw new Error("User not found");
+  }
+
+  const adminUser = await getAdminUserRecord(db, args.userId);
+  if (adminUser) {
+    await db.delete(adminUser._id);
   }
 
   await deleteUserWithRelations(db, args.userId);

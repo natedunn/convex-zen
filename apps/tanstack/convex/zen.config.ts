@@ -1,39 +1,28 @@
-import {
-	ConvexZen,
-	discordProvider,
-	githubProvider,
-	googleProvider,
-} from "convex-zen";
+import { defineConvexZen, githubProvider } from "convex-zen";
 import { adminPlugin } from "convex-zen/plugins/admin";
 import { organizationPlugin } from "convex-zen/plugins/organization";
-import { components } from "./_generated/api";
 
-/**
- * Source of truth for auth setup used by the generator.
- */
-export const authOptions = {
+const githubClientId = process.env.GITHUB_CLIENT_ID;
+const githubClientSecret = process.env.GITHUB_CLIENT_SECRET;
+
+export const zenConfig = defineConvexZen({
 	emailProvider: {
 		sendVerificationEmail: async (to: string, code: string) => {
-			console.log(`\n📧 Verification email → ${to}\n   Code: ${code}\n`);
+			console.log(`Verification email to ${to}: ${code}`);
 		},
 		sendPasswordResetEmail: async (to: string, code: string) => {
-			console.log(`\n🔑 Password reset email → ${to}\n   Code: ${code}\n`);
+			console.log(`Password reset email to ${to}: ${code}`);
 		},
 	},
-	providers: [
-		githubProvider({
-			clientId: process.env["GITHUB_CLIENT_ID"]!,
-			clientSecret: process.env["GITHUB_CLIENT_SECRET"]!,
-		}),
-		// discordProvider({
-		// 	clientId: process.env["DISCORD_CLIENT_ID"]!,
-		// 	clientSecret: process.env["DISCORD_CLIENT_SECRET"]!,
-		// }),
-		// googleProvider({
-		// 	clientId: process.env["GOOGLE_CLIENT_ID"]!,
-		// 	clientSecret: process.env["GOOGLE_CLIENT_SECRET"]!,
-		// }),
-	],
+	providers:
+		githubClientId && githubClientSecret
+			? [
+					githubProvider({
+						clientId: githubClientId,
+						clientSecret: githubClientSecret,
+					}),
+				]
+			: [],
 	requireEmailVerified: true,
 	plugins: [
 		adminPlugin({ defaultRole: "user", adminRole: "admin" }),
@@ -42,16 +31,10 @@ export const authOptions = {
 				project: ["write"],
 			},
 			roles: {
-				owner: {
-					project: ["write"],
-				},
 				admin: {
 					project: ["write"],
 				},
 			},
-			subdomainSuffix: "example.com",
 		}),
 	],
-};
-
-export const auth = new ConvexZen(components.convexAuth, authOptions);
+});
