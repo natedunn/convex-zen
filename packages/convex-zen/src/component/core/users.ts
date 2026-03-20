@@ -137,19 +137,26 @@ export async function upsertAdminStateForUser(
   patch: Partial<AdminState> & { role?: string }
 ): Promise<Id<"adminUsers">> {
   const now = Date.now();
+  const normalizedRole = patch.role !== undefined
+    ? (patch.role.trim().length > 0 ? patch.role.trim() : "user")
+    : undefined;
+  const normalizedPatch = normalizedRole !== undefined
+    ? { ...patch, role: normalizedRole }
+    : patch;
+
   const existing = await getAdminUserRecord(db, userId);
   if (existing) {
     await db.patch(existing._id, {
-      ...patch,
+      ...normalizedPatch,
       updatedAt: now,
     });
     return existing._id;
   }
 
-  const role = patch.role?.trim();
+  const role = normalizedPatch.role;
   await db.insert("adminUsers", {
     userId,
-    role: role && role.length > 0 ? role : "user",
+    role: role ?? "user",
     banned: patch.banned ?? false,
     banReason: patch.banReason,
     banExpires: patch.banExpires,
