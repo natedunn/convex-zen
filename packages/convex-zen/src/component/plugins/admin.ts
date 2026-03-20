@@ -10,7 +10,7 @@ import {
 } from "../core/users";
 import { invalidateAllUserSessions } from "../core/sessions";
 
-function normalizeAdminRole(adminRole?: string): string {
+export function normalizeAdminRole(adminRole?: string): string {
   const normalizedRole = adminRole?.trim();
   return normalizedRole && normalizedRole.length > 0
     ? normalizedRole

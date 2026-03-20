@@ -6,14 +6,10 @@ import {
   banUserByAdmin,
   deleteUserByAdmin,
   listUsersForAdmin,
+  normalizeAdminRole,
   setUserRoleByAdmin,
   unbanUserByAdmin,
 } from "../admin";
-
-function resolveAdminRole(role: string | undefined): string {
-  const trimmed = role?.trim();
-  return trimmed && trimmed.length > 0 ? trimmed : "admin";
-}
 
 export const isAdmin = query({
   args: {
@@ -40,7 +36,7 @@ export const listUsers = query({
   handler: async (ctx, { actorUserId, adminRole, limit, cursor }) =>
     await listUsersForAdmin(ctx.db, {
       actorUserId: actorUserId as Id<"users">,
-      adminRole: resolveAdminRole(adminRole),
+      adminRole: normalizeAdminRole(adminRole),
       limit,
       cursor,
     }),
@@ -57,7 +53,7 @@ export const banUser = mutation({
   handler: async (ctx, { actorUserId, adminRole, userId, reason, expiresAt }) =>
     await banUserByAdmin(ctx.db, {
       actorUserId: actorUserId as Id<"users">,
-      adminRole: resolveAdminRole(adminRole),
+      adminRole: normalizeAdminRole(adminRole),
       userId: userId as Id<"users">,
       reason,
       expiresAt,
@@ -73,7 +69,7 @@ export const unbanUser = mutation({
   handler: async (ctx, { actorUserId, adminRole, userId }) =>
     await unbanUserByAdmin(ctx.db, {
       actorUserId: actorUserId as Id<"users">,
-      adminRole: resolveAdminRole(adminRole),
+      adminRole: normalizeAdminRole(adminRole),
       userId: userId as Id<"users">,
     }),
 });
@@ -88,7 +84,7 @@ export const setRole = mutation({
   handler: async (ctx, { actorUserId, adminRole, userId, role }) =>
     await setUserRoleByAdmin(ctx.db, {
       actorUserId: actorUserId as Id<"users">,
-      adminRole: resolveAdminRole(adminRole),
+      adminRole: normalizeAdminRole(adminRole),
       userId: userId as Id<"users">,
       role,
     }),
@@ -103,7 +99,7 @@ export const deleteUser = mutation({
   handler: async (ctx, { actorUserId, adminRole, userId }) =>
     await deleteUserByAdmin(ctx.db, {
       actorUserId: actorUserId as Id<"users">,
-      adminRole: resolveAdminRole(adminRole),
+      adminRole: normalizeAdminRole(adminRole),
       userId: userId as Id<"users">,
     }),
 });
