@@ -1,3 +1,25 @@
+# [1.9.0](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.8.2...convex-zen-v1.9.0) (2026-03-20)
+
+
+### Bug Fixes
+
+* **admin:** always include adminRole in withAdminRole regardless of runtimeKind ([4bd15d5](https://github.com/natedunn/convex-zen/commit/4bd15d5dcc2605921a9102ae6d130cc7d5be2dee))
+* **auth:** verify actor existence in requireUser via db lookup ([898c5d6](https://github.com/natedunn/convex-zen/commit/898c5d6b62fb6ef0509c9d95ed833f9a08ebf093))
+* **component:** derive actorEmail from DB instead of caller-supplied input ([5602aa8](https://github.com/natedunn/convex-zen/commit/5602aa80265698663efd229f4d69e34779b2e387))
+* **component:** use local _generated imports in plugin gateway files ([57b4e6f](https://github.com/natedunn/convex-zen/commit/57b4e6f3dbe321a77150e4dfbdb1b31c076e441f))
+* **component:** use local _generated/server and _generated/dataModel in plugin gateway files ([276f933](https://github.com/natedunn/convex-zen/commit/276f933b20e28707822c89983841f46e4fdf371b))
+* **component:** use local _generated/server in plugin gateway files ([2e9fed1](https://github.com/natedunn/convex-zen/commit/2e9fed1d70ce9ceca5241079b47a52f09ac04a90))
+* **org:** derive actor email from DB to prevent invitation spoofing ([6b1602e](https://github.com/natedunn/convex-zen/commit/6b1602ed54aececed64e40aabcf30ea220c77a5d))
+* **tests:** delegate non-matching warnings to original console.warn in admin spy ([aba291f](https://github.com/natedunn/convex-zen/commit/aba291f7ac052749997b1a6428c5cea20702ab98))
+* **tests:** remove unnecessary `as any` cast in getAdminUser index query ([08396a1](https://github.com/natedunn/convex-zen/commit/08396a1974fbf2f43e40b7dfa49c9281c93580b8))
+* **users:** normalize role field on upsert update path ([a82cc4b](https://github.com/natedunn/convex-zen/commit/a82cc4bbb43ecbebf83db270cce6d3183df03f06))
+* **users:** return insert id directly instead of re-querying ([eb0eebe](https://github.com/natedunn/convex-zen/commit/eb0eebe278f31ebd34df7028d605277743af7e88))
+
+
+### Features
+
+* **auth:** redesign extensible plugin component assembly ([3c7b246](https://github.com/natedunn/convex-zen/commit/3c7b246b460679fb2f66640fd3fb765331d37c65))
+
 ## [1.8.2](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.8.1...convex-zen-v1.8.2) (2026-03-15)
 
 
