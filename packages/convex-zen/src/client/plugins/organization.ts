@@ -669,34 +669,6 @@ export class OrganizationPlugin<
     };
   }
 
-  private async resolveActorEmail(
-    ctx: unknown,
-    actorUserId: string
-  ): Promise<string> {
-    if (
-      !ctx ||
-      (typeof ctx !== "object" && typeof ctx !== "function") ||
-      typeof (ctx as { runQuery?: unknown }).runQuery !== "function"
-    ) {
-      throw new Error("Organization plugin requires query-capable Convex ctx");
-    }
-    const runQuery = (ctx as RunsQueries).runQuery.bind(ctx);
-    const actor = (await runQuery(
-      this.runtimeKind === "component"
-        ? this.fn("core/gateway:getUserById")
-        : this.fn("gateway:getUserById"),
-      {
-        userId: actorUserId,
-      }
-    )) as { email?: unknown } | null;
-
-    const actorEmail = typeof actor?.email === "string" ? actor.email : null;
-    if (!actorEmail) {
-      throw new Error("Unauthorized");
-    }
-    return actorEmail;
-  }
-
   async checkSlug(
     ctx: RunsQueries,
     args: { slug: string }
@@ -816,14 +788,7 @@ export class OrganizationPlugin<
     args: { actorUserId: string }
   ): Promise<OrganizationIncomingInvitation[]> {
     const path = "organization/gateway:listIncomingInvitations";
-    if (this.runtimeKind === "app") {
-      return this.runGatewayQuery(ctx, path, args) as Promise<OrganizationIncomingInvitation[]>;
-    }
-    const actorEmail = await this.resolveActorEmail(ctx, args.actorUserId);
-    return this.runGatewayQuery(ctx, path, {
-      ...args,
-      actorEmail,
-    }) as Promise<OrganizationIncomingInvitation[]>;
+    return this.runGatewayQuery(ctx, path, args) as Promise<OrganizationIncomingInvitation[]>;
   }
 
   async acceptInvitation(
@@ -831,16 +796,8 @@ export class OrganizationPlugin<
     args: { actorUserId: string; token: string }
   ): Promise<OrganizationInvitation> {
     const path = "organization/gateway:acceptInvitation";
-    if (this.runtimeKind === "app") {
-      return this.runGatewayMutation(ctx, path, args) as Promise<OrganizationInvitation>;
-    }
-    const actorEmail = await this.resolveActorEmail(
-      ctx,
-      args.actorUserId
-    );
     return this.runGatewayMutation(ctx, path, {
       ...args,
-      actorEmail,
       rolePermissions: this.resolveRolePermissions(),
     }) as Promise<OrganizationInvitation>;
   }
@@ -850,21 +807,7 @@ export class OrganizationPlugin<
     args: { actorUserId: string; invitationId: string }
   ): Promise<OrganizationInvitation> {
     const path = "organization/gateway:acceptIncomingInvitation";
-    if (this.runtimeKind === "app") {
-      return this.runGatewayMutation(ctx, path, args) as Promise<OrganizationInvitation>;
-    }
-    const actorEmail = await this.resolveActorEmail(
-      ctx,
-      args.actorUserId
-    );
-    return this.runGatewayMutation(
-      ctx,
-      path,
-      {
-        ...args,
-        actorEmail,
-      }
-    ) as Promise<OrganizationInvitation>;
+    return this.runGatewayMutation(ctx, path, args) as Promise<OrganizationInvitation>;
   }
 
   async cancelInvitation(
@@ -883,21 +826,7 @@ export class OrganizationPlugin<
     args: { actorUserId: string; invitationId: string }
   ): Promise<OrganizationInvitation> {
     const path = "organization/gateway:declineIncomingInvitation";
-    if (this.runtimeKind === "app") {
-      return this.runGatewayMutation(ctx, path, args) as Promise<OrganizationInvitation>;
-    }
-    const actorEmail = await this.resolveActorEmail(
-      ctx,
-      args.actorUserId
-    );
-    return this.runGatewayMutation(
-      ctx,
-      path,
-      {
-        ...args,
-        actorEmail,
-      }
-    ) as Promise<OrganizationInvitation>;
+    return this.runGatewayMutation(ctx, path, args) as Promise<OrganizationInvitation>;
   }
 
   async removeMember(
