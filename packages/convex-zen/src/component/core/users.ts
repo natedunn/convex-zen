@@ -147,7 +147,7 @@ export async function upsertAdminStateForUser(
   }
 
   const role = patch.role?.trim();
-  await db.insert("adminUsers", {
+  return db.insert("adminUsers", {
     userId,
     role: role && role.length > 0 ? role : "user",
     banned: patch.banned ?? false,
@@ -156,12 +156,6 @@ export async function upsertAdminStateForUser(
     createdAt: now,
     updatedAt: now,
   });
-
-  const created = await getAdminUserRecord(db, userId);
-  if (!created) {
-    throw new Error("Failed to create admin user record");
-  }
-  return created._id;
 }
 
 export async function clearExpiredAdminBan(
