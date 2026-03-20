@@ -33,6 +33,7 @@ describe("AdminPlugin client", () => {
     expect(runQuery).toHaveBeenCalledTimes(1);
     expect(runQuery).toHaveBeenCalledWith("admin/gateway:isAdmin", {
       actorUserId: "user_admin",
+      adminRole: "admin",
     });
   });
 
@@ -50,6 +51,7 @@ describe("AdminPlugin client", () => {
       actorUserId: "user_admin",
       limit: 20,
       cursor: "c1",
+      adminRole: "admin",
     });
   });
 
@@ -67,6 +69,28 @@ describe("AdminPlugin client", () => {
       actorUserId: "user_admin",
       userId: "user_1",
       role: "admin",
+      adminRole: "admin",
+    });
+  });
+
+  it("forwards configured adminRole to gateway in app runtime mode", async () => {
+    const plugin = new AdminPlugin(
+      {
+        admin: {
+          gateway: {
+            isAdmin: "admin/gateway:isAdmin",
+          },
+        },
+      },
+      { id: "admin", adminRole: "superadmin" }
+    );
+    const runQuery = vi.fn(async () => true);
+
+    await plugin.isAdmin({ runQuery }, { actorUserId: "user_admin" });
+
+    expect(runQuery).toHaveBeenCalledWith("admin/gateway:isAdmin", {
+      actorUserId: "user_admin",
+      adminRole: "superadmin",
     });
   });
 

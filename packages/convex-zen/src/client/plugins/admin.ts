@@ -37,10 +37,7 @@ export class AdminPlugin {
     return normalized && normalized.length > 0 ? normalized : "admin";
   }
 
-  private withAdminRole<T extends Record<string, unknown>>(args: T): T | (T & { adminRole: string }) {
-    if (this.runtimeKind === "app") {
-      return args;
-    }
+  private withAdminRole<T extends Record<string, unknown>>(args: T): T & { adminRole: string } {
     return {
       ...args,
       adminRole: this.resolveAdminRole(),
