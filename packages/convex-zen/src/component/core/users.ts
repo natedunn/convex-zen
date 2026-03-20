@@ -137,31 +137,32 @@ export async function upsertAdminStateForUser(
   patch: Partial<AdminState> & { role?: string }
 ): Promise<Id<"adminUsers">> {
   const now = Date.now();
+  const normalizedRole = patch.role !== undefined
+    ? (patch.role.trim().length > 0 ? patch.role.trim() : "user")
+    : undefined;
+  const normalizedPatch = normalizedRole !== undefined
+    ? { ...patch, role: normalizedRole }
+    : patch;
+
   const existing = await getAdminUserRecord(db, userId);
   if (existing) {
     await db.patch(existing._id, {
-      ...patch,
+      ...normalizedPatch,
       updatedAt: now,
     });
     return existing._id;
   }
 
-  const role = patch.role?.trim();
-  await db.insert("adminUsers", {
+  const role = normalizedPatch.role;
+  return db.insert("adminUsers", {
     userId,
-    role: role && role.length > 0 ? role : "user",
+    role: role ?? "user",
     banned: patch.banned ?? false,
     banReason: patch.banReason,
     banExpires: patch.banExpires,
     createdAt: now,
     updatedAt: now,
   });
-
-  const created = await getAdminUserRecord(db, userId);
-  if (!created) {
-    throw new Error("Failed to create admin user record");
-  }
-  return created._id;
 }
 
 export async function clearExpiredAdminBan(

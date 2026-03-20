@@ -51,7 +51,7 @@ async function getAdminUser(
   return await t.run((ctx) =>
     ctx.db
       .query("adminUsers")
-      .withIndex("by_userId", (q) => q.eq("userId", userId as any))
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
       .unique()
   );
 }
@@ -61,14 +61,18 @@ describe("admin plugin", () => {
 
   beforeEach(() => {
     vi.useFakeTimers();
-    consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation((message) => {
-      if (
-        typeof message === "string" &&
-        message.includes(CONVEX_DIRECT_CALL_WARNING)
-      ) {
-        return;
-      }
-    });
+    const originalWarn = console.warn.bind(console);
+    consoleWarnSpy = vi
+      .spyOn(console, "warn")
+      .mockImplementation((message, ...args) => {
+        if (
+          typeof message === "string" &&
+          message.includes(CONVEX_DIRECT_CALL_WARNING)
+        ) {
+          return;
+        }
+        originalWarn(message, ...args);
+      });
   });
 
   afterEach(() => {

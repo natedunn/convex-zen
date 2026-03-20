@@ -338,12 +338,24 @@ function serializeAvailablePermissions(accessControl?: AccessControlMap) {
 }
 
 async function requireUser(
-  _db: DatabaseReader,
+  db: DatabaseReader,
   userId: Id<"users">
 ): Promise<void> {
-  if (userId.trim().length === 0) {
+  const user = await db.get(userId);
+  if (user === null) {
     throw new Error("Unauthorized");
   }
+}
+
+async function resolveActorEmailFromDb(
+  db: DatabaseReader,
+  actorUserId: Id<"users">
+): Promise<string> {
+  const user = await db.get(actorUserId);
+  if (!user || !user.email) {
+    throw new Error("Unauthorized");
+  }
+  return user.email;
 }
 
 async function getOrganizationBySlug(
@@ -914,17 +926,11 @@ export async function listIncomingOrganizationInvitationsForUser(
     }
   >
 > {
-  if (args.actorUserId.trim().length === 0) {
-    throw new Error("Unauthorized");
-  }
-  const actor = await db.get(args.actorUserId);
-  if (!actor) {
-    throw new Error("Unauthorized");
-  }
+  const actorEmail = await resolveActorEmailFromDb(db, args.actorUserId);
   const now = Date.now();
   const invitations = await db
     .query("organizationInvitations")
-    .withIndex("by_email", (q) => q.eq("email", normalizeEmail(actor.email)))
+    .withIndex("by_email", (q) => q.eq("email", normalizeEmail(actorEmail)))
     .collect();
   const incoming = [];
   for (const invitation of invitations) {
@@ -954,18 +960,12 @@ async function getIncomingInvitationForActor(
 ): Promise<{
   invitation: OrganizationInvitationRecord;
 }> {
-  if (args.actorUserId.trim().length === 0) {
-    throw new Error("Unauthorized");
-  }
-  const actor = await db.get(args.actorUserId);
-  if (!actor) {
-    throw new Error("Unauthorized");
-  }
+  const actorEmail = await resolveActorEmailFromDb(db, args.actorUserId);
   const invitation = await db.get(args.invitationId);
   if (!invitation) {
     throw new Error("Invitation not found");
   }
-  if (normalizeEmail(actor.email) !== invitation.email) {
+  if (normalizeEmail(actorEmail) !== invitation.email) {
     throw new Error("Invitation email does not match the current user");
   }
   return { invitation };
@@ -1032,13 +1032,7 @@ export async function acceptOrganizationInvitation(
     rolePermissions?: RolePermissions;
   }
 ): Promise<ReturnType<typeof sanitizeInvitation>> {
-  if (args.actorUserId.trim().length === 0) {
-    throw new Error("Unauthorized");
-  }
-  const actor = await db.get(args.actorUserId);
-  if (!actor) {
-    throw new Error("Unauthorized");
-  }
+  const actorEmail = await resolveActorEmailFromDb(db, args.actorUserId);
   const tokenHash = await hashToken(args.token);
   const invitation = await db
     .query("organizationInvitations")
@@ -1047,7 +1041,7 @@ export async function acceptOrganizationInvitation(
   if (!invitation) {
     throw new Error("Invitation not found");
   }
-  if (normalizeEmail(actor.email) !== invitation.email) {
+  if (normalizeEmail(actorEmail) !== invitation.email) {
     throw new Error("Invitation email does not match the current user");
   }
   return await completeInvitationAcceptance(db, {
