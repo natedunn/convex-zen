@@ -161,7 +161,7 @@ Create `src/lib/auth-client.ts`:
 ```ts
 import { createTanStackAuthClient } from "convex-zen/tanstack-start";
 import { api } from "../../convex/_generated/api";
-import { authMeta } from "../../convex/zen/shared";
+import { authMeta } from "../../convex/zen/_generated/meta";
 
 export const authClient = createTanStackAuthClient({
 	convexFunctions: api.zen,
