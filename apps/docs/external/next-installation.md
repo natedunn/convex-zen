@@ -131,7 +131,7 @@ Run:
 npx convex-zen generate
 ```
 
-This creates generated wrappers used by the Next adapter (for example `convex/zen/core.ts` and `convex/zen/shared.ts`).
+This creates generated wrappers used by the Next adapter (for example `convex/zen/core.ts` and `convex/zen/_generated/meta.ts`).
 
 For provider callback URLs, Convex env setup, and the shared browser flow, see:
 - [oauth.md](./oauth.md)
@@ -167,7 +167,7 @@ Create `src/lib/auth-client.ts`:
 ```ts
 import { createNextAuthClient } from "convex-zen/next";
 import { api } from "../../convex/_generated/api";
-import { authMeta } from "../../convex/zen/shared";
+import { authMeta } from "../../convex/zen/_generated/meta";
 
 export const authClient = createNextAuthClient({
   convexFunctions: api.zen,
