@@ -282,12 +282,18 @@ pnpm dev
 │   ├── convex.config.ts
 │   ├── schema.ts
 │   ├── zen.config.ts
-│   └── auth/
+│   └── zen/
 │       ├── core.ts                   # generated
-│       ├── shared.ts          # generated
-│       └── plugin/
-│           ├── admin.ts              # generated when admin plugin is enabled
-│           └── shared.ts      # generated
+│       ├── component/
+│       │   ├── convex.config.ts      # generated
+│       │   ├── _runtime.ts           # generated
+│       │   └── gateway.ts            # generated
+│       ├── plugin/
+│       │   └── admin.ts              # generated when admin plugin is enabled
+│       └── _generated/
+│           ├── auth.ts               # generated
+│           ├── meta.ts               # generated
+│           └── oauth.ts              # generated when OAuth is enabled
 └── src/
     ├── lib/
     │   ├── auth-client.ts
