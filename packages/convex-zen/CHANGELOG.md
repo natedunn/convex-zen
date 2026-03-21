@@ -1,3 +1,14 @@
+## [1.9.1](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.9.0...convex-zen-v1.9.1) (2026-03-21)
+
+
+### Bug Fixes
+
+* **docs:** update client auth-client import path to convex/zen/_generated/meta ([bb2055b](https://github.com/natedunn/convex-zen/commit/bb2055b8d70a1a4ea8077aea37a99efb4edd5e41))
+* **docs:** update client auth-client.ts import path to _generated/meta ([501b5c1](https://github.com/natedunn/convex-zen/commit/501b5c1db8522f6304e8bad5692758c2e9cbc299))
+* **generate:** replace TypeScript AST with regex in hasOAuthProviders ([cb5968c](https://github.com/natedunn/convex-zen/commit/cb5968cf2600390e07c70a23e3705216f0e9ddc7))
+* **generator:** remove whitespace-only lines from optionalActor handler template ([2c5e4aa](https://github.com/natedunn/convex-zen/commit/2c5e4aa36362037ca8f41b24ce34dace0f009498))
+* **organization:** restore user existence check in createOrganizationForUser ([8811310](https://github.com/natedunn/convex-zen/commit/881131049b38997898385e10adeb025112179cff))
+
 # [1.9.0](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.8.2...convex-zen-v1.9.0) (2026-03-20)
 
 
