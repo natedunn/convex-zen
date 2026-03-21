@@ -10,7 +10,8 @@
 
 - `convex/zen/core.ts`
 - `convex/zen/plugin/<plugin>.ts`
-- `convex/zen/plugin/shared.ts`
+- `convex/zen/_generated/auth.ts`
+- `convex/zen/_generated/meta.ts`
 
 `convex/_generated/*` remains Convex-owned.
 
@@ -31,7 +32,7 @@ Behavior:
 1. Read `convex/authConvex.ts`.
 2. Detect enabled built-in plugins (currently admin).
 3. Generate core + plugin wrappers.
-4. Generate `shared.ts` by collecting plugin function kinds (`query|mutation|action`) from plugin wrapper files.
+4. Generate `_generated/meta.ts` by collecting plugin function kinds (`query|mutation|action`) from plugin wrapper files.
 5. Print created/updated/deleted/unchanged summary.
 
 ## Runtime contract
@@ -52,7 +53,7 @@ Behavior:
 When adding plugin features:
 
 1. Add/update wrapper exports in `convex/zen/plugin/<plugin>.ts`.
-2. Re-run `npx convex-zen generate` (refreshes `shared.ts`).
+2. Re-run `npx convex-zen generate` (refreshes `_generated/meta.ts`).
 3. Re-run `npx convex codegen`.
 4. Verify:
    - server route works at `/api/auth/plugin/<plugin>/<function>`

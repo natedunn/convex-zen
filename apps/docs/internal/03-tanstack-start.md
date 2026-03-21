@@ -30,7 +30,7 @@ File: `packages/convex-zen/src/client/tanstack-start-plugin-meta.ts`
 Auto plugin routes use:
 
 1. `convexFunctions: api.zen`
-2. generated `authMeta` from `convex/zen/shared.ts`
+2. generated `authMeta` from `convex/zen/_generated/meta.ts`
 
 Route shape:
 
@@ -52,7 +52,7 @@ Client shape:
 // src/lib/auth-server.ts
 import { createTanStackAuthServer } from "convex-zen/tanstack-start";
 import { api } from "../../convex/_generated/api";
-import { authMeta } from "../../convex/zen/shared";
+import { authMeta } from "../../convex/zen/_generated/meta";
 
 export const {
   handler,
@@ -71,7 +71,7 @@ export const {
 // src/lib/auth-client.ts
 import { createTanStackAuthClient } from "convex-zen/tanstack-start";
 import { api } from "../../convex/_generated/api";
-import { authMeta } from "../../convex/zen/shared";
+import { authMeta } from "../../convex/zen/_generated/meta";
 
 export const authClient = createTanStackAuthClient({
   convexFunctions: api.zen,

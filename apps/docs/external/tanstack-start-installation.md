@@ -132,7 +132,7 @@ Run:
 npx convex-zen generate
 ```
 
-This creates generated wrappers used by the TanStack adapter (for example `convex/zen/core.ts` and `convex/zen/shared.ts`).
+This creates generated wrappers used by the TanStack adapter (for example `convex/zen/core.ts` and `convex/zen/_generated/meta.ts`).
 
 For provider callback URLs, Convex env setup, and the shared browser flow, see:
 - [oauth.md](./oauth.md)
@@ -145,7 +145,7 @@ Create `src/lib/auth-server.ts`:
 ```ts
 import { createTanStackAuthServer } from "convex-zen/tanstack-start";
 import { api } from "../../convex/_generated/api";
-import { authMeta } from "../../convex/zen/shared";
+import { authMeta } from "../../convex/zen/_generated/meta";
 
 const authServer = createTanStackAuthServer({
 	convexUrl: import.meta.env["VITE_CONVEX_URL"] as string,
@@ -161,7 +161,7 @@ Create `src/lib/auth-client.ts`:
 ```ts
 import { createTanStackAuthClient } from "convex-zen/tanstack-start";
 import { api } from "../../convex/_generated/api";
-import { authMeta } from "../../convex/zen/shared";
+import { authMeta } from "../../convex/zen/_generated/meta";
 
 export const authClient = createTanStackAuthClient({
 	convexFunctions: api.zen,
@@ -282,12 +282,13 @@ pnpm dev
 │   ├── convex.config.ts
 │   ├── schema.ts
 │   ├── zen.config.ts
-│   └── auth/
+│   └── zen/
 │       ├── core.ts                   # generated
-│       ├── shared.ts          # generated
-│       └── plugin/
-│           ├── admin.ts              # generated when admin plugin is enabled
-│           └── shared.ts      # generated
+│       ├── plugin/
+│       │   └── admin.ts              # generated when admin plugin is enabled
+│       └── _generated/
+│           ├── auth.ts               # generated
+│           └── meta.ts               # generated
 └── src/
     ├── lib/
     │   ├── auth-client.ts

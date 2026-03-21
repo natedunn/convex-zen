@@ -41,7 +41,7 @@ import {
   createKeyValueStorageAuthStorage,
 } from "convex-zen/expo";
 import { api } from "../convex/_generated/api";
-import { authMeta } from "../convex/zen/shared";
+import { authMeta } from "../convex/zen/_generated/meta";
 
 const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL!;
 

@@ -13,9 +13,10 @@ With `npx convex-zen generate`:
 
 - core wrappers: `convex/zen/core.ts`
 - plugin wrappers: `convex/zen/plugin/<plugin>.ts`
-- plugin kind metadata: `convex/zen/plugin/shared.ts`
+- auth helper: `convex/zen/_generated/auth.ts`
+- plugin kind metadata: `convex/zen/_generated/meta.ts`
 
-`shared.ts` is consumed by TanStack auth server/client auto mode.
+`meta.ts` is consumed by TanStack auth server/client auto mode.
 
 ## TanStack flow
 
