@@ -9,11 +9,11 @@ By default, `createNextAuthServer(...)` uses `plugins: "auto"` and wires core/pl
 ```ts
 import { createNextAuthServer } from "convex-zen/next";
 import { api } from "../../convex/_generated/api";
-import { authMeta } from "../../convex/auth/metaGenerated";
+import { authMeta } from "../../convex/zen/_generated/meta";
 
 export const authServer = createNextAuthServer({
   convexUrl: process.env.NEXT_PUBLIC_CONVEX_URL as string,
-  convexFunctions: api.auth,
+  convexFunctions: api.zen,
   meta: authMeta,
 });
 ```
@@ -23,7 +23,7 @@ To disable generated core/plugin API routes entirely:
 ```ts
 export const authServer = createNextAuthServer({
   convexUrl: process.env.NEXT_PUBLIC_CONVEX_URL as string,
-  convexFunctions: api.auth,
+  convexFunctions: api.zen,
   meta: authMeta,
   plugins: [],
 });
@@ -40,7 +40,7 @@ import {
 
 export const authServer = createNextAuthServer({
   convexUrl: process.env.NEXT_PUBLIC_CONVEX_URL as string,
-  convexFunctions: api.auth,
+  convexFunctions: api.zen,
   meta: authMeta,
   plugins: [
     coreApiPlugin({ coreMeta: authMeta.core }),
@@ -107,7 +107,7 @@ In App Router server components, no-request overloads are available:
 import { fetchAuthQuery } from "@/lib/auth-server";
 import { api } from "../../convex/_generated/api";
 
-const user = await fetchAuthQuery(api.auth.core.currentUser, {});
+const user = await fetchAuthQuery(api.zen.core.currentUser, {});
 ```
 
 In route handlers or middleware-like code where you already have a request, pass it directly:
@@ -117,7 +117,7 @@ import { fetchAuthQuery } from "@/lib/auth-server";
 import { api } from "../../../convex/_generated/api";
 
 export async function GET(request: Request) {
-  const user = await fetchAuthQuery(request, api.auth.core.currentUser, {});
+  const user = await fetchAuthQuery(request, api.zen.core.currentUser, {});
   return Response.json({ user });
 }
 ```
@@ -137,7 +137,7 @@ If you are behind a trusted proxy and need forwarded IPs in sign-in input:
 ```ts
 export const authServer = createNextAuthServer({
   convexUrl: process.env.NEXT_PUBLIC_CONVEX_URL as string,
-  convexFunctions: api.auth,
+  convexFunctions: api.zen,
   meta: authMeta,
   trustedProxy: true,
 });
@@ -163,7 +163,7 @@ getClientIp: (request) => request.headers.get("x-client-ip") ?? undefined
 import { createNextAuthServerFactory } from "convex-zen/next";
 
 const authFactory = createNextAuthServerFactory({
-  convexFunctions: api.auth,
+  convexFunctions: api.zen,
   meta: authMeta,
 });
 
@@ -174,7 +174,7 @@ To disable automatic trusted-origin env ingestion:
 
 ```ts
 const authFactory = createNextAuthServerFactory({
-  convexFunctions: api.auth,
+  convexFunctions: api.zen,
   meta: authMeta,
   trustedOriginsFromEnv: false,
 });

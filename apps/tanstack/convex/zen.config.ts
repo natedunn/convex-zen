@@ -5,7 +5,7 @@ import { organizationPlugin } from "convex-zen/plugins/organization";
 const githubClientId = process.env.GITHUB_CLIENT_ID;
 const githubClientSecret = process.env.GITHUB_CLIENT_SECRET;
 
-export const zenConfig = defineConvexZen({
+export default defineConvexZen({
 	emailProvider: {
 		sendVerificationEmail: async (to: string, code: string) => {
 			console.log(`Verification email to ${to}: ${code}`);

@@ -13,7 +13,7 @@ import { messageFromError } from "./organization-playground/shared";
 
 export function OrganizationPlayground() {
   const organizationsQuery = useQuery(
-    convexQuery(api.auth.plugin.organization.listOrganizations, {})
+    convexQuery(api.zen.plugin.organization.listOrganizations, {})
   );
   const organizations = organizationsQuery.data?.organizations ?? [];
   const [selectedOrganizationId, setSelectedOrganizationId] = useState("");

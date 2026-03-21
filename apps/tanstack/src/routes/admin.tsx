@@ -14,7 +14,7 @@ type AdminListUsersResponse = {
 	isDone: boolean;
 };
 
-type ListUsersArgs = FunctionArgs<typeof api.auth.plugin.admin.listUsers>;
+type ListUsersArgs = FunctionArgs<typeof api.zen.plugin.admin.listUsers>;
 
 const listAdminUsersServerFn = createServerFn({ method: "POST" })
 	.inputValidator(
@@ -22,7 +22,7 @@ const listAdminUsersServerFn = createServerFn({ method: "POST" })
 	)
 	.handler(async ({ data }) => {
 		const { fetchAuthQuery } = await import("../lib/auth-server");
-		return fetchAuthQuery(api.auth.plugin.admin.listUsers, data);
+		return fetchAuthQuery(api.zen.plugin.admin.listUsers, data);
 	});
 
 export const Route = createFileRoute("/admin")({

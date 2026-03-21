@@ -10,27 +10,27 @@ export function DynamicRolesSection({
   organizationId: string;
 }) {
   const rolesQuery = useQuery({
-    ...convexQuery(api.auth.plugin.organization.listRoles, { organizationId }),
+    ...convexQuery(api.zen.plugin.organization.listRoles, { organizationId }),
   });
   const permissionsQuery = useQuery({
-    ...convexQuery(api.auth.plugin.organization.listAvailablePermissions, {
+    ...convexQuery(api.zen.plugin.organization.listAvailablePermissions, {
       organizationId,
     }),
   });
   const canCreateRoleQuery = useQuery({
-    ...convexQuery(api.auth.plugin.organization.hasPermission, {
+    ...convexQuery(api.zen.plugin.organization.hasPermission, {
       organizationId,
       permission: { resource: "role", action: "create" },
     }),
   });
   const canUpdateRoleQuery = useQuery({
-    ...convexQuery(api.auth.plugin.organization.hasPermission, {
+    ...convexQuery(api.zen.plugin.organization.hasPermission, {
       organizationId,
       permission: { resource: "role", action: "update" },
     }),
   });
   const canDeleteRoleQuery = useQuery({
-    ...convexQuery(api.auth.plugin.organization.hasPermission, {
+    ...convexQuery(api.zen.plugin.organization.hasPermission, {
       organizationId,
       permission: { resource: "role", action: "delete" },
     }),
@@ -64,7 +64,7 @@ export function DynamicRolesSection({
   };
 
   const createRoleMutation = useMutation({
-    mutationFn: useConvexMutation(api.auth.plugin.organization.createRole),
+    mutationFn: useConvexMutation(api.zen.plugin.organization.createRole),
     onSuccess: () => {
       setRoleName("");
       setRoleSlug("");
@@ -72,7 +72,7 @@ export function DynamicRolesSection({
     },
   });
   const updateRoleMutation = useMutation({
-    mutationFn: useConvexMutation(api.auth.plugin.organization.updateRole),
+    mutationFn: useConvexMutation(api.zen.plugin.organization.updateRole),
     onSuccess: () => {
       setEditingRoleId(null);
       setEditingRoleName("");
@@ -82,7 +82,7 @@ export function DynamicRolesSection({
     },
   });
   const deleteRoleMutation = useMutation({
-    mutationFn: useConvexMutation(api.auth.plugin.organization.deleteRole),
+    mutationFn: useConvexMutation(api.zen.plugin.organization.deleteRole),
     onSuccess: () => {
       refresh();
     },

@@ -20,7 +20,7 @@ If you are using Expo Router, also install the usual router dependencies for you
 
 ## Convex functions to expose
 
-Expo needs the public auth functions generated in your app, typically from `convex/auth/core.ts`.
+Expo needs the public auth functions generated in your app, typically from `convex/zen/core.ts`.
 
 Minimum required refs:
 
@@ -41,7 +41,7 @@ import {
   createKeyValueStorageAuthStorage,
 } from "convex-zen/expo";
 import { api } from "../convex/_generated/api";
-import { authMeta } from "../convex/auth/metaGenerated";
+import { authMeta } from "../convex/zen/_generated/meta";
 
 const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL!;
 
@@ -49,12 +49,12 @@ export const authClient = createExpoAuthClient({
   convexUrl,
   convexFunctions: {
     core: {
-      signInWithEmail: api.auth.core.signInWithEmail,
-      validateSession: api.auth.core.validateSession,
-      invalidateSession: api.auth.core.invalidateSession,
-      getOAuthUrl: api.auth.core.getOAuthUrl,
-      handleOAuthCallback: api.auth.core.handleOAuthCallback,
-      currentUser: api.auth.core.currentUser,
+      signInWithEmail: api.zen.core.signInWithEmail,
+      validateSession: api.zen.core.validateSession,
+      invalidateSession: api.zen.core.invalidateSession,
+      getOAuthUrl: api.zen.core.getOAuthUrl,
+      handleOAuthCallback: api.zen.core.handleOAuthCallback,
+      currentUser: api.zen.core.currentUser,
     },
   },
   meta: authMeta,

@@ -132,7 +132,7 @@ Run:
 npx convex-zen generate
 ```
 
-This creates generated wrappers used by the TanStack adapter (for example `convex/auth/core.ts` and `convex/auth/metaGenerated.ts`).
+This creates generated wrappers used by the TanStack adapter (for example `convex/zen/core.ts` and `convex/zen/_generated/meta.ts`).
 
 For provider callback URLs, Convex env setup, and the shared browser flow, see:
 - [oauth.md](./oauth.md)
@@ -145,11 +145,11 @@ Create `src/lib/auth-server.ts`:
 ```ts
 import { createTanStackAuthServer } from "convex-zen/tanstack-start";
 import { api } from "../../convex/_generated/api";
-import { authMeta } from "../../convex/auth/metaGenerated";
+import { authMeta } from "../../convex/zen/_generated/meta";
 
 const authServer = createTanStackAuthServer({
 	convexUrl: import.meta.env["VITE_CONVEX_URL"] as string,
-	convexFunctions: api.auth,
+	convexFunctions: api.zen,
 	meta: authMeta,
 });
 
@@ -161,10 +161,10 @@ Create `src/lib/auth-client.ts`:
 ```ts
 import { createTanStackAuthClient } from "convex-zen/tanstack-start";
 import { api } from "../../convex/_generated/api";
-import { authMeta } from "../../convex/auth/metaGenerated";
+import { authMeta } from "../../convex/zen/_generated/meta";
 
 export const authClient = createTanStackAuthClient({
-	convexFunctions: api.auth,
+	convexFunctions: api.zen,
 	meta: authMeta,
 });
 ```
@@ -181,7 +181,7 @@ await authClient.signIn.oauth("google", {
 For custom providers, shared runtime helpers, `runtimeConfig`, and `trustVerifiedEmail`, see:
 - [custom-oauth-providers.md](./custom-oauth-providers.md)
 
-Create `src/routes/api.auth.$.tsx`:
+Create `src/routes/api.zen.$.tsx`:
 
 ```tsx
 import { createFileRoute } from "@tanstack/react-router";
@@ -282,12 +282,18 @@ pnpm dev
 │   ├── convex.config.ts
 │   ├── schema.ts
 │   ├── zen.config.ts
-│   └── auth/
+│   └── zen/
 │       ├── core.ts                   # generated
-│       ├── metaGenerated.ts          # generated
-│       └── plugin/
-│           ├── admin.ts              # generated when admin plugin is enabled
-│           └── metaGenerated.ts      # generated
+│       ├── component/
+│       │   ├── convex.config.ts      # generated
+│       │   ├── _runtime.ts           # generated
+│       │   └── gateway.ts            # generated
+│       ├── plugin/
+│       │   └── admin.ts              # generated when admin plugin is enabled
+│       └── _generated/
+│           ├── auth.ts               # generated
+│           ├── meta.ts               # generated
+│           └── oauth.ts              # generated when OAuth is enabled
 └── src/
     ├── lib/
     │   ├── auth-client.ts
@@ -295,5 +301,5 @@ pnpm dev
     ├── router.tsx
     └── routes/
         ├── __root.tsx
-        └── api.auth.$.tsx
+        └── api.zen.$.tsx
 ```

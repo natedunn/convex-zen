@@ -83,7 +83,30 @@ async function resolveAuthSource(cwd: string): Promise<ResolvedAuthSource | null
 }
 
 function hasOAuthProviders(authSource: string): boolean {
-  return /\bproviders\s*:/.test(authSource);
+  // Strip block and line comments so that commented-out providers are not detected.
+  // Note: this regex-based stripping does not account for comment-like sequences
+  // inside string literals, which is an acceptable limitation for zen.config.ts files.
+  const stripped = authSource
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\/\/[^\n]*/g, "");
+
+  // Locate the opening parenthesis of the defineConvexZen(...) call.
+  const callMatch = stripped.match(/defineConvexZen\s*\(/);
+  if (!callMatch || callMatch.index === undefined) return false;
+
+  // Walk forward tracking parenthesis depth to extract only the call's arguments,
+  // avoiding false positives from any `providers:` that appears outside this call.
+  let depth = 1;
+  let i = callMatch.index + callMatch[0].length;
+  while (i < stripped.length && depth > 0) {
+    const ch = stripped[i];
+    if (ch === "(") depth++;
+    else if (ch === ")") depth--;
+    i++;
+  }
+
+  const callContent = stripped.slice(callMatch.index + callMatch[0].length, i - 1);
+  return /\bproviders\s*:/.test(callContent);
 }
 
 type ImportedBinding = {
@@ -190,7 +213,7 @@ async function resolveGeneratedComponentImportPath(
     componentImportPath
   );
   return toGeneratedImportPath(
-    path.join(path.dirname(authSource.absolutePath), "auth", "zen", "convex.config.ts"),
+    path.join(path.dirname(authSource.absolutePath), "zen", "component", "convex.config.ts"),
     componentAbsolutePath
   );
 }
@@ -338,7 +361,7 @@ function renderComponentRuntimeFile(
   return normalizeContent(`${GENERATED_MARKER}
 import { components } from "./_generated/api";
 import { createConvexZenClient } from "convex-zen";
-import { zenConfig } from ${JSON.stringify(zenConfigImportPath)};
+import zenConfig from ${JSON.stringify(zenConfigImportPath)};
 
 const runtimeComponent = {
 ${componentChildren}
@@ -356,7 +379,7 @@ function renderAppRuntimeFile(): string {
   return normalizeContent(`${GENERATED_MARKER}
 import { components } from "../_generated/api";
 import { createConvexZenClient } from "convex-zen";
-import { zenConfig } from "../zen.config";
+import zenConfig from "../zen.config";
 
 export const auth = createConvexZenClient(
   components.zenComponent as Record<string, unknown>,
@@ -589,7 +612,7 @@ export const handleOAuthCallback = action({
   return normalizeContent(`${GENERATED_MARKER}
 import { v } from "convex/values";
 import { ${serverImports} } from "../_generated/server";
-import { auth } from "./generated";
+import { auth } from "./_generated/auth";
 
 export const signUp = mutation({
   args: {
@@ -695,11 +718,20 @@ ${oauthExports}
 `);
 }
 
-function addActorUserIdToArgsSource(argsSource: string): string {
+function addInternalActorFieldsToArgsSource(
+  argsSource: string,
+  options?: { includeActorEmail?: boolean }
+): string {
+  const actorFields = [
+    "    actorUserId: v.optional(v.string()),",
+    ...(options?.includeActorEmail === true
+      ? ["    actorEmail: v.optional(v.string()),"]
+      : []),
+  ];
   if (argsSource.trim() === "{}") {
-    return "{\n    actorUserId: v.optional(v.string()),\n  }";
+    return `{\n${actorFields.join("\n")}\n  }`;
   }
-  return argsSource.replace("{", "{\n    actorUserId: v.optional(v.string()),");
+  return argsSource.replace("{", `{\n${actorFields.join("\n")}\n`);
 }
 
 function renderComponentPluginFacadeFile(options: {
@@ -736,6 +768,24 @@ function renderComponentPluginFacadeFile(options: {
 
 `
     : "";
+  const actorEmailMethods =
+    pluginName === "organization"
+      ? new Set([
+          "listIncomingInvitations",
+          "acceptInvitation",
+          "acceptIncomingInvitation",
+          "declineIncomingInvitation",
+        ])
+      : new Set<string>();
+  const actorEmailHelper =
+    actorEmailMethods.size > 0
+      ? `async function resolveActorEmail(ctx: unknown): Promise<string | undefined> {
+  const actor = await auth.user.safeGet(ctx as { runQuery(fn: unknown, args: Record<string, unknown>): Promise<unknown> });
+  return actor?.email;
+}
+
+`
+      : "";
 
   const functionSource = Object.entries(publicFunctions.functions)
     .map(([functionName, fn]) => {
@@ -743,7 +793,9 @@ function renderComponentPluginFacadeFile(options: {
       const kindFactory = fn.kind;
       const argsSource =
         fn.auth === "actor" || fn.auth === "optionalActor"
-          ? addActorUserIdToArgsSource(fn.argsSource)
+          ? addInternalActorFieldsToArgsSource(fn.argsSource, {
+              includeActorEmail: actorEmailMethods.has(functionName),
+            })
           : fn.argsSource;
       if (fn.auth === "public") {
         return `export const ${functionName} = ${kindFactory}({
@@ -754,6 +806,12 @@ function renderComponentPluginFacadeFile(options: {
 });`;
       }
       if (fn.auth === "optionalActor") {
+        const optionalActorEmail = actorEmailMethods.has(functionName)
+          ? `    const actorEmail = await resolveActorEmail(ctx);\n`
+          : "";
+        const optionalActorEmailSpread = actorEmailMethods.has(functionName)
+          ? `      ...(actorEmail ? { actorEmail } : {}),\n`
+          : "";
         return `export const ${functionName} = ${kindFactory}({
   args: ${argsSource},
   handler: async (ctx, args) => {
@@ -762,23 +820,30 @@ function renderComponentPluginFacadeFile(options: {
     if (!actorUserId) {
       return false;
     }
-    const { actorUserId: _ignoredActorUserId, ...inputArgs } = args as Record<string, unknown>;
+${optionalActorEmail}    const { actorUserId: _ignoredActorUserId, ...inputArgs } = args as Record<string, unknown>;
     return ${runtimeAccess}.${fn.runtimeMethod}(ctx, {
       ...inputArgs,
       actorUserId,
-    } as any);
+${optionalActorEmailSpread}    } as any);
   },
 });`;
       }
+      const actorEmailResolution =
+        actorEmailMethods.has(functionName)
+          ? `    const actorEmail = await resolveActorEmail(ctx);\n`
+          : "";
+      const actorEmailSpread = actorEmailMethods.has(functionName)
+        ? `      ...(actorEmail ? { actorEmail } : {}),\n`
+        : "";
       return `export const ${functionName} = ${kindFactory}({
   args: ${argsSource},
   handler: async (ctx, args) => {
     const actorUserId = await requireActorUserId(ctx);
-    const { actorUserId: _ignoredActorUserId, ...inputArgs } = args as Record<string, unknown>;
+${actorEmailResolution}    const { actorUserId: _ignoredActorUserId, ...inputArgs } = args as Record<string, unknown>;
     return ${runtimeAccess}.${fn.runtimeMethod}(ctx, {
       ...inputArgs,
       actorUserId,
-    } as any);
+${actorEmailSpread}    } as any);
   },
 });`;
     })
@@ -795,7 +860,7 @@ import { v } from "convex/values";
 import { ${serverImports} } from ${JSON.stringify(options.serverImportPath)};
 ${runtimeImport}
 
-${actorHelper}${preamble}${functionSource}
+${actorHelper}${actorEmailHelper}${preamble}${functionSource}
 `);
 }
 
@@ -896,7 +961,8 @@ export const handleOAuthCallback = action({
   return normalizeContent(`${GENERATED_MARKER}
 import { v } from "convex/values";
 import { ${serverImports} } from "../_generated/server";
-${options.includeOAuth ? 'import { components } from "../_generated/api";\n' : ""}import { auth${options.includeOAuth ? ", resolveDefaultRole, resolveOAuthProvider" : ""} } from "./generated";
+${options.includeOAuth ? 'import { components } from "../_generated/api";\n' : ""}import { auth } from "./_generated/auth";
+${options.includeOAuth ? 'import { resolveDefaultRole, resolveOAuthProvider } from "./_generated/oauth";\n' : ""}
 
 ${componentHelper}
 export const signUp = mutation({
@@ -1016,6 +1082,24 @@ function renderPluginFile(options: {
 
 `
     : "";
+  const actorEmailMethods =
+    pluginName === "organization"
+      ? new Set([
+          "listIncomingInvitations",
+          "acceptInvitation",
+          "acceptIncomingInvitation",
+          "declineIncomingInvitation",
+        ])
+      : new Set<string>();
+  const actorEmailHelper =
+    actorEmailMethods.size > 0
+      ? `async function resolveActorEmail(ctx: unknown): Promise<string | undefined> {
+  const actor = await auth.user.safeGet(ctx as { runQuery(fn: unknown, args: Record<string, unknown>): Promise<unknown> });
+  return actor?.email;
+}
+
+`
+      : "";
 
   const functionSource = Object.entries(publicFunctions.functions)
     .map(([functionName, fn]) => {
@@ -1023,7 +1107,9 @@ function renderPluginFile(options: {
       const kindFactory = fn.kind;
       const argsSource =
         fn.auth === "actor" || fn.auth === "optionalActor"
-          ? addActorUserIdToArgsSource(fn.argsSource)
+          ? addInternalActorFieldsToArgsSource(fn.argsSource, {
+              includeActorEmail: actorEmailMethods.has(functionName),
+            })
           : fn.argsSource;
       if (fn.auth === "public") {
         return `export const ${functionName} = ${kindFactory}({
@@ -1034,6 +1120,15 @@ function renderPluginFile(options: {
 });`;
       }
       if (fn.auth === "optionalActor") {
+        const optionalActorEmail =
+          actorEmailMethods.has(functionName)
+            ? `
+    const actorEmail = await resolveActorEmail(ctx);`
+            : "";
+        const optionalActorEmailSpread = actorEmailMethods.has(functionName)
+          ? `
+      ...(actorEmail ? { actorEmail } : {}),`
+          : "";
         return `export const ${functionName} = ${kindFactory}({
   args: ${argsSource},
   handler: async (ctx, args) => {
@@ -1042,23 +1137,32 @@ function renderPluginFile(options: {
     if (!actorUserId) {
       return false;
     }
+    ${optionalActorEmail}
     const { actorUserId: _ignoredActorUserId, ...inputArgs } = args as Record<string, unknown>;
     return ${runtimeAccess}.${fn.runtimeMethod}(ctx, {
       ...inputArgs,
       actorUserId,
+      ${optionalActorEmailSpread}
     } as any);
   },
 });`;
       }
+      const actorEmailResolution =
+        actorEmailMethods.has(functionName)
+          ? `    const actorEmail = await resolveActorEmail(ctx);\n`
+          : "";
+      const actorEmailSpread = actorEmailMethods.has(functionName)
+        ? `      ...(actorEmail ? { actorEmail } : {}),\n`
+        : "";
       return `export const ${functionName} = ${kindFactory}({
   args: ${argsSource},
   handler: async (ctx, args) => {
     const actorUserId = await requireActorUserId(ctx);
-    const { actorUserId: _ignoredActorUserId, ...inputArgs } = args as Record<string, unknown>;
+${actorEmailResolution}    const { actorUserId: _ignoredActorUserId, ...inputArgs } = args as Record<string, unknown>;
     return ${runtimeAccess}.${fn.runtimeMethod}(ctx, {
       ...inputArgs,
       actorUserId,
-    } as any);
+${actorEmailSpread}    } as any);
   },
 });`;
     })
@@ -1067,9 +1171,9 @@ function renderPluginFile(options: {
   return normalizeContent(`${GENERATED_MARKER}
 import { v } from "convex/values";
 import { ${serverImports} } from "../../_generated/server";
-import { auth } from "../generated";
+import { auth } from "../_generated/auth";
 
-${actorHelper}${preamble}${functionSource}
+${actorHelper}${actorEmailHelper}${preamble}${functionSource}
 `);
 }
 
@@ -1118,32 +1222,23 @@ function assertNoReservedCoreFunctionNames(source: string): void {
   );
 }
 
-function renderGeneratedHelperFile(
-  coreMeta: CoreFunctionMeta,
-  pluginMeta: PluginFunctionMeta
-): string {
-  const normalizedCore = Object.fromEntries(
-    Object.entries(coreMeta).sort(([a], [b]) => a.localeCompare(b))
-  );
-  const normalizedPluginEntries = Object.entries(pluginMeta)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([pluginName, functions]) => {
-      const sortedFunctions = Object.fromEntries(
-        Object.entries(functions).sort(([a], [b]) => a.localeCompare(b))
-      );
-      return [pluginName, sortedFunctions] as const;
-    });
-  const normalizedPlugin = Object.fromEntries(normalizedPluginEntries);
+function renderAuthHelperFile(): string {
   return normalizeContent(`${GENERATED_MARKER}
-import { components } from "../_generated/api";
+import { components } from "../../_generated/api";
 import { createConvexZenClient } from "convex-zen";
-import { zenConfig } from "../zen.config";
+import zenConfig from "../../zen.config";
 
 export const auth = createConvexZenClient(
   components.zenComponent as Record<string, unknown>,
   zenConfig,
   { runtimeKind: "app" }
 );
+`);
+}
+
+function renderOAuthHelperFile(): string {
+  return normalizeContent(`${GENERATED_MARKER}
+import zenConfig from "../../zen.config";
 
 function resolveTokenEncryptionSecret(): string | undefined {
   const explicit = zenConfig.tokenEncryptionSecret?.trim();
@@ -1186,7 +1281,26 @@ export function resolveDefaultRole(): string | undefined {
   }
   return undefined;
 }
+`);
+}
 
+function renderMetaHelperFile(
+  coreMeta: CoreFunctionMeta,
+  pluginMeta: PluginFunctionMeta
+): string {
+  const normalizedCore = Object.fromEntries(
+    Object.entries(coreMeta).sort(([a], [b]) => a.localeCompare(b))
+  );
+  const normalizedPluginEntries = Object.entries(pluginMeta)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([pluginName, functions]) => {
+      const sortedFunctions = Object.fromEntries(
+        Object.entries(functions).sort(([a], [b]) => a.localeCompare(b))
+      );
+      return [pluginName, sortedFunctions] as const;
+    });
+  const normalizedPlugin = Object.fromEntries(normalizedPluginEntries);
+  return normalizeContent(`${GENERATED_MARKER}
 export const authMeta = ${JSON.stringify(
     {
       core: normalizedCore,
@@ -1298,7 +1412,7 @@ async function deleteGeneratedTreeIfExists(
         continue;
       }
       result.warnings.push(
-        `Skipped non-generated legacy file during convex/zen -> convex/auth cleanup: ${relativePath}`
+        `Skipped non-generated legacy file during generated auth cleanup: ${relativePath}`
       );
       continue;
     }
@@ -1322,11 +1436,12 @@ export async function generateAuthFunctions(
     warnings: [],
   };
 
-  const authDir = path.join(options.cwd, "convex", "auth");
-  const pluginDir = path.join(authDir, "plugin");
-  const zenDir = path.join(authDir, "zen");
+  const zenDir = path.join(options.cwd, "convex", "zen");
+  const zenGeneratedDir = path.join(zenDir, "_generated");
+  const pluginDir = path.join(zenDir, "plugin");
+  const componentDir = path.join(zenDir, "component");
+  const legacyAuthDir = path.join(options.cwd, "convex", "auth");
   const legacyAuthComponentDir = path.join(options.cwd, "convex", "authComponent");
-  const legacyZenDir = path.join(options.cwd, "convex", "zen");
   const authSource = await resolveAuthSource(options.cwd);
   if (!authSource) {
     throw new Error(
@@ -1349,23 +1464,23 @@ export async function generateAuthFunctions(
 
   const filesToGenerate: GeneratedFile[] = [
     {
-      absolutePath: path.join(zenDir, "convex.config.ts"),
-      relativePath: path.join("convex", "auth", "zen", "convex.config.ts"),
+      absolutePath: path.join(componentDir, "convex.config.ts"),
+      relativePath: path.join("convex", "zen", "component", "convex.config.ts"),
       content: renderAuthComponentConfigFile(pluginDefinitions),
     },
     {
-      absolutePath: path.join(authDir, "core.ts"),
-      relativePath: path.join("convex", "auth", "core.ts"),
+      absolutePath: path.join(zenDir, "core.ts"),
+      relativePath: path.join("convex", "zen", "core.ts"),
       content: coreContent,
     },
     {
-      absolutePath: path.join(zenDir, "_runtime.ts"),
-      relativePath: path.join("convex", "auth", "zen", "_runtime.ts"),
+      absolutePath: path.join(componentDir, "_runtime.ts"),
+      relativePath: path.join("convex", "zen", "component", "_runtime.ts"),
       content: renderComponentRuntimeFile(pluginDefinitions, "../../zen.config"),
     },
     {
-      absolutePath: path.join(zenDir, "gateway.ts"),
-      relativePath: path.join("convex", "auth", "zen", "gateway.ts"),
+      absolutePath: path.join(componentDir, "gateway.ts"),
+      relativePath: path.join("convex", "zen", "component", "gateway.ts"),
       content: zenGatewayContent,
     },
   ];
@@ -1376,13 +1491,13 @@ export async function generateAuthFunctions(
     const pluginContent = renderComponentPluginFacadeFile({
       pluginDefinition: pluginDefinition.definition,
       serverImportPath: "../../_generated/server",
-      runtimeImportPath: "../generated",
+      runtimeImportPath: "../_generated/auth",
     });
     filesToGenerate.push({
       absolutePath: path.join(pluginDir, `${pluginDefinition.definition.id}.ts`),
       relativePath: path.join(
         "convex",
-        "auth",
+        "zen",
         "plugin",
         `${pluginDefinition.definition.id}.ts`
       ),
@@ -1396,14 +1511,14 @@ export async function generateAuthFunctions(
     });
     filesToGenerate.push({
       absolutePath: path.join(
-        zenDir,
+        componentDir,
         pluginDefinition.definition.id,
         "gateway.ts"
       ),
       relativePath: path.join(
         "convex",
-        "auth",
         "zen",
+        "component",
         pluginDefinition.definition.id,
         "gateway.ts"
       ),
@@ -1416,8 +1531,8 @@ export async function generateAuthFunctions(
   }
 
   await deleteGeneratedFileIfExists(
-    path.join(authDir, "admin.ts"),
-    path.join("convex", "auth", "admin.ts"),
+    path.join(zenDir, "admin.ts"),
+    path.join("convex", "zen", "admin.ts"),
     options,
     result
   );
@@ -1436,7 +1551,7 @@ export async function generateAuthFunctions(
       if (!entry.isFile() || !entry.name.endsWith(".ts")) {
         continue;
       }
-      if (entry.name === "metaGenerated.ts") {
+      if (entry.name === "shared.ts") {
         continue;
       }
       const pluginName = entry.name.slice(0, -3);
@@ -1445,15 +1560,15 @@ export async function generateAuthFunctions(
       }
       await deleteGeneratedFileIfExists(
         path.join(pluginDir, entry.name),
-        path.join("convex", "auth", "plugin", entry.name),
+        path.join("convex", "zen", "plugin", entry.name),
         options,
         result
       );
     }
   }
 
-  if (await fileExists(zenDir)) {
-    const entries = await readdir(zenDir, { withFileTypes: true });
+  if (await fileExists(componentDir)) {
+    const entries = await readdir(componentDir, { withFileTypes: true });
     for (const entry of entries) {
       if (!entry.isDirectory()) {
         continue;
@@ -1465,8 +1580,8 @@ export async function generateAuthFunctions(
         continue;
       }
       await deleteGeneratedFileIfExists(
-        path.join(zenDir, entry.name, "gateway.ts"),
-        path.join("convex", "auth", "zen", entry.name, "gateway.ts"),
+        path.join(componentDir, entry.name, "gateway.ts"),
+        path.join("convex", "zen", "component", entry.name, "gateway.ts"),
         options,
         result
       );
@@ -1475,52 +1590,109 @@ export async function generateAuthFunctions(
 
   await upsertGeneratedFile(
     {
-      absolutePath: path.join(authDir, "generated.ts"),
-      relativePath: path.join("convex", "auth", "generated.ts"),
-      content: renderGeneratedHelperFile(coreMeta, pluginMeta),
+      absolutePath: path.join(zenGeneratedDir, "auth.ts"),
+      relativePath: path.join("convex", "zen", "_generated", "auth.ts"),
+      content: renderAuthHelperFile(),
+    },
+    options,
+    result
+  );
+
+  if (includeOAuth) {
+    await upsertGeneratedFile(
+      {
+        absolutePath: path.join(zenGeneratedDir, "oauth.ts"),
+        relativePath: path.join("convex", "zen", "_generated", "oauth.ts"),
+        content: renderOAuthHelperFile(),
+      },
+      options,
+      result
+    );
+  } else {
+    await deleteGeneratedFileIfExists(
+      path.join(zenGeneratedDir, "oauth.ts"),
+      path.join("convex", "zen", "_generated", "oauth.ts"),
+      options,
+      result
+    );
+  }
+
+  await upsertGeneratedFile(
+    {
+      absolutePath: path.join(zenGeneratedDir, "meta.ts"),
+      relativePath: path.join("convex", "zen", "_generated", "meta.ts"),
+      content: renderMetaHelperFile(coreMeta, pluginMeta),
     },
     options,
     result
   );
 
   await deleteGeneratedFileIfExists(
-    path.join(authDir, "convex.config.ts"),
-    path.join("convex", "auth", "convex.config.ts"),
+    path.join(zenDir, "shared.ts"),
+    path.join("convex", "zen", "shared.ts"),
     options,
     result
   );
 
   await deleteGeneratedFileIfExists(
-    path.join(authDir, "zen", "generated.ts"),
-    path.join("convex", "auth", "zen", "generated.ts"),
+    path.join(zenDir, "_auth.ts"),
+    path.join("convex", "zen", "_auth.ts"),
     options,
     result
   );
 
   await deleteGeneratedFileIfExists(
-    path.join(pluginDir, "metaGenerated.ts"),
-    path.join("convex", "auth", "plugin", "metaGenerated.ts"),
+    path.join(zenDir, "_oauth.ts"),
+    path.join("convex", "zen", "_oauth.ts"),
     options,
     result
   );
 
   await deleteGeneratedFileIfExists(
-    path.join(authDir, "_runtime.ts"),
-    path.join("convex", "auth", "_runtime.ts"),
+    path.join(zenDir, "_meta.ts"),
+    path.join("convex", "zen", "_meta.ts"),
     options,
     result
   );
 
   await deleteGeneratedFileIfExists(
-    path.join(authDir, "gateway.ts"),
-    path.join("convex", "auth", "gateway.ts"),
+    path.join(zenDir, "convex.config.ts"),
+    path.join("convex", "zen", "convex.config.ts"),
+    options,
+    result
+  );
+
+  await deleteGeneratedFileIfExists(
+    path.join(componentDir, "shared.ts"),
+    path.join("convex", "zen", "component", "shared.ts"),
+    options,
+    result
+  );
+
+  await deleteGeneratedFileIfExists(
+    path.join(pluginDir, "shared.ts"),
+    path.join("convex", "zen", "plugin", "shared.ts"),
+    options,
+    result
+  );
+
+  await deleteGeneratedFileIfExists(
+    path.join(zenDir, "_runtime.ts"),
+    path.join("convex", "zen", "_runtime.ts"),
+    options,
+    result
+  );
+
+  await deleteGeneratedFileIfExists(
+    path.join(zenDir, "gateway.ts"),
+    path.join("convex", "zen", "gateway.ts"),
     options,
     result
   );
 
   await deleteGeneratedTreeIfExists(
-    path.join(authDir, "_generated"),
-    path.join("convex", "auth", "_generated"),
+    legacyAuthDir,
+    path.join("convex", "auth"),
     options,
     result
   );
@@ -1528,13 +1700,6 @@ export async function generateAuthFunctions(
   await deleteGeneratedTreeIfExists(
     legacyAuthComponentDir,
     path.join("convex", "authComponent"),
-    options,
-    result
-  );
-
-  await deleteGeneratedTreeIfExists(
-    legacyZenDir,
-    path.join("convex", "zen"),
     options,
     result
   );

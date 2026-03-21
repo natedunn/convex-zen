@@ -37,7 +37,7 @@ const providers = [
 		: null,
 ].filter((provider) => provider !== null);
 
-export const zenConfig = defineConvexZen({
+const zenConfig = defineConvexZen({
 	emailProvider: {
 		sendVerificationEmail: async (to: string, code: string) => {
 			console.log(`\n📧 Verification email → ${to}\n   Code: ${code}\n`);
@@ -66,6 +66,8 @@ export const zenConfig = defineConvexZen({
 		}),
 	],
 });
+
+export default zenConfig;
 
 export function createAuth(component: Record<string, unknown>) {
 	return createConvexZenClient(component, zenConfig);

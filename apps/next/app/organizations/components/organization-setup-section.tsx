@@ -23,7 +23,7 @@ export function OrganizationSetupSection({
   const [organizationName, setOrganizationName] = useState("");
   const [organizationSlug, setOrganizationSlug] = useState("");
   const createOrganizationMutation = useMutation({
-    mutationFn: useConvexMutation(api.auth.plugin.organization.createOrganization),
+    mutationFn: useConvexMutation(api.zen.plugin.organization.createOrganization),
     onSuccess: async () => {
       setOrganizationName("");
       setOrganizationSlug("");

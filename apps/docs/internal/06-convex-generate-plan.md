@@ -8,9 +8,15 @@
 
 ## Generated outputs
 
-- `convex/auth/core.ts`
-- `convex/auth/plugin/<plugin>.ts`
-- `convex/auth/plugin/metaGenerated.ts`
+- `convex/zen/core.ts`
+- `convex/zen/component/convex.config.ts`
+- `convex/zen/component/_runtime.ts`
+- `convex/zen/component/gateway.ts`
+- `convex/zen/plugin/<plugin>.ts`
+- `convex/zen/component/<plugin>/gateway.ts`
+- `convex/zen/_generated/auth.ts`
+- `convex/zen/_generated/meta.ts`
+- `convex/zen/_generated/oauth.ts` _(only when OAuth is enabled)_
 
 `convex/_generated/*` remains Convex-owned.
 
@@ -31,13 +37,13 @@ Behavior:
 1. Read `convex/authConvex.ts`.
 2. Detect enabled built-in plugins (currently admin).
 3. Generate core + plugin wrappers.
-4. Generate `metaGenerated.ts` by collecting plugin function kinds (`query|mutation|action`) from plugin wrapper files.
+4. Generate `convex/zen/_generated/meta.ts` by collecting plugin function kinds (`query|mutation|action`) from plugin wrapper files.
 5. Print created/updated/deleted/unchanged summary.
 
 ## Runtime contract
 
-- `createTanStackAuthServer({ convexFunctions: api.auth, pluginMeta: authPluginMeta })`
-- `createTanStackAuthClient({ convexFunctions: api.auth, pluginMeta: authPluginMeta })`
+- `createTanStackAuthServer({ convexFunctions: api.zen, pluginMeta: authPluginMeta })`
+- `createTanStackAuthClient({ convexFunctions: api.zen, pluginMeta: authPluginMeta })`
 - Auto route path: `/api/auth/plugin/<plugin>/<function>`
 - Auto client path: `authClient.plugin.<plugin>.<function>()`
 
@@ -51,8 +57,8 @@ Behavior:
 
 When adding plugin features:
 
-1. Add/update wrapper exports in `convex/auth/plugin/<plugin>.ts`.
-2. Re-run `npx convex-zen generate` (refreshes `metaGenerated.ts`).
+1. Add/update wrapper exports in `convex/zen/plugin/<plugin>.ts`.
+2. Re-run `npx convex-zen generate` (refreshes `convex/zen/_generated/meta.ts`).
 3. Re-run `npx convex codegen`.
 4. Verify:
    - server route works at `/api/auth/plugin/<plugin>/<function>`

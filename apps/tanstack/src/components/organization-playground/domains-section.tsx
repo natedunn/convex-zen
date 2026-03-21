@@ -6,18 +6,18 @@ import { formatTimestamp, messageFromError } from "./shared";
 
 export function DomainsSection({ organizationId }: { organizationId: string }) {
 	const domainsQuery = useQuery({
-		...convexQuery(api.auth.plugin.organization.listDomains, {
+		...convexQuery(api.zen.plugin.organization.listDomains, {
 			organizationId,
 		}),
 	});
 	const canCreateDomainQuery = useQuery({
-		...convexQuery(api.auth.plugin.organization.hasPermission, {
+		...convexQuery(api.zen.plugin.organization.hasPermission, {
 			organizationId,
 			permission: { resource: "domain", action: "create" },
 		}),
 	});
 	const canVerifyDomainQuery = useQuery({
-		...convexQuery(api.auth.plugin.organization.hasPermission, {
+		...convexQuery(api.zen.plugin.organization.hasPermission, {
 			organizationId,
 			permission: { resource: "domain", action: "verify" },
 		}),
@@ -25,7 +25,7 @@ export function DomainsSection({ organizationId }: { organizationId: string }) {
 
 	const [domainHostname, setDomainHostname] = useState("");
 	const addDomainMutation = useMutation({
-		mutationFn: useConvexMutation(api.auth.plugin.organization.addDomain),
+		mutationFn: useConvexMutation(api.zen.plugin.organization.addDomain),
 		onSuccess: () => {
 			setDomainHostname("");
 			void domainsQuery.refetch();
@@ -33,7 +33,7 @@ export function DomainsSection({ organizationId }: { organizationId: string }) {
 	});
 	const verifyDomainMutation = useMutation({
 		mutationFn: useConvexMutation(
-			api.auth.plugin.organization.markDomainVerified,
+			api.zen.plugin.organization.markDomainVerified,
 		),
 		onSuccess: () => {
 			void domainsQuery.refetch();

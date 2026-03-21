@@ -891,7 +891,7 @@ function createTanStackRouteAuthClient<
   ) {
     throw new Error(
       'createTanStackAuthClient requires "pluginMeta" when plugins is "auto" and convexFunctions is provided. ' +
-        "Pass generated authMeta/authPluginMeta (convex/auth/generated.ts) " +
+        "Pass generated authMeta/authPluginMeta (convex/zen/_generated/meta.ts) " +
       'or disable auto plugins with plugins: [].'
     );
   }
@@ -1323,7 +1323,7 @@ export function createTanStackAuthClient<
   const pluginMeta = resolvePluginMetaFromOptions(queryOptions);
   if (hasPluginFns && !pluginMeta) {
     throw new Error(
-      'createTanStackAuthClient requires plugin metadata. Pass "meta" from convex/auth/generated.ts or "pluginMeta".'
+      'createTanStackAuthClient requires plugin metadata. Pass "meta" from convex/zen/_generated/meta.ts or "pluginMeta".'
     );
   }
   const clientPluginRoot = readMember(authClient, "plugin");

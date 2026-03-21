@@ -12,7 +12,7 @@ export function PermissionProbeSection({
 }) {
   const convex = useConvex();
   const permissionListQuery = useQuery({
-    ...convexQuery(api.auth.plugin.organization.listAvailablePermissions, {
+    ...convexQuery(api.zen.plugin.organization.listAvailablePermissions, {
       organizationId,
     }),
   });
@@ -57,7 +57,7 @@ export function PermissionProbeSection({
           setPermissionError(null);
           try {
             const allowed = await convex.query(
-              api.auth.plugin.organization.hasPermission,
+              api.zen.plugin.organization.hasPermission,
               {
                 organizationId,
                 permission: {
