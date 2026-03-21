@@ -28,7 +28,7 @@ Current demo integration:
 
 - Shared TanStack auth setup is centralized in `apps/tanstack/src/lib/auth-server.ts`
 - `getSession` server function wrapper and `authClient` are centralized in `apps/tanstack/src/lib/auth-client.ts`
-- sign-in/sign-out transport is handled by dynamic API route `apps/tanstack/src/routes/api.auth.$.tsx`
+- sign-in/sign-out transport is handled by dynamic API route `apps/tanstack/src/routes/api.zen.$.tsx`
 - Provider is mounted in `apps/tanstack/src/routes/__root.tsx`
 - `initialSession` is sourced from root route SSR `beforeLoad`
 - `authClient` includes `getSession`, `signIn.email`, and `signOut`

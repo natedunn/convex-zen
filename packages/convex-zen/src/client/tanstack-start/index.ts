@@ -131,7 +131,7 @@ export interface TanStackStartConvexReactStartOptions
    */
   coreMeta?: AuthCoreMeta;
   /**
-   * Generated auth metadata (`core` + `plugin`) from `convex/auth/generated.ts`.
+   * Generated auth metadata (`core` + `plugin`) from `convex/zen/_generated/meta.ts`.
    */
   meta?: AuthMeta;
   /**
@@ -1427,7 +1427,7 @@ export function createTanStackAuthServer(
   ) {
     throw new Error(
       'createTanStackAuthServer requires "pluginMeta" when plugins is "auto". ' +
-        "Pass generated authMeta/authPluginMeta (convex/auth/generated.ts) " +
+        "Pass generated authMeta/authPluginMeta (convex/zen/_generated/meta.ts) " +
         'or disable auto plugins with plugins: [].'
     );
   }

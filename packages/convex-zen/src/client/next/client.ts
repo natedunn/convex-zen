@@ -595,7 +595,7 @@ function createNextQueryAuthClient<
   ) {
     throw new Error(
       'createNextAuthClient requires "pluginMeta" when plugins is "auto" and convexFunctions is provided. ' +
-        "Pass generated authMeta/authPluginMeta (convex/auth/generated.ts) " +
+        "Pass generated authMeta/authPluginMeta (convex/zen/_generated/meta.ts) " +
         'or disable auto plugins with plugins: [].'
     );
   }

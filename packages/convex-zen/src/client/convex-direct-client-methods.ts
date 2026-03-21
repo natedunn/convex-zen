@@ -184,7 +184,7 @@ export function buildDirectConvexClientExtensions(
   if (hasPluginFunctionRefs(convexFunctions) && options.pluginMeta === undefined) {
     throw new Error(
       `${options.clientName} requires "pluginMeta" when convexFunctions.plugin is provided. ` +
-        "Pass generated authMeta/authPluginMeta (convex/auth/generated.ts)."
+        "Pass generated authMeta/authPluginMeta (convex/zen/_generated/meta.ts)."
     );
   }
 

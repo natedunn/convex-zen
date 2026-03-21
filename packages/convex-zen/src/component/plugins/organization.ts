@@ -337,25 +337,19 @@ function serializeAvailablePermissions(accessControl?: AccessControlMap) {
   };
 }
 
-async function requireUser(
+async function resolveActorEmail(
   db: DatabaseReader,
-  userId: Id<"users">
-): Promise<void> {
-  const user = await db.get(userId);
-  if (user === null) {
-    throw new Error("Unauthorized");
-  }
-}
-
-async function resolveActorEmailFromDb(
-  db: DatabaseReader,
-  actorUserId: Id<"users">
+  actorUserId: Id<"users">,
+  actorEmail?: string
 ): Promise<string> {
+  if (typeof actorEmail === "string" && actorEmail.trim().length > 0) {
+    return normalizeEmail(actorEmail);
+  }
   const user = await db.get(actorUserId);
   if (!user || !user.email) {
     throw new Error("Unauthorized");
   }
-  return user.email;
+  return normalizeEmail(user.email);
 }
 
 async function getOrganizationBySlug(
@@ -578,7 +572,6 @@ export async function createOrganizationForUser(
   organization: OrganizationRecord;
   membership: ReturnType<typeof sanitizeMembership>;
 }> {
-  await requireUser(db, args.actorUserId);
   if (args.allowUserOrganizationCreation === false) {
     throw new Error("Organization creation is disabled");
   }
@@ -688,7 +681,6 @@ export async function listOrganizationsForUser(
     membership: ReturnType<typeof sanitizeMembership>;
   }>;
 }> {
-  await requireUser(db, actorUserId);
   const memberships = await db
     .query("organizationMembers")
     .withIndex("by_userId", (q) => q.eq("userId", actorUserId))
@@ -735,7 +727,6 @@ export async function getOrganizationMembershipForActor(
     organizationId: Id<"organizations">;
   }
 ): Promise<OrganizationMemberRecord | null> {
-  await requireUser(db, args.actorUserId);
   const membership = await getOrganizationMembership(
     db,
     args.organizationId,
@@ -918,6 +909,7 @@ export async function listIncomingOrganizationInvitationsForUser(
   db: DatabaseReader,
   args: {
     actorUserId: Id<"users">;
+    actorEmail?: string;
   }
 ): Promise<
   Array<
@@ -926,7 +918,11 @@ export async function listIncomingOrganizationInvitationsForUser(
     }
   >
 > {
-  const actorEmail = await resolveActorEmailFromDb(db, args.actorUserId);
+  const actorEmail = await resolveActorEmail(
+    db,
+    args.actorUserId,
+    args.actorEmail
+  );
   const now = Date.now();
   const invitations = await db
     .query("organizationInvitations")
@@ -956,11 +952,16 @@ async function getIncomingInvitationForActor(
   args: {
     actorUserId: Id<"users">;
     invitationId: Id<"organizationInvitations">;
+    actorEmail?: string;
   }
 ): Promise<{
   invitation: OrganizationInvitationRecord;
 }> {
-  const actorEmail = await resolveActorEmailFromDb(db, args.actorUserId);
+  const actorEmail = await resolveActorEmail(
+    db,
+    args.actorUserId,
+    args.actorEmail
+  );
   const invitation = await db.get(args.invitationId);
   if (!invitation) {
     throw new Error("Invitation not found");
@@ -1029,10 +1030,15 @@ export async function acceptOrganizationInvitation(
   args: {
     actorUserId: Id<"users">;
     token: string;
+    actorEmail?: string;
     rolePermissions?: RolePermissions;
   }
 ): Promise<ReturnType<typeof sanitizeInvitation>> {
-  const actorEmail = await resolveActorEmailFromDb(db, args.actorUserId);
+  const actorEmail = await resolveActorEmail(
+    db,
+    args.actorUserId,
+    args.actorEmail
+  );
   const tokenHash = await hashToken(args.token);
   const invitation = await db
     .query("organizationInvitations")
@@ -1055,6 +1061,7 @@ export async function acceptIncomingOrganizationInvitation(
   args: {
     actorUserId: Id<"users">;
     invitationId: Id<"organizationInvitations">;
+    actorEmail?: string;
   }
 ): Promise<ReturnType<typeof sanitizeInvitation>> {
   const { invitation } = await getIncomingInvitationForActor(db, args);
@@ -1103,6 +1110,7 @@ export async function declineIncomingOrganizationInvitation(
   args: {
     actorUserId: Id<"users">;
     invitationId: Id<"organizationInvitations">;
+    actorEmail?: string;
   }
 ): Promise<ReturnType<typeof sanitizeInvitation>> {
   const { invitation } = await getIncomingInvitationForActor(db, args);

@@ -20,15 +20,15 @@ export function InvitationsSection({
   onMembershipChanged: () => Promise<unknown>;
 }) {
   const invitationsQuery = useQuery(
-    convexQuery(api.auth.plugin.organization.listInvitations, {
+    convexQuery(api.zen.plugin.organization.listInvitations, {
       organizationId,
     })
   );
   const rolesQuery = useQuery(
-    convexQuery(api.auth.plugin.organization.listRoles, { organizationId })
+    convexQuery(api.zen.plugin.organization.listRoles, { organizationId })
   );
   const canCreateInvitationQuery = useQuery(
-    convexQuery(api.auth.plugin.organization.hasPermission, {
+    convexQuery(api.zen.plugin.organization.hasPermission, {
       organizationId,
       permission: { resource: "invitation", action: "create" },
     })
@@ -41,9 +41,9 @@ export function InvitationsSection({
 
   const roleOptions = buildRoleOptions(rolesQuery.data?.roles ?? []);
   const inviteMemberMutation = useMutation({
-    mutationFn: useConvexMutation(api.auth.plugin.organization.inviteMember),
+    mutationFn: useConvexMutation(api.zen.plugin.organization.inviteMember),
     onSuccess: (
-      result: FunctionReturnType<typeof api.auth.plugin.organization.inviteMember>
+      result: FunctionReturnType<typeof api.zen.plugin.organization.inviteMember>
     ) => {
       setInviteEmail("");
       setInviteRoleValue("member");
@@ -52,7 +52,7 @@ export function InvitationsSection({
     },
   });
   const acceptByTokenMutation = useMutation({
-    mutationFn: useConvexMutation(api.auth.plugin.organization.acceptInvitation),
+    mutationFn: useConvexMutation(api.zen.plugin.organization.acceptInvitation),
     onSuccess: async () => {
       setAcceptToken("");
       await Promise.all([invitationsQuery.refetch(), onMembershipChanged()]);

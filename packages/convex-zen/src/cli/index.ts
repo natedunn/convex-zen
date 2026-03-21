@@ -15,7 +15,7 @@ Usage:
   convex-zen generate [--cwd <path>] [--check]
 
 Commands:
-  generate    Generate Convex auth function wrappers in convex/auth/
+  generate    Generate Convex auth function wrappers in convex/zen/
 
 Flags:
   --cwd       Workspace root (default: current working directory)

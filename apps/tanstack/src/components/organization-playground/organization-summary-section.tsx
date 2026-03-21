@@ -10,7 +10,7 @@ export function OrganizationSummarySection({
   organization: OrganizationListEntry["organization"];
 }) {
   const membershipQuery = useQuery(
-    convexQuery(api.auth.plugin.organization.getMembership, {
+    convexQuery(api.zen.plugin.organization.getMembership, {
       organizationId: organization._id,
     })
   );

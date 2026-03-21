@@ -10,7 +10,7 @@ export const Route = createFileRoute("/signup")({
 
 function SignUpPage() {
   const signUpMutation = useMutation({
-    mutationFn: useConvexMutation(api.auth.core.signUp),
+    mutationFn: useConvexMutation(api.zen.core.signUp),
   });
   const navigate = useNavigate();
 

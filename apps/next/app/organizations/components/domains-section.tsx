@@ -12,16 +12,16 @@ export function DomainsSection({
   organizationId: string;
 }) {
   const domainsQuery = useQuery(
-    convexQuery(api.auth.plugin.organization.listDomains, { organizationId })
+    convexQuery(api.zen.plugin.organization.listDomains, { organizationId })
   );
   const canCreateDomainQuery = useQuery(
-    convexQuery(api.auth.plugin.organization.hasPermission, {
+    convexQuery(api.zen.plugin.organization.hasPermission, {
       organizationId,
       permission: { resource: "domain", action: "create" },
     })
   );
   const canVerifyDomainQuery = useQuery(
-    convexQuery(api.auth.plugin.organization.hasPermission, {
+    convexQuery(api.zen.plugin.organization.hasPermission, {
       organizationId,
       permission: { resource: "domain", action: "verify" },
     })
@@ -29,14 +29,14 @@ export function DomainsSection({
 
   const [domainHostname, setDomainHostname] = useState("");
   const addDomainMutation = useMutation({
-    mutationFn: useConvexMutation(api.auth.plugin.organization.addDomain),
+    mutationFn: useConvexMutation(api.zen.plugin.organization.addDomain),
     onSuccess: () => {
       setDomainHostname("");
       void domainsQuery.refetch();
     },
   });
   const verifyDomainMutation = useMutation({
-    mutationFn: useConvexMutation(api.auth.plugin.organization.markDomainVerified),
+    mutationFn: useConvexMutation(api.zen.plugin.organization.markDomainVerified),
     onSuccess: () => {
       void domainsQuery.refetch();
     },

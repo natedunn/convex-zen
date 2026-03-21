@@ -16,25 +16,25 @@ export function MembersSection({
   organizationId: string;
 }) {
   const membersQuery = useQuery(
-    convexQuery(api.auth.plugin.organization.listMembers, { organizationId })
+    convexQuery(api.zen.plugin.organization.listMembers, { organizationId })
   );
   const rolesQuery = useQuery(
-    convexQuery(api.auth.plugin.organization.listRoles, { organizationId })
+    convexQuery(api.zen.plugin.organization.listRoles, { organizationId })
   );
   const canUpdateMembersQuery = useQuery(
-    convexQuery(api.auth.plugin.organization.hasPermission, {
+    convexQuery(api.zen.plugin.organization.hasPermission, {
       organizationId,
       permission: { resource: "member", action: "update" },
     })
   );
   const canDeleteMembersQuery = useQuery(
-    convexQuery(api.auth.plugin.organization.hasPermission, {
+    convexQuery(api.zen.plugin.organization.hasPermission, {
       organizationId,
       permission: { resource: "member", action: "delete" },
     })
   );
   const canTransferQuery = useQuery(
-    convexQuery(api.auth.plugin.organization.hasPermission, {
+    convexQuery(api.zen.plugin.organization.hasPermission, {
       organizationId,
       permission: { resource: "organization", action: "transfer" },
     })
@@ -61,19 +61,19 @@ export function MembersSection({
   }, [members]);
 
   const setMemberRoleMutation = useMutation({
-    mutationFn: useConvexMutation(api.auth.plugin.organization.setMemberRole),
+    mutationFn: useConvexMutation(api.zen.plugin.organization.setMemberRole),
     onSuccess: () => {
       void membersQuery.refetch();
     },
   });
   const removeMemberMutation = useMutation({
-    mutationFn: useConvexMutation(api.auth.plugin.organization.removeMember),
+    mutationFn: useConvexMutation(api.zen.plugin.organization.removeMember),
     onSuccess: () => {
       void membersQuery.refetch();
     },
   });
   const transferOwnershipMutation = useMutation({
-    mutationFn: useConvexMutation(api.auth.plugin.organization.transferOwnership),
+    mutationFn: useConvexMutation(api.zen.plugin.organization.transferOwnership),
     onSuccess: () => {
       void membersQuery.refetch();
     },

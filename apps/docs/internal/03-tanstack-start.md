@@ -29,8 +29,8 @@ File: `packages/convex-zen/src/client/tanstack-start-plugin-meta.ts`
 
 Auto plugin routes use:
 
-1. `convexFunctions: api.auth`
-2. generated `authMeta` from `convex/auth/metaGenerated.ts`
+1. `convexFunctions: api.zen`
+2. generated `authMeta` from `convex/zen/shared.ts`
 
 Route shape:
 
@@ -41,7 +41,7 @@ Client shape:
 
 - `authClient.plugin.<pluginName>.<functionName>(args)`
 - Example: `authClient.plugin.admin.listUsers({ limit: 50 })`
-- `authClient.core.<functionName>(args)` (auto-inferred from `api.auth.core.*`)
+- `authClient.core.<functionName>(args)` (auto-inferred from `api.zen.core.*`)
 - Example: `authClient.core.signUp({ email, password })`
 - non-conflicting core methods are also auto-aliased at root (for example `authClient.signUp(...)`)
 - conflicts throw with a descriptive error (reserved root keys include: `getSession`, `getToken`, `clearToken`, `connectConvexAuth`, `signIn`, `signOut`, `plugin`, `core`)
@@ -52,7 +52,7 @@ Client shape:
 // src/lib/auth-server.ts
 import { createTanStackAuthServer } from "convex-zen/tanstack-start";
 import { api } from "../../convex/_generated/api";
-import { authMeta } from "../../convex/auth/metaGenerated";
+import { authMeta } from "../../convex/zen/shared";
 
 export const {
   handler,
@@ -62,7 +62,7 @@ export const {
   fetchAuthAction,
 } = createTanStackAuthServer({
   convexUrl: import.meta.env.VITE_CONVEX_URL,
-  convexFunctions: api.auth,
+  convexFunctions: api.zen,
   meta: authMeta,
 });
 ```
@@ -71,10 +71,10 @@ export const {
 // src/lib/auth-client.ts
 import { createTanStackAuthClient } from "convex-zen/tanstack-start";
 import { api } from "../../convex/_generated/api";
-import { authMeta } from "../../convex/auth/metaGenerated";
+import { authMeta } from "../../convex/zen/shared";
 
 export const authClient = createTanStackAuthClient({
-  convexFunctions: api.auth,
+  convexFunctions: api.zen,
   meta: authMeta,
 });
 ```
@@ -82,7 +82,7 @@ export const authClient = createTanStackAuthClient({
 ```ts
 // Optional: runtime-first setup (recommended for direct convexQuery usage)
 export const authClient = createTanStackAuthClient({
-  convexFunctions: api.auth,
+  convexFunctions: api.zen,
   meta: authMeta,
   runtime: {
     // default memory cache; set to "localStorage" only if you accept XSS tradeoffs
@@ -132,8 +132,8 @@ authClient.connectConvexAuth(convex);
   - `useQuery(authClient.currentUser.query())`
   - `useQuery(authClient.plugin.admin.listUsers.query({ limit: 10 }))`
 - Direct Convex query factories (when desired):
-  - `useQuery(convexQuery(api.auth.core.currentUser, {}))`
-  - `useQuery(convexQuery(api.auth.plugin.admin.listUsers, { limit: 10 }))`
+  - `useQuery(convexQuery(api.zen.core.currentUser, {}))`
+  - `useQuery(convexQuery(api.zen.plugin.admin.listUsers, { limit: 10 }))`
 
 ### 3) Direct-mode emphasis
 
@@ -159,7 +159,7 @@ const getCurrentUserServerFn = createServerFn({ method: "GET" }).handler(
     }
     const convex = new ConvexHttpClient(import.meta.env.VITE_CONVEX_URL);
     convex.setAuth(token);
-    return convex.query(api.auth.core.currentUser, {});
+    return convex.query(api.zen.core.currentUser, {});
   }
 );
 ```
@@ -172,7 +172,7 @@ which is the easiest authenticated SSR path when you do not need manual client s
 `createTanStackAuthClient(...)` keeps route-backed auth (`getSession`, `signIn`, `signOut`)
 and augments plugin/core methods with framework-agnostic query/mutation/action helpers.
 
-Core wrappers from `api.auth.core.*` are also auto-exposed as route methods at
+Core wrappers from `api.zen.core.*` are also auto-exposed as route methods at
 `authClient.core.*` and routed through `POST /api/auth/core/<function-name>`.
 Generated session invalidation wrapper is `core.invalidateSession(...)`; built-in
 client sign-out remains `authClient.signOut()`.
@@ -205,7 +205,7 @@ subscriptions for `convexQuery(...)`.
 For authenticated current-user reads in HttpOnly-cookie mode, prefer:
 - `useQuery(authClient.currentUser.query())`
 
-Direct Convex query options (for example `convexQuery(api.auth.core.currentUser, {})`)
+Direct Convex query options (for example `convexQuery(api.zen.core.currentUser, {})`)
 run unauthenticated by default unless you connect a Convex client token bridge
 with `authClient.connectConvexAuth(convexClient)`.
 `authClient.currentUser.query()` uses a dedicated query key prefix (`convexAuthQuery`)
@@ -231,7 +231,7 @@ To opt in, enable `tokenSync` on the auth client:
 
 ```ts
 export const authClient = createTanStackAuthClient({
-  convexFunctions: api.auth,
+  convexFunctions: api.zen,
   meta: authMeta,
   tokenSync: {
     enabled: true,
