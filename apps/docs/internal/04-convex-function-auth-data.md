@@ -16,7 +16,7 @@ With `npx convex-zen generate`:
 - auth helper: `convex/zen/_generated/auth.ts`
 - plugin kind metadata: `convex/zen/_generated/meta.ts`
 
-`meta.ts` is consumed by TanStack auth server/client auto mode.
+`convex/zen/_generated/meta.ts` is consumed by TanStack auth server/client auto mode.
 
 ## TanStack flow
 

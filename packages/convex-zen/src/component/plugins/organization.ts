@@ -575,6 +575,9 @@ export async function createOrganizationForUser(
   if (args.allowUserOrganizationCreation === false) {
     throw new Error("Organization creation is disabled");
   }
+  if (!(await db.get(args.actorUserId))) {
+    throw new Error("Unauthorized");
+  }
   const normalizedSlug = normalizeSlug(args.slug);
   const existing = await getOrganizationBySlug(db, normalizedSlug);
   if (existing) {
