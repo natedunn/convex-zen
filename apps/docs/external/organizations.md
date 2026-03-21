@@ -40,7 +40,7 @@ Then regenerate wrappers:
 npx convex-zen generate
 ```
 
-This adds `convex/zen/plugin/organization.ts` and updates `convex/zen/shared.ts`.
+This adds `convex/zen/plugin/organization.ts` and updates `convex/zen/_generated/meta.ts`.
 
 ## What v1 includes
 
