@@ -820,14 +820,11 @@ function renderComponentPluginFacadeFile(options: {
 });`;
       }
       if (fn.auth === "optionalActor") {
-        const optionalActorEmail =
-          actorEmailMethods.has(functionName)
-            ? `
-    const actorEmail = await resolveActorEmail(ctx);`
-            : "";
+        const optionalActorEmail = actorEmailMethods.has(functionName)
+          ? `    const actorEmail = await resolveActorEmail(ctx);\n`
+          : "";
         const optionalActorEmailSpread = actorEmailMethods.has(functionName)
-          ? `
-      ...(actorEmail ? { actorEmail } : {}),`
+          ? `      ...(actorEmail ? { actorEmail } : {}),\n`
           : "";
         return `export const ${functionName} = ${kindFactory}({
   args: ${argsSource},
@@ -837,13 +834,11 @@ function renderComponentPluginFacadeFile(options: {
     if (!actorUserId) {
       return false;
     }
-    ${optionalActorEmail}
-    const { actorUserId: _ignoredActorUserId, ...inputArgs } = args as Record<string, unknown>;
+${optionalActorEmail}    const { actorUserId: _ignoredActorUserId, ...inputArgs } = args as Record<string, unknown>;
     return ${runtimeAccess}.${fn.runtimeMethod}(ctx, {
       ...inputArgs,
       actorUserId,
-      ${optionalActorEmailSpread}
-    } as any);
+${optionalActorEmailSpread}    } as any);
   },
 });`;
       }
