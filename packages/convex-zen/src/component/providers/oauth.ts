@@ -319,7 +319,7 @@ export async function handleOAuthCallbackForProvider(
     : undefined;
 
   const result = await ctx.runMutation(
-    (internal.providers.oauth as any).finalizeCallback,
+    internal.providers.oauth.finalizeCallback,
     {
       providerId: provider.id,
       accountId: profile.accountId,
