@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "../_generated/server";
 import type { DatabaseReader, DatabaseWriter } from "../_generated/server";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import { omitUndefined } from "../lib/object";
 
 type UserPatchFields = {
@@ -149,7 +149,7 @@ export async function upsertAdminStateForUser(
     await db.patch(existing._id, {
       ...normalizedPatch,
       updatedAt: now,
-    } as any);
+    } as Partial<Doc<"adminUsers">>);
     return existing._id;
   }
 
@@ -178,7 +178,7 @@ export async function clearExpiredAdminBan(
     banReason: undefined,
     banExpires: undefined,
     updatedAt: Date.now(),
-  } as any);
+  } as unknown as Partial<Doc<"adminUsers">>);
 }
 
 export async function deleteUserWithRelations(
