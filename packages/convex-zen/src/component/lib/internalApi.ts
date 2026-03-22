@@ -53,6 +53,7 @@ export const internal = anyApi as unknown as {
       storeOAuthState: InternalMutation;
       consumeOAuthState: InternalMutation;
       cleanup: InternalMutation;
+      finalizeCallback: InternalMutation;
     };
   };
 };
