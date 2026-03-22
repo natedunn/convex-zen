@@ -10,6 +10,7 @@
 
 import type * as _runtime from "../_runtime.js";
 import type * as admin_gateway from "../admin/gateway.js";
+import type * as example_gateway from "../example/gateway.js";
 import type * as gateway from "../gateway.js";
 import type * as organization_gateway from "../organization/gateway.js";
 
@@ -23,6 +24,7 @@ import { anyApi, componentsGeneric } from "convex/server";
 const fullApi: ApiFromModules<{
   _runtime: typeof _runtime;
   "admin/gateway": typeof admin_gateway;
+  "example/gateway": typeof example_gateway;
   gateway: typeof gateway;
   "organization/gateway": typeof organization_gateway;
 }> = anyApi as any;
@@ -183,6 +185,28 @@ export const components = componentsGeneric() as unknown as {
         "mutation",
         "internal",
         { code: string; email: string },
+        any
+      >;
+    };
+  };
+  exampleComponent: {
+    gateway: {
+      listLogs: FunctionReference<
+        "query",
+        "internal",
+        { limit?: number; scope?: string },
+        any
+      >;
+      log: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          actorUserId: string;
+          level: "debug" | "info" | "warn" | "error";
+          message: string;
+          scope?: string;
+          tag?: string;
+        },
         any
       >;
     };

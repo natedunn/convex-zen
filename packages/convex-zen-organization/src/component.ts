@@ -4,9 +4,10 @@ import {
   internalQuery,
   type DatabaseReader,
   type DatabaseWriter,
-} from "../_generated/server";
-import type { Id } from "../_generated/dataModel";
-import { generateToken, hashToken } from "../lib/crypto";
+} from "../../convex-zen/src/component/_generated/server";
+import type { Id } from "../../convex-zen/src/component/_generated/dataModel";
+import { generateToken, hashToken } from "../../convex-zen/src/component/lib/crypto";
+import { omitUndefined } from "../../convex-zen/src/component/lib/object";
 
 const OWNER_ROLE = "owner";
 const ADMIN_ROLE = "admin";
@@ -71,7 +72,7 @@ type OrganizationRecord = {
   _id: Id<"organizations">;
   name: string;
   slug: string;
-  logo?: string;
+  logo?: string | undefined;
   createdByUserId: Id<"users">;
   createdAt: number;
   updatedAt: number;
@@ -81,8 +82,8 @@ type OrganizationMemberRecord = {
   organizationId: Id<"organizations">;
   userId: Id<"users">;
   roleType: string;
-  systemRole?: string;
-  customRoleId?: Id<"organizationRoles">;
+  systemRole?: string | undefined;
+  customRoleId?: Id<"organizationRoles"> | undefined;
   createdAt: number;
   updatedAt: number;
 };
@@ -91,7 +92,7 @@ type OrganizationRoleRecord = {
   organizationId: Id<"organizations">;
   name: string;
   slug: string;
-  description?: string;
+  description?: string | undefined;
   permissions: string[];
   createdByUserId: Id<"users">;
   createdAt: number;
@@ -102,14 +103,14 @@ type OrganizationInvitationRecord = {
   organizationId: Id<"organizations">;
   email: string;
   roleType: string;
-  systemRole?: string;
-  customRoleId?: Id<"organizationRoles">;
+  systemRole?: string | undefined;
+  customRoleId?: Id<"organizationRoles"> | undefined;
   invitedByUserId: Id<"users">;
   tokenHash: string;
   expiresAt: number;
-  acceptedAt?: number;
-  cancelledAt?: number;
-  declinedAt?: number;
+  acceptedAt?: number | undefined;
+  cancelledAt?: number | undefined;
+  declinedAt?: number | undefined;
   createdAt: number;
   updatedAt: number;
 };
@@ -118,7 +119,7 @@ type OrganizationDomainRecord = {
   organizationId: Id<"organizations">;
   hostname: string;
   verificationToken: string;
-  verifiedAt?: number;
+  verifiedAt?: number | undefined;
   createdAt: number;
   updatedAt: number;
 };
@@ -205,7 +206,7 @@ function sanitizeMembership(
   membership: OrganizationMemberRecord,
   customRoleName?: string
 ) {
-  return {
+  return omitUndefined({
     _id: membership._id,
     organizationId: membership.organizationId,
     userId: membership.userId,
@@ -219,7 +220,7 @@ function sanitizeMembership(
     createdAt: membership.createdAt,
     updatedAt: membership.updatedAt,
     _creationTime: (membership as { _creationTime?: number })._creationTime,
-  };
+  });
 }
 
 function isInvitationPending(
@@ -238,7 +239,7 @@ function sanitizeInvitation(
   invitation: OrganizationInvitationRecord,
   customRoleName?: string
 ) {
-  return {
+  return omitUndefined({
     _id: invitation._id,
     organizationId: invitation.organizationId,
     email: invitation.email,
@@ -260,11 +261,11 @@ function sanitizeInvitation(
     createdAt: invitation.createdAt,
     updatedAt: invitation.updatedAt,
     _creationTime: (invitation as { _creationTime?: number })._creationTime,
-  };
+  });
 }
 
 function sanitizeDomain(domain: OrganizationDomainRecord) {
-  return {
+  return omitUndefined({
     _id: domain._id,
     organizationId: domain.organizationId,
     hostname: domain.hostname,
@@ -272,11 +273,11 @@ function sanitizeDomain(domain: OrganizationDomainRecord) {
     createdAt: domain.createdAt,
     updatedAt: domain.updatedAt,
     _creationTime: (domain as { _creationTime?: number })._creationTime,
-  };
+  });
 }
 
 function sanitizeRole(role: OrganizationRoleRecord) {
-  return {
+  return omitUndefined({
     _id: role._id,
     organizationId: role.organizationId,
     name: role.name,
@@ -287,7 +288,7 @@ function sanitizeRole(role: OrganizationRoleRecord) {
     createdAt: role.createdAt,
     updatedAt: role.updatedAt,
     _creationTime: (role as { _creationTime?: number })._creationTime,
-  };
+  });
 }
 
 function isOwnerMembership(membership: OrganizationMemberRecord): boolean {
@@ -479,7 +480,7 @@ async function requirePermissionForOrganization(
     organizationId: Id<"organizations">;
     actorUserId: Id<"users">;
     permission: OrganizationPermission;
-    rolePermissions?: RolePermissions;
+    rolePermissions?: RolePermissions | undefined;
   }
 ): Promise<OrganizationMemberRecord> {
   const membership = await requireMembership(
@@ -496,6 +497,17 @@ async function requirePermissionForOrganization(
     throw new Error("Forbidden");
   }
   return membership;
+}
+
+function permissionCheckArgs(
+  args: {
+    organizationId: Id<"organizations">;
+    actorUserId: Id<"users">;
+    permission: OrganizationPermission;
+    rolePermissions?: RolePermissions | undefined;
+  }
+) {
+  return omitUndefined(args);
 }
 
 async function listOrganizationMembersForOrg(
@@ -585,14 +597,14 @@ export async function createOrganizationForUser(
   }
 
   const now = Date.now();
-  const organizationId = await db.insert("organizations", {
+  const organizationId = await db.insert("organizations", omitUndefined({
     name: args.name.trim(),
     slug: normalizedSlug,
     logo: args.logo,
     createdByUserId: args.actorUserId,
     createdAt: now,
     updatedAt: now,
-  });
+  }));
   await db.insert("organizationMembers", {
     organizationId,
     userId: args.actorUserId,
@@ -623,12 +635,12 @@ export async function updateOrganizationByMember(
     logo?: string;
   }
 ): Promise<OrganizationRecord> {
-  await requirePermissionForOrganization(db, {
+  await requirePermissionForOrganization(db, permissionCheckArgs({
     organizationId: args.organizationId,
     actorUserId: args.actorUserId,
     permission: { resource: "organization", action: "update" },
     rolePermissions: args.rolePermissions,
-  });
+  }));
   const organization = await requireOrganization(db, args.organizationId);
   const patch: {
     name?: string;
@@ -666,12 +678,12 @@ export async function deleteOrganizationByMember(
     rolePermissions?: RolePermissions;
   }
 ): Promise<void> {
-  await requirePermissionForOrganization(db, {
+  await requirePermissionForOrganization(db, permissionCheckArgs({
     organizationId: args.organizationId,
     actorUserId: args.actorUserId,
     permission: { resource: "organization", action: "delete" },
     rolePermissions: args.rolePermissions,
-  });
+  }));
   await deleteOrganizationCascade(db, args.organizationId);
 }
 
@@ -714,12 +726,12 @@ export async function getOrganizationById(
     rolePermissions?: RolePermissions;
   }
 ): Promise<OrganizationRecord | null> {
-  await requirePermissionForOrganization(db, {
+  await requirePermissionForOrganization(db, permissionCheckArgs({
     organizationId: args.organizationId,
     actorUserId: args.actorUserId,
     permission: { resource: "organization", action: "read" },
     rolePermissions: args.rolePermissions,
-  });
+  }));
   return await db.get(args.organizationId);
 }
 
@@ -739,7 +751,10 @@ export async function getOrganizationMembershipForActor(
     return null;
   }
   const roleName = await resolveMembershipRoleLabel(db, membership);
-  return sanitizeMembership(membership, roleName) as unknown as OrganizationMemberRecord;
+  return sanitizeMembership(
+    membership,
+    roleName
+  ) as unknown as OrganizationMemberRecord;
 }
 
 export async function listOrganizationMembersByActor(
@@ -762,12 +777,12 @@ export async function listOrganizationMembersByActor(
     }
   >
 > {
-  await requirePermissionForOrganization(db, {
+  await requirePermissionForOrganization(db, permissionCheckArgs({
     organizationId: args.organizationId,
     actorUserId: args.actorUserId,
     permission: { resource: "member", action: "read" },
     rolePermissions: args.rolePermissions,
-  });
+  }));
   const members = await listOrganizationMembersForOrg(db, args.organizationId);
   const result = [];
   for (const member of members) {
@@ -778,13 +793,13 @@ export async function listOrganizationMembersByActor(
     const roleName = await resolveMembershipRoleLabel(db, member);
     result.push({
       ...sanitizeMembership(member, roleName),
-      user: {
+      user: omitUndefined({
         _id: user._id,
         email: user.email,
         emailVerified: user.emailVerified,
         name: user.name,
         image: user.image,
-      },
+      }),
     });
   }
   return result;
@@ -809,12 +824,12 @@ export async function inviteOrganizationMember(
   invitation: ReturnType<typeof sanitizeInvitation>;
   token: string;
 }> {
-  await requirePermissionForOrganization(db, {
+  await requirePermissionForOrganization(db, permissionCheckArgs({
     organizationId: args.organizationId,
     actorUserId: args.actorUserId,
     permission: { resource: "invitation", action: "create" },
     rolePermissions: args.rolePermissions,
-  });
+  }));
   if (args.role.type === SYSTEM_ROLE_TYPE && args.role.systemRole === OWNER_ROLE) {
     throw new Error("Use transferOwnership to assign organization ownership");
   }
@@ -857,7 +872,7 @@ export async function inviteOrganizationMember(
   const tokenHash = await hashToken(token);
   const expiresAt =
     now + Math.max(args.inviteExpiresInMs ?? 7 * 24 * 60 * 60 * 1000, 1);
-  const invitationId = await db.insert("organizationInvitations", {
+  const invitationId = await db.insert("organizationInvitations", omitUndefined({
     organizationId: args.organizationId,
     email: normalizedEmail,
     roleType: args.role.type,
@@ -870,7 +885,7 @@ export async function inviteOrganizationMember(
     expiresAt,
     createdAt: now,
     updatedAt: now,
-  });
+  }));
   const invitation = await db.get(invitationId);
   if (!invitation) {
     throw new Error("Failed to create invitation");
@@ -890,12 +905,12 @@ export async function listOrganizationInvitationsByActor(
     rolePermissions?: RolePermissions;
   }
 ): Promise<Array<ReturnType<typeof sanitizeInvitation>>> {
-  await requirePermissionForOrganization(db, {
+  await requirePermissionForOrganization(db, permissionCheckArgs({
     organizationId: args.organizationId,
     actorUserId: args.actorUserId,
     permission: { resource: "invitation", action: "read" },
     rolePermissions: args.rolePermissions,
-  });
+  }));
   const invitations = await db
     .query("organizationInvitations")
     .withIndex("by_organizationId", (q) => q.eq("organizationId", args.organizationId))
@@ -1007,7 +1022,7 @@ async function completeInvitationAcceptance(
   if (!organization) {
     throw new Error("Organization not found");
   }
-  await db.insert("organizationMembers", {
+  await db.insert("organizationMembers", omitUndefined({
     organizationId: args.invitation.organizationId,
     userId: args.actorUserId,
     roleType: args.invitation.roleType,
@@ -1015,7 +1030,7 @@ async function completeInvitationAcceptance(
     customRoleId: args.invitation.customRoleId,
     createdAt: now,
     updatedAt: now,
-  });
+  }));
   await db.patch(args.invitation._id, {
     acceptedAt: now,
     updatedAt: now,
@@ -1086,12 +1101,12 @@ export async function cancelOrganizationInvitation(
   if (!invitation) {
     throw new Error("Invitation not found");
   }
-  await requirePermissionForOrganization(db, {
+  await requirePermissionForOrganization(db, permissionCheckArgs({
     organizationId: invitation.organizationId,
     actorUserId: args.actorUserId,
     permission: { resource: "invitation", action: "cancel" },
     rolePermissions: args.rolePermissions,
-  });
+  }));
   if (invitation.cancelledAt !== undefined) {
     return sanitizeInvitation(invitation);
   }
@@ -1164,12 +1179,12 @@ export async function removeOrganizationMember(
       throw new Error("Organization owner cannot leave without transferring ownership");
     }
   } else {
-    await requirePermissionForOrganization(db, {
+    await requirePermissionForOrganization(db, permissionCheckArgs({
       organizationId: args.organizationId,
       actorUserId: args.actorUserId,
       permission: { resource: "member", action: "delete" },
       rolePermissions: args.rolePermissions,
-    });
+    }));
   }
   if (isOwnerMembership(targetMembership)) {
     throw new Error("Organization owner cannot be removed");
@@ -1191,12 +1206,12 @@ export async function setOrganizationMemberRole(
     rolePermissions?: RolePermissions;
   }
 ): Promise<ReturnType<typeof sanitizeMembership>> {
-  await requirePermissionForOrganization(db, {
+  await requirePermissionForOrganization(db, permissionCheckArgs({
     organizationId: args.organizationId,
     actorUserId: args.actorUserId,
     permission: { resource: "member", action: "update" },
     rolePermissions: args.rolePermissions,
-  });
+  }));
   const targetMembership = await getOrganizationMembership(
     db,
     args.organizationId,
@@ -1227,7 +1242,7 @@ export async function setOrganizationMemberRole(
     customRoleId:
       args.role.type === CUSTOM_ROLE_TYPE ? args.role.customRoleId : undefined,
     updatedAt: Date.now(),
-  });
+  } as any);
   const updated = await db.get(targetMembership._id);
   if (!updated) {
     throw new Error("Membership not found");
@@ -1245,12 +1260,12 @@ export async function transferOrganizationOwnership(
     rolePermissions?: RolePermissions;
   }
 ): Promise<void> {
-  const currentOwner = await requirePermissionForOrganization(db, {
+  const currentOwner = await requirePermissionForOrganization(db, permissionCheckArgs({
     organizationId: args.organizationId,
     actorUserId: args.actorUserId,
     permission: { resource: "organization", action: "transfer" },
     rolePermissions: args.rolePermissions,
-  });
+  }));
   if (!isOwnerMembership(currentOwner)) {
     throw new Error("Only the current owner can transfer organization ownership");
   }
@@ -1268,13 +1283,13 @@ export async function transferOrganizationOwnership(
     systemRole: ADMIN_ROLE,
     customRoleId: undefined,
     updatedAt: now,
-  });
+  } as any);
   await db.patch(newOwnerMembership._id, {
     roleType: SYSTEM_ROLE_TYPE,
     systemRole: OWNER_ROLE,
     customRoleId: undefined,
     updatedAt: now,
-  });
+  } as any);
 }
 
 export async function createOrganizationRole(
@@ -1290,18 +1305,18 @@ export async function createOrganizationRole(
     rolePermissions?: RolePermissions;
   }
 ): Promise<ReturnType<typeof sanitizeRole>> {
-  await requirePermissionForOrganization(db, {
+  await requirePermissionForOrganization(db, permissionCheckArgs({
     organizationId: args.organizationId,
     actorUserId: args.actorUserId,
     permission: { resource: "role", action: "create" },
     rolePermissions: args.rolePermissions,
-  });
+  }));
   const slug = normalizeRoleSlug(args.slug);
   const existing = await getOrganizationRoleBySlug(db, args.organizationId, slug);
   if (existing) {
     throw new Error("Organization role slug is already in use");
   }
-  const roleId = await db.insert("organizationRoles", {
+  const roleId = await db.insert("organizationRoles", omitUndefined({
     organizationId: args.organizationId,
     name: args.name.trim(),
     slug,
@@ -1310,7 +1325,7 @@ export async function createOrganizationRole(
     createdByUserId: args.actorUserId,
     createdAt: Date.now(),
     updatedAt: Date.now(),
-  });
+  }));
   return sanitizeRole(await requireOrganizationRoleRecord(db, roleId));
 }
 
@@ -1322,12 +1337,12 @@ export async function listOrganizationRolesByActor(
     rolePermissions?: RolePermissions;
   }
 ): Promise<Array<ReturnType<typeof sanitizeRole>>> {
-  await requirePermissionForOrganization(db, {
+  await requirePermissionForOrganization(db, permissionCheckArgs({
     organizationId: args.organizationId,
     actorUserId: args.actorUserId,
     permission: { resource: "role", action: "read" },
     rolePermissions: args.rolePermissions,
-  });
+  }));
   const roles = await db
     .query("organizationRoles")
     .withIndex("by_organizationId", (q) => q.eq("organizationId", args.organizationId))
@@ -1344,12 +1359,12 @@ export async function listAvailableOrganizationPermissionsByActor(
     rolePermissions?: RolePermissions;
   }
 ): Promise<ReturnType<typeof serializeAvailablePermissions>> {
-  await requirePermissionForOrganization(db, {
+  await requirePermissionForOrganization(db, permissionCheckArgs({
     organizationId: args.organizationId,
     actorUserId: args.actorUserId,
     permission: { resource: "accessControl", action: "read" },
     rolePermissions: args.rolePermissions,
-  });
+  }));
   return serializeAvailablePermissions(args.accessControl);
 }
 
@@ -1365,12 +1380,12 @@ export async function getOrganizationRoleByActor(
   if (!role) {
     return null;
   }
-  await requirePermissionForOrganization(db, {
+  await requirePermissionForOrganization(db, permissionCheckArgs({
     organizationId: role.organizationId,
     actorUserId: args.actorUserId,
     permission: { resource: "role", action: "read" },
     rolePermissions: args.rolePermissions,
-  });
+  }));
   return sanitizeRole(role);
 }
 
@@ -1388,12 +1403,12 @@ export async function updateOrganizationRole(
   }
 ): Promise<ReturnType<typeof sanitizeRole>> {
   const role = await requireOrganizationRoleRecord(db, args.roleId);
-  await requirePermissionForOrganization(db, {
+  await requirePermissionForOrganization(db, permissionCheckArgs({
     organizationId: role.organizationId,
     actorUserId: args.actorUserId,
     permission: { resource: "role", action: "update" },
     rolePermissions: args.rolePermissions,
-  });
+  }));
   const patch: Partial<OrganizationRoleRecord> = {
     updatedAt: Date.now(),
   };
@@ -1427,12 +1442,12 @@ export async function deleteOrganizationRole(
   }
 ): Promise<void> {
   const role = await requireOrganizationRoleRecord(db, args.roleId);
-  await requirePermissionForOrganization(db, {
+  await requirePermissionForOrganization(db, permissionCheckArgs({
     organizationId: role.organizationId,
     actorUserId: args.actorUserId,
     permission: { resource: "role", action: "delete" },
     rolePermissions: args.rolePermissions,
-  });
+  }));
   const members = await db
     .query("organizationMembers")
     .withIndex("by_organizationId", (q) => q.eq("organizationId", role.organizationId))
@@ -1461,12 +1476,12 @@ export async function addOrganizationDomain(
     rolePermissions?: RolePermissions;
   }
 ): Promise<ReturnType<typeof sanitizeDomain>> {
-  await requirePermissionForOrganization(db, {
+  await requirePermissionForOrganization(db, permissionCheckArgs({
     organizationId: args.organizationId,
     actorUserId: args.actorUserId,
     permission: { resource: "domain", action: "create" },
     rolePermissions: args.rolePermissions,
-  });
+  }));
   const hostname = normalizeHostname(args.hostname);
   const existing = await db
     .query("organizationDomains")
@@ -1498,12 +1513,12 @@ export async function listOrganizationDomainsByActor(
     rolePermissions?: RolePermissions;
   }
 ): Promise<Array<ReturnType<typeof sanitizeDomain>>> {
-  await requirePermissionForOrganization(db, {
+  await requirePermissionForOrganization(db, permissionCheckArgs({
     organizationId: args.organizationId,
     actorUserId: args.actorUserId,
     permission: { resource: "domain", action: "read" },
     rolePermissions: args.rolePermissions,
-  });
+  }));
   const domains = await db
     .query("organizationDomains")
     .withIndex("by_organizationId", (q) => q.eq("organizationId", args.organizationId))
@@ -1528,12 +1543,12 @@ export async function getOrganizationDomainVerificationChallenge(
   if (!domain) {
     throw new Error("Domain not found");
   }
-  await requirePermissionForOrganization(db, {
+  await requirePermissionForOrganization(db, permissionCheckArgs({
     organizationId: domain.organizationId,
     actorUserId: args.actorUserId,
     permission: { resource: "domain", action: "verify" },
     rolePermissions: args.rolePermissions,
-  });
+  }));
   return {
     domainId: domain._id,
     hostname: domain.hostname,
@@ -1554,12 +1569,12 @@ export async function markOrganizationDomainVerified(
   if (!domain) {
     throw new Error("Domain not found");
   }
-  await requirePermissionForOrganization(db, {
+  await requirePermissionForOrganization(db, permissionCheckArgs({
     organizationId: domain.organizationId,
     actorUserId: args.actorUserId,
     permission: { resource: "domain", action: "verify" },
     rolePermissions: args.rolePermissions,
-  });
+  }));
   await db.patch(domain._id, {
     verifiedAt: Date.now(),
     updatedAt: Date.now(),
@@ -1583,12 +1598,12 @@ export async function removeOrganizationDomain(
   if (!domain) {
     throw new Error("Domain not found");
   }
-  await requirePermissionForOrganization(db, {
+  await requirePermissionForOrganization(db, permissionCheckArgs({
     organizationId: domain.organizationId,
     actorUserId: args.actorUserId,
     permission: { resource: "domain", action: "delete" },
     rolePermissions: args.rolePermissions,
-  });
+  }));
   await db.delete(domain._id);
 }
 

@@ -1,6 +1,8 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
+import { internalMutation } from "./_generated/server";
+import type { Id } from "../../convex-zen/src/component/_generated/dataModel";
+import { pluginMutation, pluginQuery } from "convex-zen/component";
+import { omitUndefined } from "../../convex-zen/src/component/lib/object";
 import {
   acceptIncomingOrganizationInvitation,
   acceptOrganizationInvitation,
@@ -29,6 +31,7 @@ import {
   markOrganizationDomainVerified,
   removeOrganizationDomain,
   removeOrganizationMember,
+  deleteUserOrganizationRelations,
   requireOrganizationPermission,
   requireOrganizationRole,
   resolveOrganizationForHost,
@@ -36,7 +39,7 @@ import {
   transferOrganizationOwnership,
   updateOrganizationByMember,
   updateOrganizationRole,
-} from "../organization";
+} from "./component";
 
 const organizationPermissionValidator = v.object({
   resource: v.string(),
@@ -57,7 +60,8 @@ const organizationRoleAssignmentValidator = v.union(
 const accessControlValidator = v.record(v.string(), v.array(v.string()));
 const rolePermissionsValidator = v.record(v.string(), v.array(v.string()));
 
-export const checkSlug = query({
+export const checkSlug = pluginQuery({
+  auth: "public",
   args: {
     slug: v.string(),
   },
@@ -65,7 +69,8 @@ export const checkSlug = query({
     await checkOrganizationSlugAvailability(ctx.db, slug),
 });
 
-export const createOrganization = mutation({
+export const createOrganization = pluginMutation({
+  auth: "actor",
   args: {
     actorUserId: v.string(),
     allowUserOrganizationCreation: v.optional(v.boolean()),
@@ -77,16 +82,17 @@ export const createOrganization = mutation({
     ctx,
     { actorUserId, allowUserOrganizationCreation, name, slug, logo }
   ) =>
-    await createOrganizationForUser(ctx.db, {
+    await createOrganizationForUser(ctx.db, omitUndefined({
       actorUserId: actorUserId as Id<"users">,
       allowUserOrganizationCreation,
       name,
       slug,
       logo,
-    }),
+    })),
 });
 
-export const updateOrganization = mutation({
+export const updateOrganization = pluginMutation({
+  auth: "actor",
   args: {
     actorUserId: v.string(),
     organizationId: v.string(),
@@ -99,31 +105,33 @@ export const updateOrganization = mutation({
     ctx,
     { actorUserId, organizationId, rolePermissions, name, slug, logo }
   ) =>
-    await updateOrganizationByMember(ctx.db, {
+    await updateOrganizationByMember(ctx.db, omitUndefined({
       actorUserId: actorUserId as Id<"users">,
       organizationId: organizationId as Id<"organizations">,
       rolePermissions,
       name,
       slug,
       logo,
-    }),
+    })),
 });
 
-export const deleteOrganization = mutation({
+export const deleteOrganization = pluginMutation({
+  auth: "actor",
   args: {
     actorUserId: v.string(),
     organizationId: v.string(),
     rolePermissions: v.optional(rolePermissionsValidator),
   },
   handler: async (ctx, { actorUserId, organizationId, rolePermissions }) =>
-    await deleteOrganizationByMember(ctx.db, {
+    await deleteOrganizationByMember(ctx.db, omitUndefined({
       actorUserId: actorUserId as Id<"users">,
       organizationId: organizationId as Id<"organizations">,
       rolePermissions,
-    }),
+    })),
 });
 
-export const listOrganizations = query({
+export const listOrganizations = pluginQuery({
+  auth: "actor",
   args: {
     actorUserId: v.string(),
   },
@@ -131,21 +139,23 @@ export const listOrganizations = query({
     await listOrganizationsForUser(ctx.db, actorUserId as Id<"users">),
 });
 
-export const getOrganization = query({
+export const getOrganization = pluginQuery({
+  auth: "actor",
   args: {
     actorUserId: v.string(),
     organizationId: v.string(),
     rolePermissions: v.optional(rolePermissionsValidator),
   },
   handler: async (ctx, { actorUserId, organizationId, rolePermissions }) =>
-    await getOrganizationById(ctx.db, {
+    await getOrganizationById(ctx.db, omitUndefined({
       actorUserId: actorUserId as Id<"users">,
       organizationId: organizationId as Id<"organizations">,
       rolePermissions,
-    }),
+    })),
 });
 
-export const getMembership = query({
+export const getMembership = pluginQuery({
+  auth: "actor",
   args: {
     actorUserId: v.string(),
     organizationId: v.string(),
@@ -157,21 +167,23 @@ export const getMembership = query({
     }),
 });
 
-export const listMembers = query({
+export const listMembers = pluginQuery({
+  auth: "actor",
   args: {
     actorUserId: v.string(),
     organizationId: v.string(),
     rolePermissions: v.optional(rolePermissionsValidator),
   },
   handler: async (ctx, { actorUserId, organizationId, rolePermissions }) =>
-    await listOrganizationMembersByActor(ctx.db, {
+    await listOrganizationMembersByActor(ctx.db, omitUndefined({
       actorUserId: actorUserId as Id<"users">,
       organizationId: organizationId as Id<"organizations">,
       rolePermissions,
-    }),
+    })),
 });
 
-export const inviteMember = mutation({
+export const inviteMember = pluginMutation({
+  auth: "actor",
   args: {
     actorUserId: v.string(),
     organizationId: v.string(),
@@ -193,47 +205,55 @@ export const inviteMember = mutation({
       rolePermissions,
     }
   ) =>
-    await inviteOrganizationMember(ctx.db, {
+    await inviteOrganizationMember(ctx.db, omitUndefined({
       actorUserId: actorUserId as Id<"users">,
       organizationId: organizationId as Id<"organizations">,
       email,
       role:
         role.type === "system"
-          ? { type: "system", systemRole: role.systemRole }
-          : { type: "custom", customRoleId: role.customRoleId as Id<"organizationRoles"> },
+          ? { type: "system" as const, systemRole: role.systemRole }
+          : {
+              type: "custom" as const,
+              customRoleId: role.customRoleId as Id<"organizationRoles">,
+            },
       accessControl,
       inviteExpiresInMs,
       rolePermissions,
-    }),
+    })),
 });
 
-export const listInvitations = query({
+export const listInvitations = pluginQuery({
+  auth: "actor",
   args: {
     actorUserId: v.string(),
     organizationId: v.string(),
     rolePermissions: v.optional(rolePermissionsValidator),
   },
   handler: async (ctx, { actorUserId, organizationId, rolePermissions }) =>
-    await listOrganizationInvitationsByActor(ctx.db, {
+    await listOrganizationInvitationsByActor(ctx.db, omitUndefined({
       actorUserId: actorUserId as Id<"users">,
       organizationId: organizationId as Id<"organizations">,
       rolePermissions,
-    }),
+    })),
 });
 
-export const listIncomingInvitations = query({
+export const listIncomingInvitations = pluginQuery({
+  auth: "actor",
+  actor: { actorEmail: true },
   args: {
     actorUserId: v.string(),
     actorEmail: v.optional(v.string()),
   },
   handler: async (ctx, { actorUserId, actorEmail }) =>
-    await listIncomingOrganizationInvitationsForUser(ctx.db, {
+    await listIncomingOrganizationInvitationsForUser(ctx.db, omitUndefined({
       actorUserId: actorUserId as Id<"users">,
       actorEmail,
-    }),
+    })),
 });
 
-export const acceptInvitation = mutation({
+export const acceptInvitation = pluginMutation({
+  auth: "actor",
+  actor: { actorEmail: true },
   args: {
     actorUserId: v.string(),
     actorEmail: v.optional(v.string()),
@@ -241,57 +261,63 @@ export const acceptInvitation = mutation({
     rolePermissions: v.optional(rolePermissionsValidator),
   },
   handler: async (ctx, { actorUserId, actorEmail, token, rolePermissions }) =>
-    await acceptOrganizationInvitation(ctx.db, {
+    await acceptOrganizationInvitation(ctx.db, omitUndefined({
       actorUserId: actorUserId as Id<"users">,
       actorEmail,
       token,
       rolePermissions,
-    }),
+    })),
 });
 
-export const acceptIncomingInvitation = mutation({
+export const acceptIncomingInvitation = pluginMutation({
+  auth: "actor",
+  actor: { actorEmail: true },
   args: {
     actorUserId: v.string(),
     actorEmail: v.optional(v.string()),
     invitationId: v.string(),
   },
   handler: async (ctx, { actorUserId, actorEmail, invitationId }) =>
-    await acceptIncomingOrganizationInvitation(ctx.db, {
+    await acceptIncomingOrganizationInvitation(ctx.db, omitUndefined({
       actorUserId: actorUserId as Id<"users">,
       actorEmail,
       invitationId: invitationId as Id<"organizationInvitations">,
-    }),
+    })),
 });
 
-export const cancelInvitation = mutation({
+export const cancelInvitation = pluginMutation({
+  auth: "actor",
   args: {
     actorUserId: v.string(),
     invitationId: v.string(),
     rolePermissions: v.optional(rolePermissionsValidator),
   },
   handler: async (ctx, { actorUserId, invitationId, rolePermissions }) =>
-    await cancelOrganizationInvitation(ctx.db, {
+    await cancelOrganizationInvitation(ctx.db, omitUndefined({
       actorUserId: actorUserId as Id<"users">,
       invitationId: invitationId as Id<"organizationInvitations">,
       rolePermissions,
-    }),
+    })),
 });
 
-export const declineIncomingInvitation = mutation({
+export const declineIncomingInvitation = pluginMutation({
+  auth: "actor",
+  actor: { actorEmail: true },
   args: {
     actorUserId: v.string(),
     actorEmail: v.optional(v.string()),
     invitationId: v.string(),
   },
   handler: async (ctx, { actorUserId, actorEmail, invitationId }) =>
-    await declineIncomingOrganizationInvitation(ctx.db, {
+    await declineIncomingOrganizationInvitation(ctx.db, omitUndefined({
       actorUserId: actorUserId as Id<"users">,
       actorEmail,
       invitationId: invitationId as Id<"organizationInvitations">,
-    }),
+    })),
 });
 
-export const removeMember = mutation({
+export const removeMember = pluginMutation({
+  auth: "actor",
   args: {
     actorUserId: v.string(),
     organizationId: v.string(),
@@ -299,15 +325,16 @@ export const removeMember = mutation({
     rolePermissions: v.optional(rolePermissionsValidator),
   },
   handler: async (ctx, { actorUserId, organizationId, userId, rolePermissions }) =>
-    await removeOrganizationMember(ctx.db, {
+    await removeOrganizationMember(ctx.db, omitUndefined({
       actorUserId: actorUserId as Id<"users">,
       organizationId: organizationId as Id<"organizations">,
       userId: userId as Id<"users">,
       rolePermissions,
-    }),
+    })),
 });
 
-export const setMemberRole = mutation({
+export const setMemberRole = pluginMutation({
+  auth: "actor",
   args: {
     actorUserId: v.string(),
     organizationId: v.string(),
@@ -316,19 +343,23 @@ export const setMemberRole = mutation({
     rolePermissions: v.optional(rolePermissionsValidator),
   },
   handler: async (ctx, { actorUserId, organizationId, userId, role, rolePermissions }) =>
-    await setOrganizationMemberRole(ctx.db, {
+    await setOrganizationMemberRole(ctx.db, omitUndefined({
       actorUserId: actorUserId as Id<"users">,
       organizationId: organizationId as Id<"organizations">,
       userId: userId as Id<"users">,
       role:
         role.type === "system"
-          ? { type: "system", systemRole: role.systemRole }
-          : { type: "custom", customRoleId: role.customRoleId as Id<"organizationRoles"> },
+          ? { type: "system" as const, systemRole: role.systemRole }
+          : {
+              type: "custom" as const,
+              customRoleId: role.customRoleId as Id<"organizationRoles">,
+            },
       rolePermissions,
-    }),
+    })),
 });
 
-export const createRole = mutation({
+export const createRole = pluginMutation({
+  auth: "actor",
   args: {
     actorUserId: v.string(),
     organizationId: v.string(),
@@ -352,7 +383,7 @@ export const createRole = mutation({
       rolePermissions,
     }
   ) =>
-    await createOrganizationRole(ctx.db, {
+    await createOrganizationRole(ctx.db, omitUndefined({
       actorUserId: actorUserId as Id<"users">,
       organizationId: organizationId as Id<"organizations">,
       name,
@@ -361,25 +392,27 @@ export const createRole = mutation({
       permissions,
       accessControl,
       rolePermissions,
-    }),
+    })),
 });
 
-export const listRoles = query({
+export const listRoles = pluginQuery({
+  auth: "actor",
   args: {
     actorUserId: v.string(),
     organizationId: v.string(),
     rolePermissions: v.optional(rolePermissionsValidator),
   },
   handler: async (ctx, { actorUserId, organizationId, rolePermissions }) => ({
-    roles: await listOrganizationRolesByActor(ctx.db, {
+    roles: await listOrganizationRolesByActor(ctx.db, omitUndefined({
       actorUserId: actorUserId as Id<"users">,
       organizationId: organizationId as Id<"organizations">,
       rolePermissions,
-    }),
+    })),
   }),
 });
 
-export const listAvailablePermissions = query({
+export const listAvailablePermissions = pluginQuery({
+  auth: "actor",
   args: {
     actorUserId: v.string(),
     organizationId: v.string(),
@@ -390,29 +423,31 @@ export const listAvailablePermissions = query({
     ctx,
     { actorUserId, organizationId, accessControl, rolePermissions }
   ) =>
-    await listAvailableOrganizationPermissionsByActor(ctx.db, {
+    await listAvailableOrganizationPermissionsByActor(ctx.db, omitUndefined({
       actorUserId: actorUserId as Id<"users">,
       organizationId: organizationId as Id<"organizations">,
       accessControl,
       rolePermissions,
-    }),
+    })),
 });
 
-export const getRole = query({
+export const getRole = pluginQuery({
+  auth: "actor",
   args: {
     actorUserId: v.string(),
     roleId: v.string(),
     rolePermissions: v.optional(rolePermissionsValidator),
   },
   handler: async (ctx, { actorUserId, roleId, rolePermissions }) =>
-    await getOrganizationRoleByActor(ctx.db, {
+    await getOrganizationRoleByActor(ctx.db, omitUndefined({
       actorUserId: actorUserId as Id<"users">,
       roleId: roleId as Id<"organizationRoles">,
       rolePermissions,
-    }),
+    })),
 });
 
-export const updateRole = mutation({
+export const updateRole = pluginMutation({
+  auth: "actor",
   args: {
     actorUserId: v.string(),
     roleId: v.string(),
@@ -436,7 +471,7 @@ export const updateRole = mutation({
       rolePermissions,
     }
   ) =>
-    await updateOrganizationRole(ctx.db, {
+    await updateOrganizationRole(ctx.db, omitUndefined({
       actorUserId: actorUserId as Id<"users">,
       roleId: roleId as Id<"organizationRoles">,
       name,
@@ -445,24 +480,26 @@ export const updateRole = mutation({
       permissions,
       accessControl,
       rolePermissions,
-    }),
+    })),
 });
 
-export const deleteRole = mutation({
+export const deleteRole = pluginMutation({
+  auth: "actor",
   args: {
     actorUserId: v.string(),
     roleId: v.string(),
     rolePermissions: v.optional(rolePermissionsValidator),
   },
   handler: async (ctx, { actorUserId, roleId, rolePermissions }) =>
-    await deleteOrganizationRole(ctx.db, {
+    await deleteOrganizationRole(ctx.db, omitUndefined({
       actorUserId: actorUserId as Id<"users">,
       roleId: roleId as Id<"organizationRoles">,
       rolePermissions,
-    }),
+    })),
 });
 
-export const transferOwnership = mutation({
+export const transferOwnership = pluginMutation({
+  auth: "actor",
   args: {
     actorUserId: v.string(),
     organizationId: v.string(),
@@ -473,15 +510,16 @@ export const transferOwnership = mutation({
     ctx,
     { actorUserId, organizationId, newOwnerUserId, rolePermissions }
   ) =>
-    await transferOrganizationOwnership(ctx.db, {
+    await transferOrganizationOwnership(ctx.db, omitUndefined({
       actorUserId: actorUserId as Id<"users">,
       organizationId: organizationId as Id<"organizations">,
       newOwnerUserId: newOwnerUserId as Id<"users">,
       rolePermissions,
-    }),
+    })),
 });
 
-export const addDomain = mutation({
+export const addDomain = pluginMutation({
+  auth: "actor",
   args: {
     actorUserId: v.string(),
     organizationId: v.string(),
@@ -489,71 +527,76 @@ export const addDomain = mutation({
     rolePermissions: v.optional(rolePermissionsValidator),
   },
   handler: async (ctx, { actorUserId, organizationId, hostname, rolePermissions }) =>
-    await addOrganizationDomain(ctx.db, {
+    await addOrganizationDomain(ctx.db, omitUndefined({
       actorUserId: actorUserId as Id<"users">,
       organizationId: organizationId as Id<"organizations">,
       hostname,
       rolePermissions,
-    }),
+    })),
 });
 
-export const listDomains = query({
+export const listDomains = pluginQuery({
+  auth: "actor",
   args: {
     actorUserId: v.string(),
     organizationId: v.string(),
     rolePermissions: v.optional(rolePermissionsValidator),
   },
   handler: async (ctx, { actorUserId, organizationId, rolePermissions }) =>
-    await listOrganizationDomainsByActor(ctx.db, {
+    await listOrganizationDomainsByActor(ctx.db, omitUndefined({
       actorUserId: actorUserId as Id<"users">,
       organizationId: organizationId as Id<"organizations">,
       rolePermissions,
-    }),
+    })),
 });
 
-export const getDomainVerificationChallenge = query({
+export const getDomainVerificationChallenge = pluginQuery({
+  auth: "actor",
   args: {
     actorUserId: v.string(),
     domainId: v.string(),
     rolePermissions: v.optional(rolePermissionsValidator),
   },
   handler: async (ctx, { actorUserId, domainId, rolePermissions }) =>
-    await getOrganizationDomainVerificationChallenge(ctx.db, {
+    await getOrganizationDomainVerificationChallenge(ctx.db, omitUndefined({
       actorUserId: actorUserId as Id<"users">,
       domainId: domainId as Id<"organizationDomains">,
       rolePermissions,
-    }),
+    })),
 });
 
-export const markDomainVerified = mutation({
+export const markDomainVerified = pluginMutation({
+  auth: "actor",
   args: {
     actorUserId: v.string(),
     domainId: v.string(),
     rolePermissions: v.optional(rolePermissionsValidator),
   },
   handler: async (ctx, { actorUserId, domainId, rolePermissions }) =>
-    await markOrganizationDomainVerified(ctx.db, {
+    await markOrganizationDomainVerified(ctx.db, omitUndefined({
       actorUserId: actorUserId as Id<"users">,
       domainId: domainId as Id<"organizationDomains">,
       rolePermissions,
-    }),
+    })),
 });
 
-export const removeDomain = mutation({
+export const removeDomain = pluginMutation({
+  auth: "actor",
   args: {
     actorUserId: v.string(),
     domainId: v.string(),
     rolePermissions: v.optional(rolePermissionsValidator),
   },
   handler: async (ctx, { actorUserId, domainId, rolePermissions }) =>
-    await removeOrganizationDomain(ctx.db, {
+    await removeOrganizationDomain(ctx.db, omitUndefined({
       actorUserId: actorUserId as Id<"users">,
       domainId: domainId as Id<"organizationDomains">,
       rolePermissions,
-    }),
+    })),
 });
 
-export const resolveOrganizationByHost = query({
+export const resolveOrganizationByHost = pluginQuery({
+  auth: "public",
   args: {
     host: v.string(),
     subdomainSuffix: v.optional(v.string()),
@@ -561,7 +604,8 @@ export const resolveOrganizationByHost = query({
   handler: async (ctx, args) => await resolveOrganizationForHost(ctx.db, args),
 });
 
-export const hasRole = query({
+export const hasRole = pluginQuery({
+  auth: "actor",
   args: {
     actorUserId: v.string(),
     organizationId: v.string(),
@@ -569,15 +613,16 @@ export const hasRole = query({
     roles: v.optional(v.array(v.string())),
   },
   handler: async (ctx, { actorUserId, organizationId, role, roles }) =>
-    await hasOrganizationRole(ctx.db, {
+    await hasOrganizationRole(ctx.db, omitUndefined({
       actorUserId: actorUserId as Id<"users">,
       organizationId: organizationId as Id<"organizations">,
       role,
       roles,
-    }),
+    })),
 });
 
-export const requireRole = query({
+export const requireRole = pluginQuery({
+  auth: "actor",
   args: {
     actorUserId: v.string(),
     organizationId: v.string(),
@@ -585,15 +630,16 @@ export const requireRole = query({
     roles: v.optional(v.array(v.string())),
   },
   handler: async (ctx, { actorUserId, organizationId, role, roles }) =>
-    await requireOrganizationRole(ctx.db, {
+    await requireOrganizationRole(ctx.db, omitUndefined({
       actorUserId: actorUserId as Id<"users">,
       organizationId: organizationId as Id<"organizations">,
       role,
       roles,
-    }),
+    })),
 });
 
-export const hasPermission = query({
+export const hasPermission = pluginQuery({
+  auth: "actor",
   args: {
     actorUserId: v.string(),
     organizationId: v.string(),
@@ -601,15 +647,16 @@ export const hasPermission = query({
     rolePermissions: v.optional(rolePermissionsValidator),
   },
   handler: async (ctx, { actorUserId, organizationId, permission, rolePermissions }) =>
-    await hasOrganizationPermission(ctx.db, {
+    await hasOrganizationPermission(ctx.db, omitUndefined({
       actorUserId: actorUserId as Id<"users">,
       organizationId: organizationId as Id<"organizations">,
       permission,
       rolePermissions,
-    }),
+    })),
 });
 
-export const requirePermission = query({
+export const requirePermission = pluginQuery({
+  auth: "actor",
   args: {
     actorUserId: v.string(),
     organizationId: v.string(),
@@ -617,10 +664,18 @@ export const requirePermission = query({
     rolePermissions: v.optional(rolePermissionsValidator),
   },
   handler: async (ctx, { actorUserId, organizationId, permission, rolePermissions }) =>
-    await requireOrganizationPermission(ctx.db, {
+    await requireOrganizationPermission(ctx.db, omitUndefined({
       actorUserId: actorUserId as Id<"users">,
       organizationId: organizationId as Id<"organizations">,
       permission,
       rolePermissions,
-    }),
+    })),
+});
+
+export const deleteUserRelations = internalMutation({
+  args: {
+    userId: v.string(),
+  },
+  handler: async (ctx, { userId }) =>
+    await deleteUserOrganizationRelations(ctx.db, userId as Id<"users">),
 });

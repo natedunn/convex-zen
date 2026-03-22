@@ -59,8 +59,8 @@ import {
 	githubProvider,
 	googleProvider,
 } from "convex-zen";
-import { adminPlugin } from "convex-zen/plugins/admin";
-import { organizationPlugin } from "convex-zen/plugins/organization";
+import { adminPlugin } from "convex-zen-admin";
+import { organizationPlugin } from "convex-zen-organization";
 import { components } from "./_generated/api";
 
 export const authOptions = {

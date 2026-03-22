@@ -19,7 +19,7 @@
     "src/types.ts",
     "src/client/**/*",
     "src/oauth/**/*",
-    "src/component/convex.config.ts",
+    "src/component/**/*",
     "src/cli/**/*"
   ],
   "exclude": ["node_modules", "dist", "tests"]

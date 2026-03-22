@@ -1,19 +1,21 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
+import { internalMutation } from "./_generated/server";
+import type { Id } from "../../convex-zen/src/component/_generated/dataModel";
+import { pluginMutation, pluginQuery } from "convex-zen/component";
 import {
   assertAdminActor,
   banUserByAdmin,
+  deleteAdminStateForUser,
   deleteUserByAdmin,
   listUsersForAdmin,
   normalizeAdminRole,
   setUserRoleByAdmin,
   unbanUserByAdmin,
-} from "../admin";
+} from "./component";
 
-export const isAdmin = query({
+export const isAdmin = pluginQuery({
+  auth: "optionalActor",
   args: {
-    actorUserId: v.string(),
     adminRole: v.optional(v.string()),
   },
   handler: async (ctx, { actorUserId, adminRole }) => {
@@ -26,47 +28,71 @@ export const isAdmin = query({
   },
 });
 
-export const listUsers = query({
+export const listUsers = pluginQuery({
+  auth: "actor",
   args: {
-    actorUserId: v.string(),
     adminRole: v.optional(v.string()),
     limit: v.optional(v.number()),
     cursor: v.optional(v.string()),
   },
-  handler: async (ctx, { actorUserId, adminRole, limit, cursor }) =>
+  handler: async (
+    ctx,
+    {
+      actorUserId,
+      adminRole,
+      limit,
+      cursor,
+    }
+  ) =>
     await listUsersForAdmin(ctx.db, {
       actorUserId: actorUserId as Id<"users">,
       adminRole: normalizeAdminRole(adminRole),
-      limit,
-      cursor,
+      ...(limit !== undefined ? { limit } : {}),
+      ...(cursor !== undefined ? { cursor } : {}),
     }),
 });
 
-export const banUser = mutation({
+export const banUser = pluginMutation({
+  auth: "actor",
   args: {
-    actorUserId: v.string(),
     adminRole: v.optional(v.string()),
     userId: v.string(),
     reason: v.optional(v.string()),
     expiresAt: v.optional(v.number()),
   },
-  handler: async (ctx, { actorUserId, adminRole, userId, reason, expiresAt }) =>
+  handler: async (
+    ctx,
+    {
+      actorUserId,
+      adminRole,
+      userId,
+      reason,
+      expiresAt,
+    }
+  ) =>
     await banUserByAdmin(ctx.db, {
       actorUserId: actorUserId as Id<"users">,
       adminRole: normalizeAdminRole(adminRole),
       userId: userId as Id<"users">,
-      reason,
-      expiresAt,
+      ...(reason !== undefined ? { reason } : {}),
+      ...(expiresAt !== undefined ? { expiresAt } : {}),
     }),
 });
 
-export const unbanUser = mutation({
+export const unbanUser = pluginMutation({
+  auth: "actor",
   args: {
-    actorUserId: v.string(),
     adminRole: v.optional(v.string()),
     userId: v.string(),
   },
-  handler: async (ctx, { actorUserId, adminRole, userId }) =>
+  handler: async (
+    ctx,
+    {
+      actorUserId,
+      adminRole,
+      userId,
+    }
+  ) =>
     await unbanUserByAdmin(ctx.db, {
       actorUserId: actorUserId as Id<"users">,
       adminRole: normalizeAdminRole(adminRole),
@@ -74,14 +100,22 @@ export const unbanUser = mutation({
     }),
 });
 
-export const setRole = mutation({
+export const setRole = pluginMutation({
+  auth: "actor",
   args: {
-    actorUserId: v.string(),
     adminRole: v.optional(v.string()),
     userId: v.string(),
     role: v.string(),
   },
-  handler: async (ctx, { actorUserId, adminRole, userId, role }) =>
+  handler: async (
+    ctx,
+    {
+      actorUserId,
+      adminRole,
+      userId,
+      role,
+    }
+  ) =>
     await setUserRoleByAdmin(ctx.db, {
       actorUserId: actorUserId as Id<"users">,
       adminRole: normalizeAdminRole(adminRole),
@@ -90,16 +124,35 @@ export const setRole = mutation({
     }),
 });
 
-export const deleteUser = mutation({
+export const deleteUser = pluginMutation({
+  auth: "actor",
   args: {
-    actorUserId: v.string(),
     adminRole: v.optional(v.string()),
     userId: v.string(),
   },
-  handler: async (ctx, { actorUserId, adminRole, userId }) =>
+  handler: async (
+    ctx,
+    {
+      actorUserId,
+      adminRole,
+      userId,
+    }
+  ) =>
     await deleteUserByAdmin(ctx.db, {
       actorUserId: actorUserId as Id<"users">,
       adminRole: normalizeAdminRole(adminRole),
       userId: userId as Id<"users">,
     }),
+});
+
+export const deleteUserAdminState = internalMutation({
+  args: {
+    actorUserId: v.string(),
+    adminRole: v.optional(v.string()),
+    userId: v.string(),
+  },
+  handler: async (ctx, { actorUserId, adminRole, userId }) => {
+    await assertAdminActor(ctx.db, actorUserId as Id<"users">, adminRole);
+    await deleteAdminStateForUser(ctx.db, userId as Id<"users">);
+  },
 });

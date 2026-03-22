@@ -7,6 +7,7 @@ import { v } from "convex/values";
 import { action, mutation, query, type DatabaseReader } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { oauthProviderConfigValidator } from "./lib/validators";
+import { omitUndefined } from "./lib/object";
 import {
   requestPasswordResetCode,
   resetPasswordWithCode,
@@ -109,7 +110,7 @@ export const getCurrentUser = query({
   handler: async (ctx, { token, checkBanned }) => {
     const session = await validateSessionTokenReadOnly(ctx.db, {
       token,
-      checkBanned,
+      ...omitUndefined({ checkBanned }),
     });
     if (!session) {
       return null;
@@ -160,12 +161,12 @@ export const getAuthorizationUrl = mutation({
   handler: async (ctx, args) =>
     await getAuthorizationUrlForProvider(ctx, {
       provider: args.provider,
-      options: {
+      options: omitUndefined({
         callbackUrl: args.callbackUrl,
         redirectTo: args.redirectTo,
         errorRedirectTo: args.errorRedirectTo,
         redirectUrl: args.redirectUrl,
-      },
+      }),
     }),
 });
 
@@ -187,12 +188,14 @@ export const handleCallback = action({
       provider: args.provider,
       code: args.code,
       state: args.state,
-      callbackUrl: args.callbackUrl,
-      redirectTo: args.redirectTo,
-      errorRedirectTo: args.errorRedirectTo,
-      redirectUrl: args.redirectUrl,
-      ipAddress: args.ipAddress,
-      userAgent: args.userAgent,
-      defaultRole: args.defaultRole,
+      ...omitUndefined({
+        callbackUrl: args.callbackUrl,
+        redirectTo: args.redirectTo,
+        errorRedirectTo: args.errorRedirectTo,
+        redirectUrl: args.redirectUrl,
+        ipAddress: args.ipAddress,
+        userAgent: args.userAgent,
+        defaultRole: args.defaultRole,
+      }),
     }),
 });

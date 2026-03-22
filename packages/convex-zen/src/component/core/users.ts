@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery } from "../_generated/server";
 import type { DatabaseReader, DatabaseWriter } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
-import { deleteUserOrganizationRelations } from "../plugins/organization";
+import { omitUndefined } from "../lib/object";
 
 type UserPatchFields = {
   email?: string;
@@ -84,8 +84,8 @@ export async function patchUser(
 export type AdminState = {
   role: string;
   banned: boolean;
-  banReason?: string;
-  banExpires?: number;
+  banReason?: string | undefined;
+  banExpires?: number | undefined;
 };
 
 type AdminUserRecord = AdminState & {
@@ -113,12 +113,12 @@ export async function getAdminStateForUser(
   if (!record) {
     return null;
   }
-  return {
+  return omitUndefined({
     role: record.role,
     banned: record.banned,
     banReason: record.banReason,
     banExpires: record.banExpires,
-  };
+  }) as AdminState;
 }
 
 export function isAdminStateCurrentlyBanned(
@@ -149,12 +149,12 @@ export async function upsertAdminStateForUser(
     await db.patch(existing._id, {
       ...normalizedPatch,
       updatedAt: now,
-    });
+    } as any);
     return existing._id;
   }
 
   const role = normalizedPatch.role;
-  return db.insert("adminUsers", {
+  return db.insert("adminUsers", omitUndefined({
     userId,
     role: role ?? "user",
     banned: patch.banned ?? false,
@@ -162,7 +162,7 @@ export async function upsertAdminStateForUser(
     banExpires: patch.banExpires,
     createdAt: now,
     updatedAt: now,
-  });
+  }));
 }
 
 export async function clearExpiredAdminBan(
@@ -178,15 +178,13 @@ export async function clearExpiredAdminBan(
     banReason: undefined,
     banExpires: undefined,
     updatedAt: Date.now(),
-  });
+  } as any);
 }
 
 export async function deleteUserWithRelations(
   db: DatabaseWriter,
   userId: Id<"users">
 ): Promise<void> {
-  await deleteUserOrganizationRelations(db, userId);
-
   const accounts = await db
     .query("accounts")
     .withIndex("by_userId", (q) => q.eq("userId", userId))

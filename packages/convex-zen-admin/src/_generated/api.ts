@@ -8,7 +8,10 @@
  * @module
  */
 
+import type * as client from "../client.js";
+import type * as component from "../component.js";
 import type * as gateway from "../gateway.js";
+import type * as index from "../index.js";
 
 import type {
   ApiFromModules,
@@ -18,7 +21,10 @@ import type {
 import { anyApi, componentsGeneric } from "convex/server";
 
 const fullApi: ApiFromModules<{
+  client: typeof client;
+  component: typeof component;
   gateway: typeof gateway;
+  index: typeof index;
 }> = anyApi as any;
 
 /**

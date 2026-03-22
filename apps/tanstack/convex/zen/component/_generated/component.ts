@@ -29,7 +29,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           "mutation",
           "internal",
           {
-            actorUserId?: string;
+            adminRole?: string;
             expiresAt?: number;
             reason?: string;
             userId: string;
@@ -40,35 +40,58 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         deleteUser: FunctionReference<
           "mutation",
           "internal",
-          { actorUserId?: string; userId: string },
+          { adminRole?: string; userId: string },
           any,
           Name
         >;
         isAdmin: FunctionReference<
           "query",
           "internal",
-          { actorUserId?: string },
+          { adminRole?: string },
           any,
           Name
         >;
         listUsers: FunctionReference<
           "query",
           "internal",
-          { actorUserId?: string; cursor?: string; limit?: number },
+          { adminRole?: string; cursor?: string; limit?: number },
           any,
           Name
         >;
         setRole: FunctionReference<
           "mutation",
           "internal",
-          { actorUserId?: string; role: string; userId: string },
+          { adminRole?: string; role: string; userId: string },
           any,
           Name
         >;
         unbanUser: FunctionReference<
           "mutation",
           "internal",
-          { actorUserId?: string; userId: string },
+          { adminRole?: string; userId: string },
+          any,
+          Name
+        >;
+      };
+    };
+    example: {
+      gateway: {
+        listLogs: FunctionReference<
+          "query",
+          "internal",
+          { limit?: number; scope?: string },
+          any,
+          Name
+        >;
+        log: FunctionReference<
+          "mutation",
+          "internal",
+          {
+            level: "debug" | "info" | "warn" | "error";
+            message: string;
+            scope?: string;
+            tag?: string;
+          },
           any,
           Name
         >;
@@ -214,28 +237,35 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         acceptIncomingInvitation: FunctionReference<
           "mutation",
           "internal",
-          { actorEmail?: string; actorUserId?: string; invitationId: string },
+          { invitationId: string },
           any,
           Name
         >;
         acceptInvitation: FunctionReference<
           "mutation",
           "internal",
-          { actorEmail?: string; actorUserId?: string; token: string },
+          { rolePermissions?: Record<string, Array<string>>; token: string },
           any,
           Name
         >;
         addDomain: FunctionReference<
           "mutation",
           "internal",
-          { actorUserId?: string; hostname: string; organizationId: string },
+          {
+            hostname: string;
+            organizationId: string;
+            rolePermissions?: Record<string, Array<string>>;
+          },
           any,
           Name
         >;
         cancelInvitation: FunctionReference<
           "mutation",
           "internal",
-          { actorUserId?: string; invitationId: string },
+          {
+            invitationId: string;
+            rolePermissions?: Record<string, Array<string>>;
+          },
           any,
           Name
         >;
@@ -249,7 +279,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         createOrganization: FunctionReference<
           "mutation",
           "internal",
-          { actorUserId?: string; logo?: string; name: string; slug: string },
+          {
+            allowUserOrganizationCreation?: boolean;
+            logo?: string;
+            name: string;
+            slug: string;
+          },
           any,
           Name
         >;
@@ -257,11 +292,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           "mutation",
           "internal",
           {
-            actorUserId?: string;
+            accessControl?: Record<string, Array<string>>;
             description?: string;
             name: string;
             organizationId: string;
             permissions: Array<string>;
+            rolePermissions?: Record<string, Array<string>>;
             slug: string;
           },
           any,
@@ -270,49 +306,55 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         declineIncomingInvitation: FunctionReference<
           "mutation",
           "internal",
-          { actorEmail?: string; actorUserId?: string; invitationId: string },
+          { invitationId: string },
           any,
           Name
         >;
         deleteOrganization: FunctionReference<
           "mutation",
           "internal",
-          { actorUserId?: string; organizationId: string },
+          {
+            organizationId: string;
+            rolePermissions?: Record<string, Array<string>>;
+          },
           any,
           Name
         >;
         deleteRole: FunctionReference<
           "mutation",
           "internal",
-          { actorUserId?: string; roleId: string },
+          { roleId: string; rolePermissions?: Record<string, Array<string>> },
           any,
           Name
         >;
         getDomainVerificationChallenge: FunctionReference<
           "query",
           "internal",
-          { actorUserId?: string; domainId: string },
+          { domainId: string; rolePermissions?: Record<string, Array<string>> },
           any,
           Name
         >;
         getMembership: FunctionReference<
           "query",
           "internal",
-          { actorUserId?: string; organizationId: string },
+          { organizationId: string },
           any,
           Name
         >;
         getOrganization: FunctionReference<
           "query",
           "internal",
-          { actorUserId?: string; organizationId: string },
+          {
+            organizationId: string;
+            rolePermissions?: Record<string, Array<string>>;
+          },
           any,
           Name
         >;
         getRole: FunctionReference<
           "query",
           "internal",
-          { actorUserId?: string; roleId: string },
+          { roleId: string; rolePermissions?: Record<string, Array<string>> },
           any,
           Name
         >;
@@ -320,9 +362,9 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           "query",
           "internal",
           {
-            actorUserId?: string;
             organizationId: string;
             permission: { action: string; resource: string };
+            rolePermissions?: Record<string, Array<string>>;
           },
           any,
           Name
@@ -330,12 +372,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         hasRole: FunctionReference<
           "query",
           "internal",
-          {
-            actorUserId?: string;
-            organizationId: string;
-            role?: string;
-            roles?: Array<string>;
-          },
+          { organizationId: string; role?: string; roles?: Array<string> },
           any,
           Name
         >;
@@ -343,12 +380,14 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           "mutation",
           "internal",
           {
-            actorUserId?: string;
+            accessControl?: Record<string, Array<string>>;
             email: string;
+            inviteExpiresInMs?: number;
             organizationId: string;
             role:
               | { systemRole: string; type: "system" }
               | { customRoleId: string; type: "custom" };
+            rolePermissions?: Record<string, Array<string>>;
           },
           any,
           Name
@@ -356,70 +395,90 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         listAvailablePermissions: FunctionReference<
           "query",
           "internal",
-          { actorUserId?: string; organizationId: string },
+          {
+            accessControl?: Record<string, Array<string>>;
+            organizationId: string;
+            rolePermissions?: Record<string, Array<string>>;
+          },
           any,
           Name
         >;
         listDomains: FunctionReference<
           "query",
           "internal",
-          { actorUserId?: string; organizationId: string },
+          {
+            organizationId: string;
+            rolePermissions?: Record<string, Array<string>>;
+          },
           any,
           Name
         >;
         listIncomingInvitations: FunctionReference<
           "query",
           "internal",
-          { actorEmail?: string; actorUserId?: string },
+          {},
           any,
           Name
         >;
         listInvitations: FunctionReference<
           "query",
           "internal",
-          { actorUserId?: string; organizationId: string },
+          {
+            organizationId: string;
+            rolePermissions?: Record<string, Array<string>>;
+          },
           any,
           Name
         >;
         listMembers: FunctionReference<
           "query",
           "internal",
-          { actorUserId?: string; organizationId: string },
+          {
+            organizationId: string;
+            rolePermissions?: Record<string, Array<string>>;
+          },
           any,
           Name
         >;
         listOrganizations: FunctionReference<
           "query",
           "internal",
-          { actorUserId?: string },
+          {},
           any,
           Name
         >;
         listRoles: FunctionReference<
           "query",
           "internal",
-          { actorUserId?: string; organizationId: string },
+          {
+            organizationId: string;
+            rolePermissions?: Record<string, Array<string>>;
+          },
           any,
           Name
         >;
         markDomainVerified: FunctionReference<
           "mutation",
           "internal",
-          { actorUserId?: string; domainId: string },
+          { domainId: string; rolePermissions?: Record<string, Array<string>> },
           any,
           Name
         >;
         removeDomain: FunctionReference<
           "mutation",
           "internal",
-          { actorUserId?: string; domainId: string },
+          { domainId: string; rolePermissions?: Record<string, Array<string>> },
           any,
           Name
         >;
         removeMember: FunctionReference<
           "mutation",
           "internal",
-          { actorUserId?: string; organizationId: string; userId: string },
+          {
+            organizationId: string;
+            rolePermissions?: Record<string, Array<string>>;
+            userId: string;
+          },
           any,
           Name
         >;
@@ -427,9 +486,9 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           "query",
           "internal",
           {
-            actorUserId?: string;
             organizationId: string;
             permission: { action: string; resource: string };
+            rolePermissions?: Record<string, Array<string>>;
           },
           any,
           Name
@@ -437,19 +496,14 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         requireRole: FunctionReference<
           "query",
           "internal",
-          {
-            actorUserId?: string;
-            organizationId: string;
-            role?: string;
-            roles?: Array<string>;
-          },
+          { organizationId: string; role?: string; roles?: Array<string> },
           any,
           Name
         >;
         resolveOrganizationByHost: FunctionReference<
           "query",
           "internal",
-          { host: string },
+          { host: string; subdomainSuffix?: string },
           any,
           Name
         >;
@@ -457,11 +511,11 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           "mutation",
           "internal",
           {
-            actorUserId?: string;
             organizationId: string;
             role:
               | { systemRole: string; type: "system" }
               | { customRoleId: string; type: "custom" };
+            rolePermissions?: Record<string, Array<string>>;
             userId: string;
           },
           any,
@@ -471,9 +525,9 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           "mutation",
           "internal",
           {
-            actorUserId?: string;
             newOwnerUserId: string;
             organizationId: string;
+            rolePermissions?: Record<string, Array<string>>;
           },
           any,
           Name
@@ -482,10 +536,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           "mutation",
           "internal",
           {
-            actorUserId?: string;
             logo?: string;
             name?: string;
             organizationId: string;
+            rolePermissions?: Record<string, Array<string>>;
             slug?: string;
           },
           any,
@@ -495,11 +549,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           "mutation",
           "internal",
           {
-            actorUserId?: string;
+            accessControl?: Record<string, Array<string>>;
             description?: string;
             name?: string;
             permissions?: Array<string>;
             roleId: string;
+            rolePermissions?: Record<string, Array<string>>;
             slug?: string;
           },
           any,

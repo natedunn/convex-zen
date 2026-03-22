@@ -49,25 +49,9 @@
       "types": "./src/client/next/index.ts",
       "import": "./src/client/next/index.ts"
     },
-    "./plugins/admin": {
-      "types": "./src/client/plugins/admin.ts",
-      "import": "./src/client/plugins/admin.ts"
-    },
-    "./plugins/organization": {
-      "types": "./src/client/plugins/organization.ts",
-      "import": "./src/client/plugins/organization.ts"
-    },
     "./core/convex.config": {
       "types": "./src/component/core/convex.config.ts",
       "import": "./src/component/core/convex.config.ts"
-    },
-    "./plugins/admin/convex.config": {
-      "types": "./src/component/plugins/admin/convex.config.ts",
-      "import": "./src/component/plugins/admin/convex.config.ts"
-    },
-    "./plugins/organization/convex.config": {
-      "types": "./src/component/plugins/organization/convex.config.ts",
-      "import": "./src/component/plugins/organization/convex.config.ts"
     },
     "./component": {
       "types": "./src/component/index.ts",
@@ -118,25 +102,9 @@
         "types": "./dist/client/next/index.d.ts",
         "import": "./dist/client/next/index.js"
       },
-      "./plugins/admin": {
-        "types": "./dist/client/plugins/admin.d.ts",
-        "import": "./dist/client/plugins/admin.js"
-      },
-      "./plugins/organization": {
-        "types": "./dist/client/plugins/organization.d.ts",
-        "import": "./dist/client/plugins/organization.js"
-      },
       "./core/convex.config": {
         "types": "./dist/component/core/convex.config.d.ts",
         "import": "./dist/component/core/convex.config.js"
-      },
-      "./plugins/admin/convex.config": {
-        "types": "./dist/component/plugins/admin/convex.config.d.ts",
-        "import": "./dist/component/plugins/admin/convex.config.js"
-      },
-      "./plugins/organization/convex.config": {
-        "types": "./dist/component/plugins/organization/convex.config.d.ts",
-        "import": "./dist/component/plugins/organization/convex.config.js"
       },
       "./component": {
         "types": "./dist/component/index.d.ts",

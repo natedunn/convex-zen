@@ -2,6 +2,7 @@ import { argon2id, argon2Verify } from "hash-wasm";
 import { v } from "convex/values";
 import { internalMutation, type MutationCtx } from "../_generated/server";
 import { internal } from "../lib/internalApi";
+import { omitUndefined } from "../lib/object";
 import {
   findAccount,
   getAdminStateForUser,
@@ -114,7 +115,7 @@ export async function signUpWithEmailPassword(
   const userId = await insertUser(ctx.db, {
     email: normalizedEmail,
     emailVerified: false,
-    name,
+    ...omitUndefined({ name }),
   });
   if (defaultRole !== undefined) {
     await upsertAdminStateForUser(ctx.db, userId, { role: defaultRole });
@@ -261,8 +262,7 @@ export async function signInWithEmailPassword(
 
   const sessionToken = await createSession(ctx.db, {
     userId: account.userId,
-    ipAddress,
-    userAgent,
+    ...omitUndefined({ ipAddress, userAgent }),
   });
 
   return { sessionToken, userId: account.userId };
