@@ -66,7 +66,6 @@ export const getMessage = pluginQuery({
 export const setMessage = pluginMutation({
   auth: "actor",
   args: {
-    actorUserId: v.string(),
     message: v.string(),
   },
   handler: async (_ctx, { actorUserId, message }) => {
@@ -84,12 +83,25 @@ Important details:
 ## `auth` modes
 
 - `public`: args pass through unchanged
-- `actor`: generated runtime requires identity and injects `actorUserId`
+- `actor`: generated runtime requires identity and injects `actorUserId` into the handler's args automatically
 - `optionalActor`: generated runtime attempts identity and returns `false` when no actor exists
 
-If a gateway function needs actor identity, include `actorUserId` in `args`.
+**Actor fields are injected automatically** — you do not need to add `actorUserId` to `args`. Define only the *public* args your function needs; convex-zen will inject the actor fields at runtime so the handler can access them.
 
-If it also needs the actor email, add `actor: { actorEmail: true }` and include `actorEmail` in `args`.
+If the handler also needs the actor's email, add `actor: { actorEmail: true }` to the function definition. This tells convex-zen to inject `actorEmail` as well:
+
+```ts
+export const setMessageWithEmail = pluginMutation({
+  auth: "actor",
+  actor: { actorEmail: true },
+  args: {
+    message: v.string(),
+  },
+  handler: async (_ctx, { actorUserId, actorEmail, message }) => {
+    return { ok: true, actorUserId, actorEmail, message };
+  },
+});
+```
 
 ## 3. Export the plugin
 
