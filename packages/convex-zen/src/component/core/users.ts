@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "../_generated/server";
 import type { DatabaseReader, DatabaseWriter } from "../_generated/server";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import { omitUndefined } from "../lib/object";
 
 type UserPatchFields = {
@@ -149,7 +149,7 @@ export async function upsertAdminStateForUser(
     await db.patch(existing._id, {
       ...normalizedPatch,
       updatedAt: now,
-    } as any);
+    } as Partial<Doc<"adminUsers">>);
     return existing._id;
   }
 
@@ -173,12 +173,17 @@ export async function clearExpiredAdminBan(
   if (!existing) {
     return;
   }
+  // `banReason`/`banExpires` are intentionally set to `undefined` to clear them.
+  // The intermediate `unknown` cast is required because TypeScript infers the
+  // literal type `undefined` for explicitly-set properties (vs. spread optional
+  // fields at the upsert site above), which isn't directly assignable to
+  // `Partial<Doc<"adminUsers">>`.
   await db.patch(existing._id, {
     banned: false,
     banReason: undefined,
     banExpires: undefined,
     updatedAt: Date.now(),
-  } as any);
+  } as unknown as Partial<Doc<"adminUsers">>);
 }
 
 export async function deleteUserWithRelations(
