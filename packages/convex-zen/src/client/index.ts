@@ -290,15 +290,28 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 		args: Record<string, unknown>,
 	): Promise<unknown> {
 		if (this.runtimeKind === "app") {
-			return await this.runPluginFunction(
-				ctx,
-				metadata.kind,
-				resolveComponentFn(
-					this.component,
-					`${pluginId}/gateway:${functionName}`,
-				),
-				args,
+			const appFn = resolveComponentFn(
+				this.component,
+				`${pluginId}/gateway:${functionName}`,
 			);
+			if (metadata.auth === "public") {
+				return await this.runPluginFunction(ctx, metadata.kind, appFn, args);
+			}
+			const actorUserId =
+				metadata.auth === "actor"
+					? await this.requireActorUserId(ctx)
+					: await this.resolveUserId(ctx);
+			if (!actorUserId) {
+				return false;
+			}
+			const actorEmail = metadata.actor?.actorEmail
+				? await this.resolveActorEmail(ctx)
+				: undefined;
+			return await this.runPluginFunction(ctx, metadata.kind, appFn, {
+				...args,
+				actorUserId,
+				...(actorEmail ? { actorEmail } : {}),
+			});
 		}
 
 		if (metadata.auth === "public") {
