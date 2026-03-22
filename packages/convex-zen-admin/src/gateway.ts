@@ -1,5 +1,9 @@
 import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
+import type {
+  MutationCtx,
+  QueryCtx,
+} from "../../convex-zen/src/component/_generated/server";
 import type { Id } from "../../convex-zen/src/component/_generated/dataModel";
 import { pluginMutation, pluginQuery } from "convex-zen/component";
 import {
@@ -18,7 +22,7 @@ export const isAdmin = pluginQuery({
   args: {
     adminRole: v.optional(v.string()),
   },
-  handler: async (ctx, { actorUserId, adminRole }) => {
+  handler: async (ctx: QueryCtx, { actorUserId, adminRole }) => {
     try {
       await assertAdminActor(ctx.db, actorUserId as Id<"users">, adminRole);
       return true;
@@ -36,7 +40,7 @@ export const listUsers = pluginQuery({
     cursor: v.optional(v.string()),
   },
   handler: async (
-    ctx,
+    ctx: QueryCtx,
     {
       actorUserId,
       adminRole,
@@ -61,7 +65,7 @@ export const banUser = pluginMutation({
     expiresAt: v.optional(v.number()),
   },
   handler: async (
-    ctx,
+    ctx: MutationCtx,
     {
       actorUserId,
       adminRole,
@@ -86,7 +90,7 @@ export const unbanUser = pluginMutation({
     userId: v.string(),
   },
   handler: async (
-    ctx,
+    ctx: MutationCtx,
     {
       actorUserId,
       adminRole,
@@ -108,7 +112,7 @@ export const setRole = pluginMutation({
     role: v.string(),
   },
   handler: async (
-    ctx,
+    ctx: MutationCtx,
     {
       actorUserId,
       adminRole,
@@ -131,7 +135,7 @@ export const deleteUser = pluginMutation({
     userId: v.string(),
   },
   handler: async (
-    ctx,
+    ctx: MutationCtx,
     {
       actorUserId,
       adminRole,

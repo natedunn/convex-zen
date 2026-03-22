@@ -1,8 +1,12 @@
 import {
   actionGeneric,
+  type ActionBuilder,
   type GenericActionCtx,
+  type GenericDataModel,
   type GenericMutationCtx,
   type GenericQueryCtx,
+  type MutationBuilder,
+  type QueryBuilder,
   type RegisteredAction,
   type RegisteredMutation,
   type RegisteredQuery,
@@ -60,6 +64,7 @@ type RegisteredPluginArgs<
 > = ObjectType<RegisteredPluginValidators<TArgs, TAuth, TActor>>;
 
 type PluginQueryDefinition<
+  TDataModel extends GenericDataModel,
   TArgs extends PropertyValidators,
   TAuth extends AuthPluginFunctionAuth,
   TActor extends PluginGatewayFieldConfig | undefined,
@@ -69,12 +74,13 @@ type PluginQueryDefinition<
   args: TArgs;
   actor?: TActor;
   handler: (
-    ctx: GenericQueryCtx<any>,
+    ctx: GenericQueryCtx<TDataModel>,
     args: PluginHandlerArgs<TArgs, TAuth, TActor>
   ) => TReturn;
 };
 
 type PluginMutationDefinition<
+  TDataModel extends GenericDataModel,
   TArgs extends PropertyValidators,
   TAuth extends AuthPluginFunctionAuth,
   TActor extends PluginGatewayFieldConfig | undefined,
@@ -84,12 +90,13 @@ type PluginMutationDefinition<
   args: TArgs;
   actor?: TActor;
   handler: (
-    ctx: GenericMutationCtx<any>,
+    ctx: GenericMutationCtx<TDataModel>,
     args: PluginHandlerArgs<TArgs, TAuth, TActor>
   ) => TReturn;
 };
 
 type PluginActionDefinition<
+  TDataModel extends GenericDataModel,
   TArgs extends PropertyValidators,
   TAuth extends AuthPluginFunctionAuth,
   TActor extends PluginGatewayFieldConfig | undefined,
@@ -99,7 +106,7 @@ type PluginActionDefinition<
   args: TArgs;
   actor?: TActor;
   handler: (
-    ctx: GenericActionCtx<any>,
+    ctx: GenericActionCtx<TDataModel>,
     args: PluginHandlerArgs<TArgs, TAuth, TActor>
   ) => TReturn;
 };
@@ -208,28 +215,36 @@ function attachPluginMetadata<
   return value as TValue & { [PLUGIN_FUNCTION_METADATA_KEY]: TMetadata };
 }
 
+function getQueryBuilder<TDataModel extends GenericDataModel>() {
+  return queryGeneric as QueryBuilder<TDataModel, "public">;
+}
+
+function getMutationBuilder<TDataModel extends GenericDataModel>() {
+  return mutationGeneric as MutationBuilder<TDataModel, "public">;
+}
+
+function getActionBuilder<TDataModel extends GenericDataModel>() {
+  return actionGeneric as ActionBuilder<TDataModel, "public">;
+}
+
 export function pluginQuery<
-  TArgs extends PropertyValidators,
-  TAuth extends AuthPluginFunctionAuth,
-  TActor extends PluginGatewayFieldConfig | undefined,
-  TReturn,
+  TDataModel extends GenericDataModel = GenericDataModel,
+  TArgs extends PropertyValidators = PropertyValidators,
+  TAuth extends AuthPluginFunctionAuth = AuthPluginFunctionAuth,
+  TActor extends PluginGatewayFieldConfig | undefined = undefined,
+  TReturn = unknown,
 >(
-  definition: PluginQueryDefinition<TArgs, TAuth, TActor, TReturn>
+  definition: PluginQueryDefinition<TDataModel, TArgs, TAuth, TActor, TReturn>
 ): PluginRegisteredQuery<TArgs, TAuth, TActor, TReturn> {
+  const query = getQueryBuilder<TDataModel>();
   return attachPluginMetadata(
-    queryGeneric<
-      RegisteredPluginValidators<TArgs, TAuth, TActor>,
-      void,
-      TReturn,
-      [RegisteredPluginArgs<TArgs, TAuth, TActor>]
-    >({
+    query({
       args: buildRegisteredArgs(
         definition.args,
         definition.auth,
         definition.actor
       ),
-      handler: (ctx, args) =>
-        definition.handler(ctx, args),
+      handler: (ctx, args) => definition.handler(ctx, args),
     }),
     {
       kind: "query",
@@ -241,27 +256,23 @@ export function pluginQuery<
 }
 
 export function pluginMutation<
-  TArgs extends PropertyValidators,
-  TAuth extends AuthPluginFunctionAuth,
-  TActor extends PluginGatewayFieldConfig | undefined,
-  TReturn,
+  TDataModel extends GenericDataModel = GenericDataModel,
+  TArgs extends PropertyValidators = PropertyValidators,
+  TAuth extends AuthPluginFunctionAuth = AuthPluginFunctionAuth,
+  TActor extends PluginGatewayFieldConfig | undefined = undefined,
+  TReturn = unknown,
 >(
-  definition: PluginMutationDefinition<TArgs, TAuth, TActor, TReturn>
+  definition: PluginMutationDefinition<TDataModel, TArgs, TAuth, TActor, TReturn>
 ): PluginRegisteredMutation<TArgs, TAuth, TActor, TReturn> {
+  const mutation = getMutationBuilder<TDataModel>();
   return attachPluginMetadata(
-    mutationGeneric<
-      RegisteredPluginValidators<TArgs, TAuth, TActor>,
-      void,
-      TReturn,
-      [RegisteredPluginArgs<TArgs, TAuth, TActor>]
-    >({
+    mutation({
       args: buildRegisteredArgs(
         definition.args,
         definition.auth,
         definition.actor
       ),
-      handler: (ctx, args) =>
-        definition.handler(ctx, args),
+      handler: (ctx, args) => definition.handler(ctx, args),
     }),
     {
       kind: "mutation",
@@ -273,27 +284,23 @@ export function pluginMutation<
 }
 
 export function pluginAction<
-  TArgs extends PropertyValidators,
-  TAuth extends AuthPluginFunctionAuth,
-  TActor extends PluginGatewayFieldConfig | undefined,
-  TReturn,
+  TDataModel extends GenericDataModel = GenericDataModel,
+  TArgs extends PropertyValidators = PropertyValidators,
+  TAuth extends AuthPluginFunctionAuth = AuthPluginFunctionAuth,
+  TActor extends PluginGatewayFieldConfig | undefined = undefined,
+  TReturn = unknown,
 >(
-  definition: PluginActionDefinition<TArgs, TAuth, TActor, TReturn>
+  definition: PluginActionDefinition<TDataModel, TArgs, TAuth, TActor, TReturn>
 ): PluginRegisteredAction<TArgs, TAuth, TActor, TReturn> {
+  const action = getActionBuilder<TDataModel>();
   return attachPluginMetadata(
-    actionGeneric<
-      RegisteredPluginValidators<TArgs, TAuth, TActor>,
-      void,
-      TReturn,
-      [RegisteredPluginArgs<TArgs, TAuth, TActor>]
-    >({
+    action({
       args: buildRegisteredArgs(
         definition.args,
         definition.auth,
         definition.actor
       ),
-      handler: (ctx, args) =>
-        definition.handler(ctx, args),
+      handler: (ctx, args) => definition.handler(ctx, args),
     }),
     {
       kind: "action",

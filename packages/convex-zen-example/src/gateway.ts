@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { pluginMutation, pluginQuery } from "convex-zen/component";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 
 const levelValidator = v.union(
   v.literal("debug"),
@@ -22,7 +23,7 @@ export const log = pluginMutation({
     message: v.string(),
     tag: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx: MutationCtx, args) => {
     const scope = normalizeScope(args.scope);
     const createdAt = Date.now();
     await ctx.db.insert("exampleLogs", {
@@ -51,7 +52,7 @@ export const listLogs = pluginQuery({
     scope: v.optional(v.string()),
     limit: v.optional(v.number()),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx: QueryCtx, args) => {
     const scope = normalizeScope(args.scope);
     const limit = Math.max(1, Math.min(args.limit ?? 10, 50));
     const entries = await ctx.db
