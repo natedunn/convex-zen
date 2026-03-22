@@ -1,26 +1,44 @@
 import { describe, expect, expectTypeOf, it, vi } from "vitest";
+import { v } from "convex/values";
 import {
   createConvexZenClient,
   defineConvexZen,
-  defineAuthPlugin,
+  definePlugin,
 } from "../src/client";
+import { pluginMutation, pluginQuery } from "../src/component";
 
-const customPlugin = defineAuthPlugin({
+const customPlugin = definePlugin({
   id: "custom",
-  component: { importPath: "@fixture/custom-plugin/convex.config" },
-  createClientRuntime: () => ({
+  gateway: {},
+  extendRuntime: () => ({
     hello: "world" as const,
   }),
-  publicFunctions: {
-    functions: {
-      getHello: {
-        kind: "query",
-        auth: "public",
-        runtimeMethod: "getHello",
-        argsSource: "{}",
-      },
+});
+
+const typedGateway = {
+  listLogs: pluginQuery({
+    auth: "public",
+    args: {
+      scope: v.optional(v.string()),
+      limit: v.optional(v.number()),
     },
-  },
+    handler: async (_ctx, args) => [{ scope: args.scope ?? "default", limit: args.limit ?? 10 }],
+  }),
+  log: pluginMutation({
+    auth: "actor",
+    args: {
+      message: v.string(),
+    },
+    handler: async (_ctx, args) => ({
+      actorUserId: args.actorUserId,
+      message: args.message,
+    }),
+  }),
+};
+
+const typedPlugin = definePlugin({
+  id: "typed",
+  gateway: typedGateway,
 });
 
 describe("defineConvexZen", () => {
@@ -48,6 +66,38 @@ describe("defineConvexZen", () => {
 
     expectTypeOf<HasOrganization>().toEqualTypeOf<false>();
     expectTypeOf<HasPlugin>().toEqualTypeOf<false>();
+  });
+
+  it("keeps plugin definitions minimal and gateway-first", () => {
+    expect(customPlugin.definition.id).toBe("custom");
+    expect(customPlugin.definition.gateway).toEqual({});
+  });
+
+  it("preserves gateway arg and return types in plugin runtime methods", async () => {
+    const auth = createConvexZenClient(
+      {},
+      defineConvexZen({
+        plugins: [typedPlugin()] as const,
+      })
+    );
+
+    expectTypeOf<Parameters<typeof auth.plugins.typed.listLogs>[1]>().toEqualTypeOf<{
+      scope?: string;
+      limit?: number;
+    }>();
+    expectTypeOf<
+      Awaited<ReturnType<typeof auth.plugins.typed.listLogs>>
+    >().toEqualTypeOf<Array<{ scope: string; limit: number }>>();
+
+    expectTypeOf<Parameters<typeof auth.plugins.typed.log>[1]>().toEqualTypeOf<{
+      message: string;
+    }>();
+    expectTypeOf<
+      Awaited<ReturnType<typeof auth.plugins.typed.log>>
+    >().toEqualTypeOf<{
+      actorUserId: string;
+      message: string;
+    }>();
   });
 
   it("routes core methods through core child refs in component runtime mode", async () => {

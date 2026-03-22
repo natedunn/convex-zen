@@ -1,17 +1,22 @@
 import type {
 	EmailProvider,
 	ConvexAuthPlugin,
-	AuthPluginDefinition,
+	PluginDefinition,
+	PluginGatewayFunctionMetadata,
+	PluginGatewayModule,
+	PluginGatewayRuntimeMethods,
+	PluginGatewayRuntimeMap,
 	OAuthCallbackInput,
 	OAuthCallbackResult,
 	OAuthProviderConfig,
 	OAuthStartOptions,
 	OAuthStartResult,
 } from "../types";
-import { defineAuthPlugin } from "../types";
+import { definePlugin } from "../types";
 import type { HttpRouter } from "convex/server";
 import { httpActionGeneric } from "convex/server";
 import { resolveComponentFn } from "./helpers";
+import { collectPluginGatewayMetadata } from "../component/plugin";
 
 /**
  * Main client entrypoint.
@@ -39,12 +44,13 @@ interface RunsActions {
 type ConvexCtx = RunsQueries & RunsMutations;
 type PluginList = readonly ConvexAuthPlugin[];
 type PluginRuntimeMap<TPlugins extends PluginList> = {
-	[TPlugin in TPlugins[number] as TPlugin["id"]]: TPlugin["definition"] extends AuthPluginDefinition<
+	[TPlugin in TPlugins[number] as TPlugin["id"]]: TPlugin["definition"] extends PluginDefinition<
 		any,
 		any,
-		infer TRuntime
+		infer TGateway,
+		infer TRuntimeExtension
 	>
-		? TRuntime
+		? PluginGatewayRuntimeMap<TGateway> & TRuntimeExtension
 		: never;
 };
 type MaybePromise<T> = T | Promise<T>;
@@ -170,7 +176,7 @@ export function createConvexZenClient<TPlugins extends PluginList>(
  * ```ts
  * // convex/zen.runtime.ts
  * import { ConvexZen, googleProvider } from "convex-zen";
- * import { adminPlugin } from "convex-zen/plugins/admin";
+ * import { adminPlugin } from "convex-zen-admin";
  * import { components } from "./_generated/api";
  *
  * export const auth = new ConvexZen(components.authComponent, {
@@ -217,16 +223,172 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 		this.pluginRuntimes = Object.fromEntries(
 			(options.plugins ?? []).map((plugin) => [
 				plugin.id,
-				plugin.definition.createClientRuntime({
-					component,
-					childName: plugin.definition.component.childName ?? plugin.id,
-					runtimeKind: this.runtimeKind,
-					options: plugin.options,
-					requireActorUserId: (ctx) => this.requireActorUserId(ctx),
-					resolveUserId: (ctx) => this.resolveUserId(ctx),
-				}),
+				this.createPluginRuntime(plugin),
 			]),
 		) as PluginRuntimeMap<TPlugins>;
+	}
+
+	private createPluginRuntime<TPlugin extends ConvexAuthPlugin>(
+		plugin: TPlugin,
+	): PluginRuntimeMap<readonly [TPlugin]>[TPlugin["id"]] {
+		const childName = `${plugin.id}Component`;
+		const gatewayMetadata = collectPluginGatewayMetadata(
+			plugin.definition.gateway,
+		);
+		const baseGateway = this.buildPluginGatewayRuntime<TPlugin["definition"]["gateway"]>(
+			plugin.id,
+			childName,
+			gatewayMetadata,
+		);
+		const extension =
+			plugin.definition.extendRuntime?.({
+				component: this.component,
+				childName,
+				runtimeKind: this.runtimeKind,
+				options: plugin.options,
+				gateway: baseGateway,
+				requireActorUserId: (ctx) => this.requireActorUserId(ctx),
+				resolveUserId: (ctx) => this.resolveUserId(ctx),
+				callInternalMutation: (ctx, functionName, args) =>
+					this.callPluginInternalMutation(plugin.id, childName, functionName, ctx, args),
+				deleteAuthUser: (ctx, userId) => this.deleteAuthUser(ctx, userId),
+			}) ?? {};
+		return {
+			...baseGateway,
+			...extension,
+		} as PluginRuntimeMap<readonly [TPlugin]>[TPlugin["id"]];
+	}
+
+	private buildPluginGatewayRuntime<TGateway extends PluginGatewayModule>(
+		pluginId: string,
+		childName: string,
+		gatewayMetadata: PluginGatewayRuntimeMethods,
+		): PluginGatewayRuntimeMap<TGateway> {
+			const runtime: Partial<PluginGatewayRuntimeMap<TGateway>> = {};
+			for (const [rawFunctionName, metadata] of Object.entries(gatewayMetadata)) {
+				const functionName =
+					rawFunctionName as Extract<keyof PluginGatewayRuntimeMap<TGateway>, string>;
+				runtime[functionName] = (async (ctx: unknown, args: Record<string, unknown>) =>
+					await this.callPluginGatewayFunction(
+						pluginId,
+						childName,
+						rawFunctionName,
+						metadata,
+						ctx,
+						args,
+					)) as PluginGatewayRuntimeMap<TGateway>[typeof functionName];
+			}
+			return runtime as unknown as PluginGatewayRuntimeMap<TGateway>;
+		}
+
+	private async callPluginGatewayFunction(
+		pluginId: string,
+		childName: string,
+		functionName: string,
+		metadata: PluginGatewayFunctionMetadata,
+		ctx: unknown,
+		args: Record<string, unknown>,
+	): Promise<unknown> {
+		if (this.runtimeKind === "app") {
+			return await this.runPluginFunction(
+				ctx,
+				metadata.kind,
+				resolveComponentFn(
+					this.component,
+					`${pluginId}/gateway:${functionName}`,
+				),
+				args,
+			);
+		}
+
+		if (metadata.auth === "public") {
+			return await this.runPluginFunction(
+				ctx,
+				metadata.kind,
+				resolveComponentFn(this.component, `${childName}/gateway:${functionName}`),
+				args,
+			);
+		}
+
+		const actorUserId =
+			metadata.auth === "actor"
+				? await this.requireActorUserId(ctx)
+				: await this.resolveUserId(ctx);
+		if (!actorUserId) {
+			return false;
+		}
+		const actorEmail = metadata.actor?.actorEmail
+			? await this.resolveActorEmail(ctx)
+			: undefined;
+		return await this.runPluginFunction(
+			ctx,
+			metadata.kind,
+			resolveComponentFn(this.component, `${childName}/gateway:${functionName}`),
+			{
+				...args,
+				actorUserId,
+				...(actorEmail ? { actorEmail } : {}),
+			},
+		);
+	}
+
+	private async runPluginFunction(
+		ctx: unknown,
+		kind: PluginGatewayFunctionMetadata["kind"],
+		fn: unknown,
+		args: Record<string, unknown>,
+	): Promise<unknown> {
+		if (kind === "query") {
+			return await (ctx as RunsQueries).runQuery(fn, args);
+		}
+		if (kind === "mutation") {
+			return await (ctx as RunsMutations).runMutation(fn, args);
+		}
+		return await (ctx as RunsActions).runAction(fn, args);
+	}
+
+	private async callPluginInternalMutation(
+		pluginId: string,
+		childName: string,
+		functionName: string,
+		ctx: unknown,
+		args: Record<string, unknown>,
+	): Promise<unknown> {
+		const path =
+			this.runtimeKind === "app"
+				? `${pluginId}/gateway:${functionName}`
+				: `${childName}/gateway:${functionName}`;
+		return await (ctx as RunsMutations).runMutation(
+			resolveComponentFn(this.component, path),
+			args,
+		);
+	}
+
+	async deleteAuthUser(ctx: unknown, userId: string): Promise<void> {
+		for (const plugin of this.options.plugins ?? []) {
+			const onUserDeleted = plugin.definition.hooks?.onUserDeleted;
+			if (!onUserDeleted) {
+				continue;
+			}
+			const runtime = this.pluginRuntimes[
+				plugin.id as keyof PluginRuntimeMap<TPlugins>
+			] as PluginRuntimeMap<TPlugins>[keyof PluginRuntimeMap<TPlugins>];
+			await onUserDeleted({
+				ctx,
+				userId,
+				options: plugin.options,
+				runtime,
+			});
+		}
+		await (ctx as RunsMutations).runMutation(
+			resolveComponentFn(this.component, "core/users:remove"),
+			{ userId },
+		);
+	}
+
+	private async resolveActorEmail(ctx: unknown): Promise<string | undefined> {
+		const actor = await this.safeGetAuthUser(ctx as RunsQueries);
+		return actor?.email;
 	}
 
 	/** Access plugin instances after initialization. */
@@ -814,7 +976,7 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 	}
 
 // Named exports for convenience
-export { defineAuthPlugin };
+export { definePlugin };
 export {
 	buildOAuthAuthorizationUrl,
 	discordProvider,
@@ -824,8 +986,6 @@ export {
 	googleProvider,
 	requireOAuthVerifiedEmail,
 } from "./providers";
-export { adminPlugin } from "./plugins/admin";
-export { organizationPlugin } from "./plugins/organization";
 export { SessionPrimitives, createSessionPrimitives } from "./primitives";
 export {
 	createExpoAuthClient,
@@ -850,14 +1010,10 @@ export {
 	resolveNextTrustedOriginsFromEnv,
 } from "./next";
 export type {
-	AuthPluginClientRuntimeContext,
-	AuthPluginDefinition,
 	AuthPluginFactory,
 	AuthPluginFunctionAuth,
 	AuthPluginFunctionKind,
 	AuthPluginHooks,
-	AuthPluginPublicFunction,
-	AuthPluginPublicFunctions,
 	BuiltInOAuthProviderId,
 	BuildOAuthAuthorizationUrlArgs,
 	ConvexAuthPlugin,
@@ -876,9 +1032,16 @@ export type {
 	OAuthStartOptions,
 	OAuthStartResult,
 	OAuthTokenResponse,
+	PluginDefinition,
+	PluginGatewayFunctionMetadata,
+	PluginGatewayModule,
+	PluginGatewayRuntimeMap,
+	PluginRuntimeExtensionContext,
 	AdminPluginConfig,
+	AdminListUsersResult,
 	AdminPluginOptions,
 	Organization,
+	OrganizationAvailablePermissionsResult,
 	OrganizationDomain,
 	OrganizationDomainVerificationChallenge,
 	OrganizationIncomingInvitation,
@@ -897,9 +1060,12 @@ export type {
 	OrganizationPluginConfig,
 	OrganizationPluginOptions,
 	OrganizationRole,
+	OrganizationRoleAssignmentInput,
 	OrganizationRoleDefinition,
 	OrganizationRoleDefinitions,
+	OrganizationRoleListResult,
 	OrganizationRoleName,
+	OrganizationRoleRecord,
 	OrganizationSlugCheckResult,
 } from "../types";
 export type {
