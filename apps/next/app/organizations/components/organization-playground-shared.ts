@@ -1,24 +1,80 @@
 "use client";
 
-import type { FunctionArgs, FunctionReturnType } from "convex/server";
-import { api } from "../../../convex/_generated/api";
-
-export type OrganizationListEntry =
-  FunctionReturnType<typeof api.zen.plugin.organization.listOrganizations>["organizations"][number];
-export type OrganizationMembership =
-  FunctionReturnType<typeof api.zen.plugin.organization.getMembership>;
-export type OrganizationMember =
-  FunctionReturnType<typeof api.zen.plugin.organization.listMembers>[number];
-export type OrganizationInvitation =
-  FunctionReturnType<typeof api.zen.plugin.organization.listInvitations>[number];
-export type OrganizationRole =
-  FunctionReturnType<typeof api.zen.plugin.organization.listRoles>["roles"][number];
-export type OrganizationDomain =
-  FunctionReturnType<typeof api.zen.plugin.organization.listDomains>[number];
-export type OrganizationPermissionList =
-  FunctionReturnType<typeof api.zen.plugin.organization.listAvailablePermissions>;
 export type OrganizationRoleAssignmentInput =
-  FunctionArgs<typeof api.zen.plugin.organization.inviteMember>["role"];
+  | {
+      type: "system";
+      systemRole: "admin" | "member";
+    }
+  | {
+      type: "custom";
+      customRoleId: string;
+    };
+
+export type OrganizationListEntry = {
+  organization: {
+    _id: string;
+    name: string;
+    slug: string;
+  };
+  membership: {
+    roleName: string;
+  };
+};
+
+export type OrganizationListResult = {
+  organizations: OrganizationListEntry[];
+};
+
+export type OrganizationMembership = {
+  roleName: string;
+  roleType?: string;
+} | null;
+
+export type OrganizationMember = {
+  _id: string;
+  user: {
+    _id: string;
+    email: string;
+  };
+  roleName: string;
+  customRoleId?: string;
+};
+
+export type OrganizationInvitation = {
+  _id: string;
+  email: string;
+  roleName: string;
+  expiresAt?: number;
+  acceptedAt?: number;
+  cancelledAt?: number;
+  declinedAt?: number;
+};
+
+export type OrganizationInviteResult = {
+  token: string;
+};
+
+export type OrganizationRole = {
+  _id: string;
+  name: string;
+  slug: string;
+  permissions: string[];
+};
+
+export type OrganizationRoleListResult = {
+  roles: OrganizationRole[];
+};
+
+export type OrganizationDomain = {
+  _id: string;
+  hostname: string;
+  verifiedAt?: number;
+};
+
+export type OrganizationPermissionList = {
+  permissions: string[];
+  resources: Record<string, string[]>;
+};
 
 export type RoleOption = {
   value: string;

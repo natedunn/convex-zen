@@ -253,10 +253,12 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 					this.callPluginInternalMutation(plugin.id, childName, functionName, ctx, args),
 				deleteAuthUser: (ctx, userId) => this.deleteAuthUser(ctx, userId),
 			}) ?? {};
-		return {
-			...baseGateway,
-			...extension,
-		} as PluginRuntimeMap<readonly [TPlugin]>[TPlugin["id"]];
+		for (const [key, value] of Object.entries(baseGateway)) {
+			if (!(key in extension)) {
+				Object.assign(extension, { [key]: value });
+			}
+		}
+		return extension as PluginRuntimeMap<readonly [TPlugin]>[TPlugin["id"]];
 	}
 
 	private buildPluginGatewayRuntime<TGateway extends PluginGatewayModule>(
