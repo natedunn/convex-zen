@@ -1,3 +1,20 @@
+# [1.10.0](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.9.1...convex-zen-v1.10.0) (2026-03-23)
+
+
+### Bug Fixes
+
+* **plugins:** inject actor fields in app-runtime plugin gateway calls ([e9bf485](https://github.com/natedunn/convex-zen/commit/e9bf485306aed38a6730f1957ffebba2ab650b08))
+* **plugins:** tighten gateway wrapper typing ([36c5910](https://github.com/natedunn/convex-zen/commit/36c591053785a4e39581a2e49f8d5fa9b3cecb8a))
+* **repo:** restore full build and test parity ([62a96d1](https://github.com/natedunn/convex-zen/commit/62a96d12da5ca4e670bf99b5cd18b64ed078b70d))
+* **types:** add finalizeCallback to internalApi oauth typing, remove as any cast ([268744b](https://github.com/natedunn/convex-zen/commit/268744b95dfc8ea58fdea9e5f4d80b0504be93f9))
+* **types:** document double cast in clearExpiredAdminBan for clarity ([b64c679](https://github.com/natedunn/convex-zen/commit/b64c679fe269805f284e6c9208acde7878968cd3))
+* **types:** replace db.patch as any casts with Partial<Doc<"adminUsers">> ([051a8a8](https://github.com/natedunn/convex-zen/commit/051a8a81625ca1eca61c7efb99c982fa47d05055))
+
+
+### Features
+
+* **plugins:** extract built-in plugins into workspace packages ([63cd5cb](https://github.com/natedunn/convex-zen/commit/63cd5cb76f516f1ed87a3c48a7661627f7bda761))
+
 ## [1.9.1](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.9.0...convex-zen-v1.9.1) (2026-03-21)
 
 
