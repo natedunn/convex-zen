@@ -13,7 +13,7 @@ export const authMeta = {
     "verifyEmail": "mutation"
   },
   "plugin": {
-    "admin": {
+    "systemAdmin": {
       "banUser": "mutation",
       "deleteUser": "mutation",
       "isAdmin": "query",

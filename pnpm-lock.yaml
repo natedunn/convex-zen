@@ -111,9 +111,9 @@ importers:
       convex-zen:
         specifier: workspace:*
         version: link:../../packages/convex-zen
-      convex-zen-admin:
+      convex-zen-system-admin:
         specifier: workspace:*
-        version: link:../../packages/convex-zen-admin
+        version: link:../../packages/convex-zen-system-admin
       convex-zen-organization:
         specifier: workspace:*
         version: link:../../packages/convex-zen-organization
@@ -172,9 +172,9 @@ importers:
       convex-zen:
         specifier: workspace:*
         version: link:../../packages/convex-zen
-      convex-zen-admin:
+      convex-zen-system-admin:
         specifier: workspace:*
-        version: link:../../packages/convex-zen-admin
+        version: link:../../packages/convex-zen-system-admin
       convex-zen-example:
         specifier: workspace:*
         version: link:../../packages/convex-zen-example
@@ -265,7 +265,7 @@ importers:
         specifier: ^2.0.0
         version: 2.1.9(@types/node@22.19.11)(lightningcss@1.32.0)(terser@5.46.0)
 
-  packages/convex-zen-admin:
+  packages/convex-zen-system-admin:
     dependencies:
       convex:
         specifier: ^1.17.0

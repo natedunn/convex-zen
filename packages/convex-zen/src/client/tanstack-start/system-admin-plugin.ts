@@ -5,7 +5,7 @@ import { readFunctionRef, isRecord, readMember } from "../helpers";
 type MutationRef = FunctionReference<"mutation", "public">;
 type QueryRef = FunctionReference<"query", "public">;
 
-export interface TanStackStartAdminApiPluginConvexFunctions {
+export interface TanStackStartSystemAdminApiPluginConvexFunctions {
   listUsers: QueryRef;
   banUser: MutationRef;
   setRole: MutationRef;
@@ -13,20 +13,20 @@ export interface TanStackStartAdminApiPluginConvexFunctions {
   deleteUser: MutationRef;
 }
 
-export interface TanStackStartAdminApiPluginOptions {
+export interface TanStackStartSystemAdminApiPluginOptions {
   /**
    * Optional explicit Convex function refs.
    * If omitted, refs are auto-resolved from
    * `createTanStackAuthServer({ convexFunctions })`
    * using standard generated names.
    */
-  convexFunctions?: Partial<TanStackStartAdminApiPluginConvexFunctions>;
+  convexFunctions?: Partial<TanStackStartSystemAdminApiPluginConvexFunctions>;
   routePrefix?: string;
 }
 
-export const ADMIN_API_PLUGIN_ID = "admin" as const;
+export const SYSTEM_ADMIN_API_PLUGIN_ID = "systemAdmin" as const;
 
-export const REQUIRED_ADMIN_CONVEX_FUNCTIONS = [
+export const REQUIRED_SYSTEM_ADMIN_CONVEX_FUNCTIONS = [
   "listUsers",
   "banUser",
   "setRole",
@@ -35,7 +35,7 @@ export const REQUIRED_ADMIN_CONVEX_FUNCTIONS = [
 ] as const;
 
 type RequiredAdminConvexFunctionName =
-  (typeof REQUIRED_ADMIN_CONVEX_FUNCTIONS)[number];
+  (typeof REQUIRED_SYSTEM_ADMIN_CONVEX_FUNCTIONS)[number];
 
 function resolveRequiredConvexFunction(
   explicit: unknown,
@@ -51,49 +51,49 @@ function resolveRequiredConvexFunction(
     );
   if (!resolved) {
     throw new Error(
-      `adminApiPlugin could not resolve "${functionName}" convex function. ` +
+      `systemAdminApiPlugin could not resolve "${functionName}" convex function. ` +
         "Expose standard generated refs on createTanStackAuthServer({ convexFunctions }) or pass convexFunctions explicitly."
     );
   }
   return resolved;
 }
 
-function resolveAdminConvexFunctions(
-  options: TanStackStartAdminApiPluginOptions | undefined,
+function resolveSystemAdminConvexFunctions(
+  options: TanStackStartSystemAdminApiPluginOptions | undefined,
   convexFunctionRefs: Record<string, unknown> | undefined
-): TanStackStartAdminApiPluginConvexFunctions {
+): TanStackStartSystemAdminApiPluginConvexFunctions {
   const refs = convexFunctionRefs ?? {};
-  const adminGroup = readMember(refs, "admin");
-  const pluginAdminGroup = readMember(readMember(refs, "plugin"), "admin");
-  const fromAnyAdminGroup = (name: string): unknown =>
+  const systemAdminGroup = readMember(refs, "systemAdmin");
+  const pluginSystemAdminGroup = readMember(readMember(refs, "plugin"), "systemAdmin");
+  const fromAnySystemAdminGroup = (name: string): unknown =>
     readMember(refs, name) ??
-    readMember(adminGroup, name) ??
-    readMember(pluginAdminGroup, name);
+    readMember(systemAdminGroup, name) ??
+    readMember(pluginSystemAdminGroup, name);
   const explicitActions = options?.convexFunctions;
-  const resolved: TanStackStartAdminApiPluginConvexFunctions = {
+  const resolved: TanStackStartSystemAdminApiPluginConvexFunctions = {
     listUsers: resolveRequiredConvexFunction(
       explicitActions?.listUsers,
-      fromAnyAdminGroup("listUsers"),
+      fromAnySystemAdminGroup("listUsers"),
       "listUsers"
     ) as QueryRef,
     banUser: resolveRequiredConvexFunction(
       explicitActions?.banUser,
-      fromAnyAdminGroup("banUser"),
+      fromAnySystemAdminGroup("banUser"),
       "banUser"
     ) as MutationRef,
     setRole: resolveRequiredConvexFunction(
       explicitActions?.setRole,
-      fromAnyAdminGroup("setRole"),
+      fromAnySystemAdminGroup("setRole"),
       "setRole"
     ) as MutationRef,
     unbanUser: resolveRequiredConvexFunction(
       explicitActions?.unbanUser,
-      fromAnyAdminGroup("unbanUser"),
+      fromAnySystemAdminGroup("unbanUser"),
       "unbanUser"
     ) as MutationRef,
     deleteUser: resolveRequiredConvexFunction(
       explicitActions?.deleteUser,
-      fromAnyAdminGroup("deleteUser"),
+      fromAnySystemAdminGroup("deleteUser"),
       "deleteUser"
     ) as MutationRef,
   };
@@ -102,7 +102,7 @@ function resolveAdminConvexFunctions(
 
 function normalizeRoutePrefix(prefix: string): string {
   const trimmed = prefix.trim().replace(/^\/+|\/+$/g, "");
-  return trimmed.length > 0 ? trimmed : "admin";
+  return trimmed.length > 0 ? trimmed : "system-admin";
 }
 
 function parseListUsersArgs(value: unknown): {
@@ -179,29 +179,29 @@ function parseSingleUserIdArgs(value: unknown): { userId: string } | null {
 }
 
 /**
- * Add admin auth API routes to TanStack Start handler.
+ * Add System Admin auth API routes to TanStack Start handler.
  *
  * Endpoints:
- * - POST `/api/auth/admin/list-users`
- * - POST `/api/auth/admin/ban-user`
- * - POST `/api/auth/admin/set-role`
- * - POST `/api/auth/admin/unban-user`
- * - POST `/api/auth/admin/delete-user`
+ * - POST `/api/auth/system-admin/list-users`
+ * - POST `/api/auth/system-admin/ban-user`
+ * - POST `/api/auth/system-admin/set-role`
+ * - POST `/api/auth/system-admin/unban-user`
+ * - POST `/api/auth/system-admin/delete-user`
  */
-export function adminApiPlugin(
-  options: TanStackStartAdminApiPluginOptions = {}
+export function systemAdminApiPlugin(
+  options: TanStackStartSystemAdminApiPluginOptions = {}
 ): TanStackStartAuthApiPluginFactory {
-  const routePrefix = normalizeRoutePrefix(options.routePrefix ?? "admin");
+  const routePrefix = normalizeRoutePrefix(options.routePrefix ?? "system-admin");
 
   return {
-    id: ADMIN_API_PLUGIN_ID,
+    id: SYSTEM_ADMIN_API_PLUGIN_ID,
     create: ({ fetchers, convexFunctions }) => {
-      const resolvedFunctions = resolveAdminConvexFunctions(
+      const resolvedFunctions = resolveSystemAdminConvexFunctions(
         options,
         convexFunctions
       );
       return {
-        id: ADMIN_API_PLUGIN_ID,
+        id: SYSTEM_ADMIN_API_PLUGIN_ID,
         handle: async (context) => {
           const actionPrefix = `${routePrefix}/`;
           if (!context.action.startsWith(actionPrefix)) {
@@ -211,10 +211,10 @@ export function adminApiPlugin(
             return context.json({ error: "Method not allowed" }, 405);
           }
 
-          const adminAction = context.action.slice(actionPrefix.length);
+          const systemAdminAction = context.action.slice(actionPrefix.length);
           const payload = await context.readJson();
 
-          if (adminAction === "list-users") {
+          if (systemAdminAction === "list-users") {
             const args = parseListUsersArgs(payload);
             if (!args) {
               return context.json({ error: "Invalid request body" }, 400);
@@ -226,7 +226,7 @@ export function adminApiPlugin(
             return context.json(result);
           }
 
-          if (adminAction === "ban-user") {
+          if (systemAdminAction === "ban-user") {
             const args = parseBanUserArgs(payload);
             if (!args) {
               return context.json({ error: "Invalid request body" }, 400);
@@ -238,7 +238,7 @@ export function adminApiPlugin(
             return context.json(result);
           }
 
-          if (adminAction === "set-role") {
+          if (systemAdminAction === "set-role") {
             const args = parseSetRoleArgs(payload);
             if (!args) {
               return context.json({ error: "Invalid request body" }, 400);
@@ -250,7 +250,7 @@ export function adminApiPlugin(
             return context.json(result);
           }
 
-          if (adminAction === "unban-user") {
+          if (systemAdminAction === "unban-user") {
             const args = parseSingleUserIdArgs(payload);
             if (!args) {
               return context.json({ error: "Invalid request body" }, 400);
@@ -262,7 +262,7 @@ export function adminApiPlugin(
             return context.json(result);
           }
 
-          if (adminAction === "delete-user") {
+          if (systemAdminAction === "delete-user") {
             const args = parseSingleUserIdArgs(payload);
             if (!args) {
               return context.json({ error: "Invalid request body" }, 400);

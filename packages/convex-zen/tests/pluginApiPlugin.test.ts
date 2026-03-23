@@ -22,7 +22,7 @@ describe("pluginApiPlugin", () => {
     const fetchAuthAction = vi.fn();
     const plugin = pluginApiPlugin({
       pluginMeta: {
-        admin: {
+        systemAdmin: {
           listUsers: "query",
         },
       },
@@ -45,7 +45,7 @@ describe("pluginApiPlugin", () => {
       },
       convexFunctions: {
         plugin: {
-          admin: {
+          systemAdmin: {
             listUsers: listUsersRef,
           },
         },
@@ -53,11 +53,11 @@ describe("pluginApiPlugin", () => {
     });
 
     const response = await plugin.handle({
-      request: new Request("https://example.com/api/auth/plugin/admin/list-users", {
+      request: new Request("https://example.com/api/auth/plugin/system-admin/list-users", {
         method: "POST",
       }),
       method: "POST",
-      action: "plugin/admin/list-users",
+      action: "plugin/system-admin/list-users",
       readJson: async () => ({ limit: 10 }),
       json: (data, status = 200) => new Response(JSON.stringify(data), { status }),
     });
@@ -73,7 +73,7 @@ describe("pluginApiPlugin", () => {
     const fetchAuthMutation = vi.fn(async () => ({ ok: true }));
     const plugin = pluginApiPlugin({
       pluginMeta: {
-        admin: {
+        systemAdmin: {
           banUser: "mutation",
         },
       },
@@ -96,7 +96,7 @@ describe("pluginApiPlugin", () => {
       },
       convexFunctions: {
         plugin: {
-          admin: {
+          systemAdmin: {
             banUser: banUserRef,
           },
         },
@@ -104,11 +104,11 @@ describe("pluginApiPlugin", () => {
     });
 
     await plugin.handle({
-      request: new Request("https://example.com/api/auth/plugin/admin/ban-user", {
+      request: new Request("https://example.com/api/auth/plugin/system-admin/ban-user", {
         method: "POST",
       }),
       method: "POST",
-      action: "plugin/admin/ban-user",
+      action: "plugin/system-admin/ban-user",
       readJson: async () => ({ userId: "user_1" }),
       json: (data, status = 200) => new Response(JSON.stringify(data), { status }),
     });

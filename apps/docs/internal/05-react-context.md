@@ -32,7 +32,7 @@ Current demo integration:
 - Provider is mounted in `apps/tanstack/src/routes/__root.tsx`
 - `initialSession` is sourced from root route SSR `beforeLoad`
 - `authClient` includes `getSession`, `signIn.email`, and `signOut`
-- `authClient` can expose plugin methods via auto mode (for example `authClient.plugin.admin.*`)
+- `authClient` can expose plugin methods via auto mode (for example `authClient.plugin.systemAdmin.*`)
 - client boilerplate is generated with:
   - `createTanStackAuthClient(...)` (route methods + dependency-free query/mutation/action helpers on plugin + core methods)
 - TanStack Query + Convex client providers are wired at the router level in `apps/tanstack/src/router.tsx`

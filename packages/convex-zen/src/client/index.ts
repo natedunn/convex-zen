@@ -176,7 +176,7 @@ export function createConvexZenClient<TPlugins extends PluginList>(
  * ```ts
  * // convex/zen.runtime.ts
  * import { ConvexZen, googleProvider } from "convex-zen";
- * import { adminPlugin } from "convex-zen-admin";
+ * import { systemAdminPlugin } from "convex-zen-system-admin";
  * import { components } from "./_generated/api";
  *
  * export const auth = new ConvexZen(components.authComponent, {
@@ -185,7 +185,7 @@ export function createConvexZenClient<TPlugins extends PluginList>(
  *     sendVerificationEmail: async (to, code) => { ... },
  *     sendPasswordResetEmail: async (to, code) => { ... },
  *   },
- *   plugins: [adminPlugin({ defaultRole: "user" })],
+ *   plugins: [systemAdminPlugin({ defaultRole: "user" })],
  * });
  * ```
  */
@@ -1052,9 +1052,9 @@ export type {
 	PluginGatewayModule,
 	PluginGatewayRuntimeMap,
 	PluginRuntimeExtensionContext,
-	AdminPluginConfig,
-	AdminListUsersResult,
-	AdminPluginOptions,
+	SystemAdminPluginConfig,
+	SystemAdminListUsersResult,
+	SystemAdminPluginOptions,
 	Organization,
 	OrganizationAvailablePermissionsResult,
 	OrganizationDomain,

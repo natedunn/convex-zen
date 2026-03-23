@@ -8,8 +8,8 @@ const passthroughSessionTokenCodec: SessionTokenCodec = {
   decode: async (token) => ({ userId: "user_1", sessionToken: token }),
 };
 
-const adminPluginMeta = {
-  admin: {
+const systemAdminPluginMeta = {
+  systemAdmin: {
     listUsers: "query",
     banUser: "mutation",
     setRole: "mutation",
@@ -20,14 +20,14 @@ const adminPluginMeta = {
 
 const authMeta = {
   core: {},
-  plugin: adminPluginMeta,
+  plugin: systemAdminPluginMeta,
 } as const;
 
 const authMetaWithCore = {
   core: {
     signUp: "mutation",
   },
-  plugin: adminPluginMeta,
+  plugin: systemAdminPluginMeta,
 } as const;
 
 function mutationRef(name: string): FunctionReference<"mutation", "public"> {
@@ -45,7 +45,7 @@ function createNonEnumerableConvexFunctionsProxy() {
     invalidateSession: mutationRef("invalidateSession"),
     signUp: mutationRef("signUp"),
   };
-  const adminRefs = {
+  const systemAdminRefs = {
     listUsers: queryRef("listUsers"),
     banUser: mutationRef("banUser"),
     setRole: mutationRef("setRole"),
@@ -63,12 +63,12 @@ function createNonEnumerableConvexFunctionsProxy() {
       getOwnPropertyDescriptor: () => undefined,
     }
   );
-  const admin = new Proxy(
+  const systemAdmin = new Proxy(
     {},
     {
       get: (_target, prop) =>
         typeof prop === "string"
-          ? (adminRefs as Record<string, unknown>)[prop]
+          ? (systemAdminRefs as Record<string, unknown>)[prop]
           : undefined,
       ownKeys: () => [],
       getOwnPropertyDescriptor: () => undefined,
@@ -77,7 +77,7 @@ function createNonEnumerableConvexFunctionsProxy() {
   const plugin = new Proxy(
     {},
     {
-      get: (_target, prop) => (prop === "admin" ? admin : undefined),
+      get: (_target, prop) => (prop === "systemAdmin" ? systemAdmin : undefined),
       ownKeys: () => [],
       getOwnPropertyDescriptor: () => undefined,
     }
@@ -111,7 +111,7 @@ describe("createTanStackAuthServer auto plugins", () => {
           invalidateSession: mutationRef("invalidateSession"),
         },
         plugin: {
-          admin: {
+          systemAdmin: {
             listUsers: queryRef("listUsers"),
             banUser: mutationRef("banUser"),
             setRole: mutationRef("setRole"),
@@ -120,12 +120,12 @@ describe("createTanStackAuthServer auto plugins", () => {
           },
         },
       },
-      pluginMeta: adminPluginMeta,
+      pluginMeta: systemAdminPluginMeta,
       sessionTokenCodec: passthroughSessionTokenCodec,
     });
 
     const response = await authServer.handler(
-      new Request("https://app.test/api/auth/plugin/admin/list-users", {
+      new Request("https://app.test/api/auth/plugin/system-admin/list-users", {
         method: "GET",
       })
     );
@@ -144,7 +144,7 @@ describe("createTanStackAuthServer auto plugins", () => {
           invalidateSession: mutationRef("invalidateSession"),
         },
         plugin: {
-          admin: {
+          systemAdmin: {
             listUsers: queryRef("listUsers"),
             banUser: mutationRef("banUser"),
             setRole: mutationRef("setRole"),
@@ -158,7 +158,7 @@ describe("createTanStackAuthServer auto plugins", () => {
     });
 
     const response = await authServer.handler(
-      new Request("https://app.test/api/auth/plugin/admin/list-users", {
+      new Request("https://app.test/api/auth/plugin/system-admin/list-users", {
         method: "GET",
       })
     );
@@ -209,7 +209,7 @@ describe("createTanStackAuthServer auto plugins", () => {
             invalidateSession: mutationRef("invalidateSession"),
           },
           plugin: {
-            admin: {
+            systemAdmin: {
               listUsers: queryRef("listUsers"),
               banUser: mutationRef("banUser"),
               setRole: mutationRef("setRole"),
@@ -233,7 +233,7 @@ describe("createTanStackAuthServer auto plugins", () => {
           invalidateSession: mutationRef("invalidateSession"),
         },
         plugin: {
-          admin: {
+          systemAdmin: {
             listUsers: queryRef("listUsers"),
             banUser: mutationRef("banUser"),
             setRole: mutationRef("setRole"),
@@ -242,13 +242,13 @@ describe("createTanStackAuthServer auto plugins", () => {
           },
         },
       },
-      pluginMeta: adminPluginMeta,
+      pluginMeta: systemAdminPluginMeta,
       plugins: [],
       sessionTokenCodec: passthroughSessionTokenCodec,
     });
 
     const response = await authServer.handler(
-      new Request("https://app.test/api/auth/plugin/admin/list-users", {
+      new Request("https://app.test/api/auth/plugin/system-admin/list-users", {
         method: "GET",
       })
     );
@@ -267,15 +267,15 @@ describe("createTanStackAuthServer auto plugins", () => {
             invalidateSession: mutationRef("invalidateSession"),
           },
           plugin: {
-            admin: {
+            systemAdmin: {
               listUsers: queryRef("listUsers"),
             },
           },
         },
-        pluginMeta: adminPluginMeta,
+        pluginMeta: systemAdminPluginMeta,
         sessionTokenCodec: passthroughSessionTokenCodec,
       })
-    ).toThrow("convexFunctions.plugin.admin.banUser");
+    ).toThrow("convexFunctions.plugin.systemAdmin.banUser");
   });
 
   it("auto-detects plugin routes for proxy-based convexFunctions refs", async () => {
@@ -289,7 +289,7 @@ describe("createTanStackAuthServer auto plugins", () => {
             invalidateSession: FunctionReference<"mutation", "public">;
           };
           plugin: {
-            admin: {
+            systemAdmin: {
               listUsers: FunctionReference<"query", "public">;
               banUser: FunctionReference<"mutation", "public">;
               setRole: FunctionReference<"mutation", "public">;
@@ -298,12 +298,12 @@ describe("createTanStackAuthServer auto plugins", () => {
             };
           };
         },
-      pluginMeta: adminPluginMeta,
+      pluginMeta: systemAdminPluginMeta,
       sessionTokenCodec: passthroughSessionTokenCodec,
     });
 
     const response = await authServer.handler(
-      new Request("https://app.test/api/auth/plugin/admin/list-users", {
+      new Request("https://app.test/api/auth/plugin/system-admin/list-users", {
         method: "GET",
       })
     );
@@ -323,7 +323,7 @@ describe("createTanStackAuthServer auto plugins", () => {
             signUp: FunctionReference<"mutation", "public">;
           };
           plugin: {
-            admin: {
+            systemAdmin: {
               listUsers: FunctionReference<"query", "public">;
               banUser: FunctionReference<"mutation", "public">;
               setRole: FunctionReference<"mutation", "public">;

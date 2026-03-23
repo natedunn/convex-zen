@@ -184,7 +184,7 @@ function HomePage() {
         </Link>
         <Link to="/reset">Reset password</Link>
         <Link to="/dashboard">Dashboard</Link>
-        <Link to="/admin">Admin</Link>
+        <Link to="/system-admin">System Admin</Link>
       </div>
     </>
   );

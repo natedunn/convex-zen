@@ -435,13 +435,13 @@ export function definePlugin<
   return factory;
 }
 
-/** Admin plugin options. */
-export interface AdminPluginOptions {
+/** System Admin plugin options. */
+export interface SystemAdminPluginOptions {
   defaultRole?: string;
   adminRole?: string;
 }
 
-export type AdminPluginConfig = AdminPluginOptions;
+export type SystemAdminPluginConfig = SystemAdminPluginOptions;
 
 export type BuiltInOrganizationRole = "owner" | "admin" | "member";
 export type OrganizationRole = BuiltInOrganizationRole;
@@ -570,8 +570,8 @@ export interface OAuthCallbackResult {
   redirectUrl?: string;
 }
 
-/** Admin list-users row shape. */
-export interface AdminListUser {
+/** System Admin list-users row shape. */
+export interface SystemAdminListUser {
   _id: string;
   email: string;
   emailVerified: boolean;
@@ -586,9 +586,9 @@ export interface AdminListUser {
   _creationTime?: number;
 }
 
-/** Admin list-users response shape. */
-export interface AdminListUsersResult<
-  TUser extends AdminListUser = AdminListUser,
+/** System Admin list-users response shape. */
+export interface SystemAdminListUsersResult<
+  TUser extends SystemAdminListUser = SystemAdminListUser,
 > {
   users: TUser[];
   cursor: string | null;

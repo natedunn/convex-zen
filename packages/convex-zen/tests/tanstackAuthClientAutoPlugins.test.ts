@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import type { FunctionReference } from "convex/server";
 import { createTanStackAuthClient } from "../src/client/tanstack-start/client";
 
-const adminPluginMeta = {
-  admin: {
+const systemAdminPluginMeta = {
+  systemAdmin: {
     listUsers: "query",
     banUser: "mutation",
     setRole: "mutation",
@@ -14,7 +14,7 @@ const adminPluginMeta = {
 
 const authMeta = {
   core: {},
-  plugin: adminPluginMeta,
+  plugin: systemAdminPluginMeta,
 } as const;
 
 function createNonEnumerableCoreFunctionsProxy() {
@@ -336,7 +336,7 @@ describe("createTanStackAuthClient auto plugins", () => {
       }
       return { _id: "admin_1", email: "admin@example.com" };
     };
-    const directAdminListUsers = async () => {
+    const directSystemAdminListUsers = async () => {
       const token = await latestTokenFetcher()?.();
       if (token !== "admin_token") {
         return [];
@@ -345,7 +345,7 @@ describe("createTanStackAuthClient auto plugins", () => {
     };
 
     await expect(directCurrentUser()).resolves.toBeNull();
-    await expect(directAdminListUsers()).resolves.toEqual([]);
+    await expect(directSystemAdminListUsers()).resolves.toEqual([]);
 
     await authClient.signIn.email({
       email: "admin@example.com",
@@ -355,13 +355,13 @@ describe("createTanStackAuthClient auto plugins", () => {
       _id: "admin_1",
       email: "admin@example.com",
     });
-    await expect(directAdminListUsers()).resolves.toEqual([
+    await expect(directSystemAdminListUsers()).resolves.toEqual([
       { _id: "admin_1", email: "admin@example.com" },
     ]);
 
     await authClient.signOut();
     await expect(directCurrentUser()).resolves.toBeNull();
-    await expect(directAdminListUsers()).resolves.toEqual([]);
+    await expect(directSystemAdminListUsers()).resolves.toEqual([]);
 
     disconnect();
   });
@@ -418,7 +418,7 @@ describe("createTanStackAuthClient auto plugins", () => {
       fetch: vi.fn(async () => new Response("{}")),
       convexFunctions: {
         plugin: {
-          admin: {
+          systemAdmin: {
             listUsers: queryRef("listUsers"),
             banUser: mutationRef("banUser"),
             setRole: mutationRef("setRole"),
@@ -427,14 +427,14 @@ describe("createTanStackAuthClient auto plugins", () => {
           },
         },
       },
-      pluginMeta: adminPluginMeta,
+      pluginMeta: systemAdminPluginMeta,
     });
 
-    expect(typeof authClient.plugin.admin.listUsers).toBe("function");
-    expect(typeof authClient.plugin.admin.banUser).toBe("function");
-    expect(typeof authClient.plugin.admin.setRole).toBe("function");
-    expect(typeof authClient.plugin.admin.unbanUser).toBe("function");
-    expect(typeof authClient.plugin.admin.deleteUser).toBe("function");
+    expect(typeof authClient.plugin.systemAdmin.listUsers).toBe("function");
+    expect(typeof authClient.plugin.systemAdmin.banUser).toBe("function");
+    expect(typeof authClient.plugin.systemAdmin.setRole).toBe("function");
+    expect(typeof authClient.plugin.systemAdmin.unbanUser).toBe("function");
+    expect(typeof authClient.plugin.systemAdmin.deleteUser).toBe("function");
   });
 
   it('infers plugin methods by default ("auto") from convexFunctions + meta', () => {
@@ -442,7 +442,7 @@ describe("createTanStackAuthClient auto plugins", () => {
       fetch: vi.fn(async () => new Response("{}")),
       convexFunctions: {
         plugin: {
-          admin: {
+          systemAdmin: {
             listUsers: queryRef("listUsers"),
             banUser: mutationRef("banUser"),
             setRole: mutationRef("setRole"),
@@ -454,8 +454,8 @@ describe("createTanStackAuthClient auto plugins", () => {
       meta: authMeta,
     });
 
-    expect(typeof authClient.plugin.admin.listUsers).toBe("function");
-    expect(typeof authClient.plugin.admin.banUser).toBe("function");
+    expect(typeof authClient.plugin.systemAdmin.listUsers).toBe("function");
+    expect(typeof authClient.plugin.systemAdmin.banUser).toBe("function");
   });
 
   it("infers organization plugin methods and routes them through the generic plugin API", async () => {
@@ -502,24 +502,24 @@ describe("createTanStackAuthClient auto plugins", () => {
       fetch: fetchImpl,
       convexFunctions: {
         plugin: {
-          admin: {
+          systemAdmin: {
             listUsers: queryRef("listUsers"),
           },
         },
       },
       pluginMeta: {
-        admin: {
+        systemAdmin: {
           listUsers: "query",
         },
       },
     });
 
-    const result = await authClient.plugin.admin.listUsers({ limit: 5 });
+    const result = await authClient.plugin.systemAdmin.listUsers({ limit: 5 });
 
     expect(result).toEqual({ users: [], cursor: null, isDone: true });
     const firstCall = fetchImpl.mock.calls[0];
     expect(firstCall).toBeDefined();
-    expect(String(firstCall?.[0])).toContain("/api/auth/plugin/admin/list-users");
+    expect(String(firstCall?.[0])).toContain("/api/auth/plugin/system-admin/list-users");
     expect(firstCall?.[1]?.method).toBe("POST");
   });
 
@@ -530,13 +530,13 @@ describe("createTanStackAuthClient auto plugins", () => {
         fetch: vi.fn(async () => new Response("{}")),
         convexFunctions: {
           plugin: {
-            admin: {
+            systemAdmin: {
               listUsers: queryRef("listUsers"),
             },
           },
         },
         pluginMeta: {
-          admin: {
+          systemAdmin: {
             listUsers: "query",
           },
         },
@@ -550,7 +550,7 @@ describe("createTanStackAuthClient auto plugins", () => {
         fetch: vi.fn(async () => new Response("{}")),
         convexFunctions: {
           plugin: {
-            admin: {
+            systemAdmin: {
               listUsers: queryRef("listUsers"),
             },
           },

@@ -59,7 +59,7 @@ import {
 	githubProvider,
 	googleProvider,
 } from "convex-zen";
-import { adminPlugin } from "convex-zen-admin";
+import { systemAdminPlugin } from "convex-zen-system-admin";
 import { organizationPlugin } from "convex-zen-organization";
 import { components } from "./_generated/api";
 
@@ -88,7 +88,7 @@ export const authOptions = {
 	],
 	requireEmailVerified: true,
 	plugins: [
-		adminPlugin({ defaultRole: "user", adminRole: "admin" }),
+		systemAdminPlugin({ defaultRole: "user", adminRole: "admin" }),
 		organizationPlugin({
 			accessControl: {
 				project: ["write"],

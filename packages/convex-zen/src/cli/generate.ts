@@ -1543,6 +1543,18 @@ export async function generateAuthFunctions(
     options,
     result
   );
+  await deleteGeneratedFileIfExists(
+    path.join(pluginDir, "admin.ts"),
+    path.join("convex", "zen", "plugin", "admin.ts"),
+    options,
+    result
+  );
+  await deleteGeneratedFileIfExists(
+    path.join(componentDir, "admin", "gateway.ts"),
+    path.join("convex", "zen", "component", "admin", "gateway.ts"),
+    options,
+    result
+  );
 
   const pluginMeta: PluginFunctionMeta = {};
   for (const pluginDefinition of pluginDefinitions) {

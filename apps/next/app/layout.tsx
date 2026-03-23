@@ -35,7 +35,7 @@ export default async function RootLayout({
 									<Link href="/signin">Sign In</Link>
 									<Link href="/reset">Reset Password</Link>
 									<Link href="/dashboard">Dashboard</Link>
-									<Link href="/admin">Admin</Link>
+									<Link href="/system-admin">System Admin</Link>
 								</nav>
 							</section>
 						</header>

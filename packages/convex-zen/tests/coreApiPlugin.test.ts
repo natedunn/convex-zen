@@ -136,11 +136,11 @@ describe("coreApiPlugin", () => {
     });
 
     const response = await plugin.handle({
-      request: new Request("https://example.com/api/auth/plugin/admin/list-users", {
+      request: new Request("https://example.com/api/auth/plugin/system-admin/list-users", {
         method: "POST",
       }),
       method: "POST",
-      action: "plugin/admin/list-users",
+      action: "plugin/system-admin/list-users",
       readJson: async () => ({}),
       json: (data, status = 200) => new Response(JSON.stringify(data), { status }),
     });

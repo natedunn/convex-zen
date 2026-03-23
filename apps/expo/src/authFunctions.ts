@@ -26,8 +26,8 @@ export const authFunctions = {
     currentUser: queryRef("zen/core:currentUser"),
   },
   plugin: {
-    admin: {
-      listUsers: queryRef("zen/plugin/admin:listUsers"),
+    systemAdmin: {
+      listUsers: queryRef("zen/plugin/system-admin:listUsers"),
     },
   },
 } as const;
@@ -37,7 +37,7 @@ export const authMeta = {
     currentUser: "query",
   },
   plugin: {
-    admin: {
+    systemAdmin: {
       listUsers: "query",
     },
   },

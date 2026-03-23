@@ -405,12 +405,12 @@ describe("createExpoAuthClient", () => {
     const validateSession = mutationRef("auth.core.validateSession");
     const invalidateSession = mutationRef("auth.core.invalidateSession");
     const currentUser = queryRef("auth.core.currentUser");
-    const listUsers = queryRef("auth.plugin.admin.listUsers");
+    const listUsers = queryRef("auth.plugin.systemAdmin.listUsers");
     const coreMeta = {
       currentUser: "query",
     } as const satisfies ExpoAuthCoreMeta;
     const pluginMeta = {
-      admin: {
+      systemAdmin: {
         listUsers: "query",
       },
     } as const satisfies ExpoAuthPluginMeta;
@@ -451,7 +451,7 @@ describe("createExpoAuthClient", () => {
           currentUser,
         },
         plugin: {
-          admin: {
+          systemAdmin: {
             listUsers,
           },
         },
@@ -473,7 +473,7 @@ describe("createExpoAuthClient", () => {
       _id: "u1",
       email: "hello@example.com",
     });
-    await expect(client.plugin.admin.listUsers({ limit: 10 })).resolves.toEqual({
+    await expect(client.plugin.systemAdmin.listUsers({ limit: 10 })).resolves.toEqual({
       page: [{ _id: "u1", email: "hello@example.com" }],
       isDone: true,
     });
@@ -533,8 +533,8 @@ describe("createExpoAuthClient", () => {
           validateSession: mutationRef("auth.core.validateSession"),
           invalidateSession: mutationRef("auth.core.invalidateSession"),
           plugin: {
-            admin: {
-              listUsers: queryRef("auth.plugin.admin.listUsers"),
+            systemAdmin: {
+              listUsers: queryRef("auth.plugin.systemAdmin.listUsers"),
             },
           },
         },

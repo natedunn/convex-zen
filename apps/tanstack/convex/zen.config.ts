@@ -1,5 +1,5 @@
 import { defineConvexZen, githubProvider } from "convex-zen";
-import { adminPlugin } from "convex-zen-admin";
+import { systemAdminPlugin } from "convex-zen-system-admin";
 import { examplePlugin } from "convex-zen-example";
 import { organizationPlugin } from "convex-zen-organization";
 
@@ -29,7 +29,7 @@ export default defineConvexZen({
 		examplePlugin({
 			defaultScope: "tanstack-playground",
 		}),
-		adminPlugin({ defaultRole: "user", adminRole: "admin" }),
+		systemAdminPlugin({ defaultRole: "user", adminRole: "admin" }),
 		organizationPlugin({
 			accessControl: {
 				project: ["write"],

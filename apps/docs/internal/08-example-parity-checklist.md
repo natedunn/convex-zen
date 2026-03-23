@@ -32,9 +32,9 @@ Use this as the source-of-truth checklist when adding features or reviewing drif
 | P0 | A7 | Core | Forgot/reset password | Yes | Yes | Can request reset and complete reset with code. |
 | P0 | A8 | Core | Auth error states | Yes | Yes | Invalid credentials/code errors are shown clearly in UI. |
 | P0 | A9 | Core | Loading states | Yes | Yes | Async actions show loading state and prevent duplicate submits. |
-| P0-plugin | A10 | Admin plugin | Admin list users | Yes | Yes | Admin page loads user list for authorized user. |
-| P0-plugin | A11 | Admin plugin | Admin role update | Yes | Yes | Admin can change user role and see updated state. |
-| P0-plugin | A12 | Admin plugin | Admin ban/unban | Yes | Yes | Admin can ban and unban user and see updated state. |
+| P0-plugin | A10 | System Admin plugin | System Admin list users | Yes | Yes | System Admin page loads user list for authorized user. |
+| P0-plugin | A11 | System Admin plugin | System Admin role update | Yes | Yes | System Admin can change user role and see updated state. |
+| P0-plugin | A12 | System Admin plugin | System Admin ban/unban | Yes | Yes | System Admin can ban and unban user and see updated state. |
 | P1 | B1 | Core | Token diagnostics | Yes | Yes | Developer-facing token/session debug panel exists for quick troubleshooting. |
 | P1 | B2 | Core | Redirect intent handling | No | Partial | Sign-in flow preserves intended redirect target. |
 | P1 | B3 | Core | Host/local env parity | Unknown | Unknown | Works on `localhost`, `127.0.0.1`, and local custom host setup. |

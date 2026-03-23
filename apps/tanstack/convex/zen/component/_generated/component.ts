@@ -23,57 +23,6 @@ import type { FunctionReference } from "convex/server";
  */
 export type ComponentApi<Name extends string | undefined = string | undefined> =
   {
-    admin: {
-      gateway: {
-        banUser: FunctionReference<
-          "mutation",
-          "internal",
-          {
-            adminRole?: string;
-            expiresAt?: number;
-            reason?: string;
-            userId: string;
-          },
-          any,
-          Name
-        >;
-        deleteUser: FunctionReference<
-          "mutation",
-          "internal",
-          { adminRole?: string; userId: string },
-          any,
-          Name
-        >;
-        isAdmin: FunctionReference<
-          "query",
-          "internal",
-          { adminRole?: string },
-          any,
-          Name
-        >;
-        listUsers: FunctionReference<
-          "query",
-          "internal",
-          { adminRole?: string; cursor?: string; limit?: number },
-          any,
-          Name
-        >;
-        setRole: FunctionReference<
-          "mutation",
-          "internal",
-          { adminRole?: string; role: string; userId: string },
-          any,
-          Name
-        >;
-        unbanUser: FunctionReference<
-          "mutation",
-          "internal",
-          { adminRole?: string; userId: string },
-          any,
-          Name
-        >;
-      };
-    };
     example: {
       gateway: {
         listLogs: FunctionReference<
@@ -557,6 +506,57 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             rolePermissions?: Record<string, Array<string>>;
             slug?: string;
           },
+          any,
+          Name
+        >;
+      };
+    };
+    systemAdmin: {
+      gateway: {
+        banUser: FunctionReference<
+          "mutation",
+          "internal",
+          {
+            adminRole?: string;
+            expiresAt?: number;
+            reason?: string;
+            userId: string;
+          },
+          any,
+          Name
+        >;
+        deleteUser: FunctionReference<
+          "mutation",
+          "internal",
+          { adminRole?: string; userId: string },
+          any,
+          Name
+        >;
+        isAdmin: FunctionReference<
+          "query",
+          "internal",
+          { adminRole?: string },
+          any,
+          Name
+        >;
+        listUsers: FunctionReference<
+          "query",
+          "internal",
+          { adminRole?: string; cursor?: string; limit?: number },
+          any,
+          Name
+        >;
+        setRole: FunctionReference<
+          "mutation",
+          "internal",
+          { adminRole?: string; role: string; userId: string },
+          any,
+          Name
+        >;
+        unbanUser: FunctionReference<
+          "mutation",
+          "internal",
+          { adminRole?: string; userId: string },
           any,
           Name
         >;

@@ -213,7 +213,7 @@ export default function Page() {
         <Link href="/verify">Verify email</Link>
         <Link href="/reset">Reset password</Link>
         <Link href="/dashboard">Dashboard</Link>
-        <Link href="/admin">Admin</Link>
+        <Link href="/system-admin">System Admin</Link>
       </div>
     </>
   );

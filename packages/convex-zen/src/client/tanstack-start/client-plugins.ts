@@ -2,68 +2,68 @@ import type { TanStackStartAuthApiClientPlugin } from "./client";
 
 function normalizeRoutePrefix(prefix: string): string {
   const trimmed = prefix.trim().replace(/^\/+|\/+$/g, "");
-  return trimmed.length > 0 ? trimmed : "admin";
+  return trimmed.length > 0 ? trimmed : "system-admin";
 }
 
-export const ADMIN_CLIENT_PLUGIN_ID = "admin" as const;
+export const SYSTEM_ADMIN_CLIENT_PLUGIN_ID = "systemAdmin" as const;
 
-export interface TanStackStartAdminListUsersInput {
+export interface TanStackStartSystemAdminListUsersInput {
   limit?: number;
   cursor?: string;
 }
 
-export interface TanStackStartAdminBanUserInput {
+export interface TanStackStartSystemAdminBanUserInput {
   userId: string;
   reason?: string;
   expiresAt?: number;
 }
 
-export interface TanStackStartAdminSetRoleInput {
+export interface TanStackStartSystemAdminSetRoleInput {
   userId: string;
   role: string;
 }
 
-export interface TanStackStartAdminUserIdInput {
+export interface TanStackStartSystemAdminUserIdInput {
   userId: string;
 }
 
-export interface TanStackStartAdminClientPluginShape<
+export interface TanStackStartSystemAdminClientPluginShape<
   TListUsersOutput = unknown,
   TBanUserOutput = unknown,
   TSetRoleOutput = unknown,
   TUnbanUserOutput = unknown,
   TDeleteUserOutput = unknown,
 > {
-  admin: {
+  systemAdmin: {
     listUsers: (
-      input?: TanStackStartAdminListUsersInput
+      input?: TanStackStartSystemAdminListUsersInput
     ) => Promise<TListUsersOutput>;
-    banUser: (input: TanStackStartAdminBanUserInput) => Promise<TBanUserOutput>;
-    setRole: (input: TanStackStartAdminSetRoleInput) => Promise<TSetRoleOutput>;
-    unbanUser: (input: TanStackStartAdminUserIdInput) => Promise<TUnbanUserOutput>;
+    banUser: (input: TanStackStartSystemAdminBanUserInput) => Promise<TBanUserOutput>;
+    setRole: (input: TanStackStartSystemAdminSetRoleInput) => Promise<TSetRoleOutput>;
+    unbanUser: (input: TanStackStartSystemAdminUserIdInput) => Promise<TUnbanUserOutput>;
     deleteUser: (
-      input: TanStackStartAdminUserIdInput
+      input: TanStackStartSystemAdminUserIdInput
     ) => Promise<TDeleteUserOutput>;
   };
 }
 
-export interface TanStackStartAdminClientPluginOptions {
+export interface TanStackStartSystemAdminClientPluginOptions {
   routePrefix?: string;
 }
 
 /**
- * Adds `authClient.admin.*` methods to the TanStack auth API client.
+ * Adds `authClient.systemAdmin.*` methods to the TanStack auth API client.
  */
-export function adminClient<
+export function systemAdminClient<
   TListUsersOutput = unknown,
   TBanUserOutput = unknown,
   TSetRoleOutput = unknown,
   TUnbanUserOutput = unknown,
   TDeleteUserOutput = unknown,
 >(
-  options: TanStackStartAdminClientPluginOptions = {}
+  options: TanStackStartSystemAdminClientPluginOptions = {}
 ): TanStackStartAuthApiClientPlugin<
-  TanStackStartAdminClientPluginShape<
+  TanStackStartSystemAdminClientPluginShape<
     TListUsersOutput,
     TBanUserOutput,
     TSetRoleOutput,
@@ -71,10 +71,10 @@ export function adminClient<
     TDeleteUserOutput
   >
 > {
-  const routePrefix = normalizeRoutePrefix(options.routePrefix ?? "admin");
+  const routePrefix = normalizeRoutePrefix(options.routePrefix ?? "system-admin");
 
   return {
-    id: ADMIN_CLIENT_PLUGIN_ID,
+    id: SYSTEM_ADMIN_CLIENT_PLUGIN_ID,
     create: (context) => {
       const post = async <T>(path: string, input: unknown, fallback: string) => {
         return context.requestJson<T>(
@@ -89,7 +89,7 @@ export function adminClient<
       };
 
       return {
-        admin: {
+        systemAdmin: {
           listUsers: async (input) =>
             post<TListUsersOutput>(
               "list-users",

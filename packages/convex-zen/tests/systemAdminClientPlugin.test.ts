@@ -1,25 +1,25 @@
 import { describe, expect, it, vi } from "vitest";
-import { AdminPlugin } from "../../convex-zen-admin/src";
+import { SystemAdminPlugin } from "../../convex-zen-system-admin/src";
 
 function makePlugin() {
-  return new AdminPlugin(
+  return new SystemAdminPlugin(
     {
-      admin: {
+      systemAdmin: {
         gateway: {
-          isAdmin: "admin/gateway:isAdmin",
-          listUsers: "admin/gateway:listUsers",
-          banUser: "admin/gateway:banUser",
-          unbanUser: "admin/gateway:unbanUser",
-          setRole: "admin/gateway:setRole",
-          deleteUser: "admin/gateway:deleteUser",
+          isAdmin: "system-admin/gateway:isAdmin",
+          listUsers: "system-admin/gateway:listUsers",
+          banUser: "system-admin/gateway:banUser",
+          unbanUser: "system-admin/gateway:unbanUser",
+          setRole: "system-admin/gateway:setRole",
+          deleteUser: "system-admin/gateway:deleteUser",
         },
       },
     },
-    { id: "admin" }
+    { id: "systemAdmin" }
   );
 }
 
-describe("AdminPlugin client", () => {
+describe("SystemAdminPlugin client", () => {
   it("calls isAdmin with actor identity payload", async () => {
     const plugin = makePlugin();
     const runQuery = vi.fn(async () => true);
@@ -31,8 +31,7 @@ describe("AdminPlugin client", () => {
 
     expect(result).toBe(true);
     expect(runQuery).toHaveBeenCalledTimes(1);
-    expect(runQuery).toHaveBeenCalledWith("admin/gateway:isAdmin", {
-      actorUserId: "user_admin",
+    expect(runQuery).toHaveBeenCalledWith("system-admin/gateway:isAdmin", {
       adminRole: "admin",
     });
   });
@@ -47,8 +46,7 @@ describe("AdminPlugin client", () => {
     );
 
     expect(runQuery).toHaveBeenCalledTimes(1);
-    expect(runQuery).toHaveBeenCalledWith("admin/gateway:listUsers", {
-      actorUserId: "user_admin",
+    expect(runQuery).toHaveBeenCalledWith("system-admin/gateway:listUsers", {
       limit: 20,
       cursor: "c1",
       adminRole: "admin",
@@ -65,8 +63,7 @@ describe("AdminPlugin client", () => {
     );
 
     expect(runMutation).toHaveBeenCalledTimes(1);
-    expect(runMutation).toHaveBeenCalledWith("admin/gateway:setRole", {
-      actorUserId: "user_admin",
+    expect(runMutation).toHaveBeenCalledWith("system-admin/gateway:setRole", {
       userId: "user_1",
       role: "admin",
       adminRole: "admin",
@@ -74,44 +71,43 @@ describe("AdminPlugin client", () => {
   });
 
   it("forwards configured adminRole to gateway in app runtime mode", async () => {
-    const plugin = new AdminPlugin(
+    const plugin = new SystemAdminPlugin(
       {
-        admin: {
+        systemAdmin: {
           gateway: {
-            isAdmin: "admin/gateway:isAdmin",
+            isAdmin: "system-admin/gateway:isAdmin",
           },
         },
       },
-      { id: "admin", adminRole: "superadmin" }
+      { id: "systemAdmin", adminRole: "superadmin" }
     );
     const runQuery = vi.fn(async () => true);
 
     await plugin.isAdmin({ runQuery }, { actorUserId: "user_admin" });
 
-    expect(runQuery).toHaveBeenCalledWith("admin/gateway:isAdmin", {
-      actorUserId: "user_admin",
+    expect(runQuery).toHaveBeenCalledWith("system-admin/gateway:isAdmin", {
       adminRole: "superadmin",
     });
   });
 
   it("routes through component child refs in component runtime mode", async () => {
-    const plugin = new AdminPlugin(
+    const plugin = new SystemAdminPlugin(
       {
-        adminComponent: {
+        systemAdminComponent: {
           gateway: {
-            isAdmin: "adminComponent/gateway:isAdmin",
+            isAdmin: "systemAdminComponent/gateway:isAdmin",
           },
         },
       },
-      { id: "admin" },
-      "adminComponent",
+      { id: "systemAdmin" },
+      "systemAdminComponent",
       "component"
     );
     const runQuery = vi.fn(async () => true);
 
     await plugin.isAdmin({ runQuery }, { actorUserId: "user_admin" });
 
-    expect(runQuery).toHaveBeenCalledWith("adminComponent/gateway:isAdmin", {
+    expect(runQuery).toHaveBeenCalledWith("systemAdminComponent/gateway:isAdmin", {
       actorUserId: "user_admin",
       adminRole: "admin",
     });

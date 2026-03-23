@@ -8,24 +8,24 @@ import { api } from "../../convex/_generated/api";
 import { authClient } from "../lib/auth-client";
 import { UserRow, type UserRowData } from "@convex-zen/playground-ui";
 
-type AdminListUsersResponse = {
+type SystemAdminListUsersResponse = {
 	users: UserRowData[];
 	cursor: string | null;
 	isDone: boolean;
 };
 
-type ListUsersArgs = FunctionArgs<typeof api.zen.plugin.admin.listUsers>;
+type ListUsersArgs = FunctionArgs<typeof api.zen.plugin.systemAdmin.listUsers>;
 
-const listAdminUsersServerFn = createServerFn({ method: "POST" })
+const listSystemAdminUsersServerFn = createServerFn({ method: "POST" })
 	.inputValidator(
 		(input: ListUsersArgs | undefined): ListUsersArgs => input ?? {},
 	)
 	.handler(async ({ data }) => {
 		const { fetchAuthQuery } = await import("../lib/auth-server");
-		return fetchAuthQuery(api.zen.plugin.admin.listUsers, data);
-	});
+		return fetchAuthQuery(api.zen.plugin.systemAdmin.listUsers, data);
+	})
 
-export const Route = createFileRoute("/admin")({
+export const Route = createFileRoute("/system-admin")({
 	preload: false,
 	staleTime: 0,
 	gcTime: 0,
@@ -34,14 +34,14 @@ export const Route = createFileRoute("/admin")({
 			throw redirect({ to: "/signin" });
 		}
 		try {
-			const result = (await listAdminUsersServerFn({
+			const result = (await listSystemAdminUsersServerFn({
 				data: {
 					limit: 50,
 				},
-			})) as AdminListUsersResponse;
+			})) as SystemAdminListUsersResponse;
 			return {
 				users: result.users,
-			};
+			}
 		} catch (error) {
 			const message = error instanceof Error ? error.message : "Forbidden";
 			if (message.includes("Unauthorized")) {
@@ -53,19 +53,19 @@ export const Route = createFileRoute("/admin")({
 			throw error;
 		}
 	},
-	component: AdminPage,
+	component: SystemAdminPage,
 	errorComponent: ({ error }) => {
 		const message = error instanceof Error ? error.message : "Unknown error";
 		return (
 			<div className="card">
-				<h2>Admin</h2>
-				<p className="text-error">Could not load admin page: {message}</p>
+				<h2>System Admin</h2>
+				<p className="text-error">Could not load system admin page: {message}</p>
 			</div>
-		);
+		)
 	},
 });
 
-function AdminPage() {
+function SystemAdminPage() {
 	const { users: prefetchedUsers } = Route.useLoaderData();
 	const { status, session } = useSession();
 	const navigate = useNavigate();
@@ -77,7 +77,7 @@ function AdminPage() {
 
 	const banUserMutation = useMutation({
 		mutationFn: async (input: { userId: string; reason?: string }) =>
-			authClient.plugin.admin.banUser(input),
+			authClient.plugin.systemAdmin.banUser(input),
 		onSuccess: (_result, input) => {
 			setUsers((current) =>
 				current.map((user) =>
@@ -85,20 +85,20 @@ function AdminPage() {
 						? { ...user, banned: true, banReason: input.reason }
 						: user,
 				),
-			);
+			)
 		},
 		onError: (mutationError) => {
 			setError(
 				mutationError instanceof Error
 					? mutationError.message
 					: "Could not ban user",
-			);
+			)
 		},
-	});
+	})
 
 	const unbanUserMutation = useMutation({
 		mutationFn: async (input: { userId: string }) =>
-			authClient.plugin.admin.unbanUser(input),
+			authClient.plugin.systemAdmin.unbanUser(input),
 		onSuccess: (_result, input) => {
 			setUsers((current) =>
 				current.map((user) =>
@@ -106,49 +106,49 @@ function AdminPage() {
 						? { ...user, banned: false, banReason: undefined }
 						: user,
 				),
-			);
+			)
 		},
 		onError: (mutationError) => {
 			setError(
 				mutationError instanceof Error
 					? mutationError.message
 					: "Could not unban user",
-			);
+			)
 		},
-	});
+	})
 
 	const setRoleMutation = useMutation({
 		mutationFn: async (input: { userId: string; role: string }) =>
-			authClient.plugin.admin.setRole(input),
+			authClient.plugin.systemAdmin.setRole(input),
 		onSuccess: (_result, input) => {
 			setUsers((current) =>
 				current.map((user) =>
 					user._id === input.userId ? { ...user, role: input.role } : user,
 				),
-			);
+			)
 		},
 		onError: (mutationError) => {
 			setError(
 				mutationError instanceof Error
 					? mutationError.message
 					: "Could not set role",
-			);
+			)
 		},
-	});
+	})
 
 	if (status === "loading") {
 		return (
 			<div className="card">
-				<h2>Admin</h2>
+				<h2>System Admin</h2>
 				<p className="loading-text">Loading...</p>
 			</div>
-		);
+		)
 	}
 
 	if (!session) {
 		return (
 			<div className="card">
-				<h2>Admin</h2>
+				<h2>System Admin</h2>
 				<p className="muted">You must be signed in to access this page.</p>
 				<div className="actions">
 					<button
@@ -159,12 +159,12 @@ function AdminPage() {
 					</button>
 				</div>
 			</div>
-		);
+		)
 	}
 
 	return (
 		<>
-			<h2 className="page-title">Admin</h2>
+			<h2 className="page-title">System Admin</h2>
 			{error ? <p className="text-error">{error}</p> : null}
 
 			<p className="section-label">Users ({users.length})</p>
@@ -192,7 +192,7 @@ function AdminPage() {
 							const role = window.prompt(
 								"New role:",
 								currentUser?.role ?? "user",
-							);
+							)
 							if (role) {
 								setRoleMutation.mutate({ userId: id, role });
 							}
@@ -201,5 +201,5 @@ function AdminPage() {
 				))
 			)}
 		</>
-	);
+	)
 }
