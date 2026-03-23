@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { AdminPlugin } from "../src/client/plugins/admin";
+import { AdminPlugin } from "../../convex-zen-admin/src";
 
 function makePlugin() {
   return new AdminPlugin(

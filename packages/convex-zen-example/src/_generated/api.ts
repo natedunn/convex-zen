@@ -9,6 +9,7 @@
  */
 
 import type * as gateway from "../gateway.js";
+import type * as index from "../index.js";
 
 import type {
   ApiFromModules,
@@ -19,6 +20,7 @@ import { anyApi, componentsGeneric } from "convex/server";
 
 const fullApi: ApiFromModules<{
   gateway: typeof gateway;
+  index: typeof index;
 }> = anyApi as any;
 
 /**

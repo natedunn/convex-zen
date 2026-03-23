@@ -8,6 +8,7 @@ import { api } from "../../../convex/_generated/api";
 import {
   EMPTY_PERMISSION_LIST,
   messageFromError,
+  type OrganizationPermissionList,
 } from "./organization-playground-shared";
 
 export function PermissionProbeSection({
@@ -28,15 +29,17 @@ export function PermissionProbeSection({
     label: string;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const permissionList =
+    (permissionListQuery.data as OrganizationPermissionList | undefined) ??
+    EMPTY_PERMISSION_LIST;
 
   useEffect(() => {
-    const nextPermission =
-      permissionListQuery.data?.permissions[0] ?? "organization:read";
+    const nextPermission = permissionList.permissions[0] ?? "organization:read";
     const [resource = "organization", action = "read"] = nextPermission.split(":");
     setPermissionResource(resource);
     setPermissionAction(action);
     setPermissionResult(null);
-  }, [permissionListQuery.data, organizationId]);
+  }, [organizationId, permissionList]);
 
   const handlePermissionProbe = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -53,7 +56,7 @@ export function PermissionProbeSection({
         } as FunctionArgs<typeof api.zen.plugin.organization.hasPermission>
       );
       setPermissionResult({
-        allowed,
+        allowed: allowed as boolean,
         label: allowed ? "Allowed" : "Denied",
       });
     } catch (probeError) {
@@ -77,11 +80,11 @@ export function PermissionProbeSection({
       {permissionListQuery.isLoading ? (
         <p className="loading-text">Loading permissions...</p>
       ) : null}
-      {(permissionListQuery.data ?? EMPTY_PERMISSION_LIST).permissions.length > 0 ? (
+      {permissionList.permissions.length > 0 ? (
         <p className="muted">
           Available permissions:{" "}
           <code>
-            {(permissionListQuery.data ?? EMPTY_PERMISSION_LIST).permissions.join(", ")}
+            {permissionList.permissions.join(", ")}
           </code>
         </p>
       ) : null}
@@ -92,10 +95,7 @@ export function PermissionProbeSection({
             id="permission-resource"
             value={permissionResource}
             onChange={(event) => setPermissionResource(event.target.value)}
-            placeholder={
-              permissionListQuery.data?.permissions[0]?.split(":")[0] ??
-              "organization"
-            }
+            placeholder={permissionList.permissions[0]?.split(":")[0] ?? "organization"}
             required
           />
         </div>
@@ -105,9 +105,7 @@ export function PermissionProbeSection({
             id="permission-action"
             value={permissionAction}
             onChange={(event) => setPermissionAction(event.target.value)}
-            placeholder={
-              permissionListQuery.data?.permissions[0]?.split(":")[1] ?? "read"
-            }
+            placeholder={permissionList.permissions[0]?.split(":")[1] ?? "read"}
             required
           />
         </div>

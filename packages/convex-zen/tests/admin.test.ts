@@ -1,11 +1,24 @@
 import { convexTest } from "convex-test";
+import { makeFunctionReference, type FunctionReference } from "convex/server";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import schema from "../src/component/schema";
 import { internal } from "../src/component/_generated/api";
 
-const modules = import.meta.glob("../src/component/**/*.*s");
+const modules = {
+  ...import.meta.glob("../src/component/**/*.*s"),
+  "../src/component/plugins/admin/gateway.ts": () =>
+    import("../../convex-zen-admin/src/gateway"),
+};
 const CONVEX_DIRECT_CALL_WARNING =
   "Convex functions should not directly call other Convex functions.";
+
+function adminQueryRef(name: string): FunctionReference<"query", "public"> {
+  return makeFunctionReference(`plugins/admin/gateway:${name}`);
+}
+
+function adminMutationRef(name: string): FunctionReference<"mutation", "public"> {
+  return makeFunctionReference(`plugins/admin/gateway:${name}`);
+}
 
 async function createUser(
   t: ReturnType<typeof convexTest>,
@@ -92,7 +105,7 @@ describe("admin plugin", () => {
       await createUser(t, "user2@example.com");
       await createUser(t, "user3@example.com");
 
-      const result = await t.query(internal.plugins.admin.listUsers, {
+      const result = await t.query(adminQueryRef("listUsers"), {
         actorUserId: adminId,
         limit: 2,
       }) as { users: unknown[]; cursor: string; isDone: boolean };
@@ -101,7 +114,7 @@ describe("admin plugin", () => {
       expect(result.isDone).toBe(false);
 
       // Fetch next page
-      const result2 = await t.query(internal.plugins.admin.listUsers, {
+      const result2 = await t.query(adminQueryRef("listUsers"), {
         actorUserId: adminId,
         limit: 2,
         cursor: result.cursor,
@@ -120,7 +133,7 @@ describe("admin plugin", () => {
       await createUser(t, "a@example.com");
       await createUser(t, "b@example.com");
 
-      const result = await t.query(internal.plugins.admin.listUsers, {
+      const result = await t.query(adminQueryRef("listUsers"), {
         actorUserId: adminId,
         limit: 100,
       }) as { users: unknown[]; isDone: boolean };
@@ -136,7 +149,7 @@ describe("admin plugin", () => {
       });
 
       await expect(
-        t.query(internal.plugins.admin.listUsers, {
+        t.query(adminQueryRef("listUsers"), {
           actorUserId: nonAdminId,
           limit: 10,
         })
@@ -153,13 +166,13 @@ describe("admin plugin", () => {
       });
 
       await expect(
-        t.query(internal.plugins.admin.listUsers, {
+        t.query(adminQueryRef("listUsers"), {
           actorUserId: ownerId,
           limit: 5,
         })
       ).rejects.toThrow("Forbidden");
 
-      const result = await t.query(internal.plugins.admin.listUsers, {
+      const result = await t.query(adminQueryRef("listUsers"), {
         actorUserId: ownerId,
         adminRole: "owner",
         limit: 5,
@@ -184,7 +197,7 @@ describe("admin plugin", () => {
       expect(beforeBan).not.toBeNull();
 
       // Ban the user
-      await t.mutation(internal.plugins.admin.banUser, {
+      await t.mutation(adminMutationRef("banUser"), {
         actorUserId: adminId,
         userId,
         reason: "Violating TOS",
@@ -209,7 +222,7 @@ describe("admin plugin", () => {
 
       const expiresAt = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
 
-      await t.mutation(internal.plugins.admin.banUser, {
+      await t.mutation(adminMutationRef("banUser"), {
         actorUserId: adminId,
         userId,
         reason: "Temp violation",
@@ -244,7 +257,7 @@ describe("admin plugin", () => {
         await ctx.db.patch(user!._id, { emailVerified: true });
       });
 
-      await t.mutation(internal.plugins.admin.banUser, {
+      await t.mutation(adminMutationRef("banUser"), {
         actorUserId: adminId,
         userId: user!._id,
         reason: "Testing ban",
@@ -267,13 +280,13 @@ describe("admin plugin", () => {
       });
       const userId = await createUser(t, "banned@example.com");
 
-      await t.mutation(internal.plugins.admin.banUser, {
+      await t.mutation(adminMutationRef("banUser"), {
         actorUserId: adminId,
         userId,
         reason: "Temporary",
       });
 
-      await t.mutation(internal.plugins.admin.unbanUser, {
+      await t.mutation(adminMutationRef("unbanUser"), {
         actorUserId: adminId,
         userId,
       });
@@ -306,11 +319,11 @@ describe("admin plugin", () => {
       });
 
       // Ban then unban
-      await t.mutation(internal.plugins.admin.banUser, {
+      await t.mutation(adminMutationRef("banUser"), {
         actorUserId: adminId,
         userId: user!._id,
       });
-      await t.mutation(internal.plugins.admin.unbanUser, {
+      await t.mutation(adminMutationRef("unbanUser"), {
         actorUserId: adminId,
         userId: user!._id,
       });
@@ -333,7 +346,7 @@ describe("admin plugin", () => {
       });
       const userId = await createUser(t, "roletest@example.com");
 
-      await t.mutation(internal.plugins.admin.setRole, {
+      await t.mutation(adminMutationRef("setRole"), {
         actorUserId: adminId,
         userId,
         role: "admin",
@@ -350,13 +363,13 @@ describe("admin plugin", () => {
       });
       const userId = await createUser(t, "rolechange@example.com");
 
-      await t.mutation(internal.plugins.admin.setRole, {
+      await t.mutation(adminMutationRef("setRole"), {
         actorUserId: adminId,
         userId,
         role: "moderator",
       });
 
-      await t.mutation(internal.plugins.admin.setRole, {
+      await t.mutation(adminMutationRef("setRole"), {
         actorUserId: adminId,
         userId,
         role: "admin",
@@ -384,7 +397,7 @@ describe("admin plugin", () => {
       expect(before2).not.toBeNull();
 
       // Change the role
-      await t.mutation(internal.plugins.admin.setRole, {
+      await t.mutation(adminMutationRef("setRole"), {
         actorUserId: adminId,
         userId,
         role: "moderator",
@@ -418,7 +431,7 @@ describe("admin plugin", () => {
       });
 
       await expect(
-        t.mutation(internal.plugins.admin.setRole, {
+        t.mutation(adminMutationRef("setRole"), {
           actorUserId: adminId,
           userId,
           role: "moderator",
@@ -439,7 +452,7 @@ describe("admin plugin", () => {
       await t.mutation(internal.core.sessions.create, { userId });
       await t.mutation(internal.core.sessions.create, { userId });
 
-      await t.mutation(internal.plugins.admin.deleteUser, {
+      await t.mutation(adminMutationRef("deleteUser"), {
         actorUserId: adminId,
         userId,
       });
@@ -475,14 +488,14 @@ describe("admin plugin", () => {
       const userId = await createUser(t, "temp@example.com");
 
       // Delete once
-      await t.mutation(internal.plugins.admin.deleteUser, {
+      await t.mutation(adminMutationRef("deleteUser"), {
         actorUserId: adminId,
         userId,
       });
 
       // Delete again — should throw
       await expect(
-        t.mutation(internal.plugins.admin.deleteUser, {
+        t.mutation(adminMutationRef("deleteUser"), {
           actorUserId: adminId,
           userId,
         })

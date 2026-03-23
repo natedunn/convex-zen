@@ -1,6 +1,6 @@
 import { createConvexZenClient, defineConvexZen, discordProvider, githubProvider, googleProvider } from "convex-zen";
-import { adminPlugin } from "convex-zen/plugins/admin";
-import { organizationPlugin } from "convex-zen/plugins/organization";
+import { adminPlugin } from "convex-zen-admin";
+import { organizationPlugin } from "convex-zen-organization";
 
 function readRequiredOAuthEnv(
 	key: "DISCORD_CLIENT_ID" | "DISCORD_CLIENT_SECRET" | "GITHUB_CLIENT_ID" | "GITHUB_CLIENT_SECRET" | "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET"

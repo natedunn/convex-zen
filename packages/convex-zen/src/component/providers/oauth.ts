@@ -15,6 +15,7 @@ import {
 } from "../lib/crypto";
 import { oauthProviderConfigValidator } from "../lib/validators";
 import { internal } from "../lib/internalApi";
+import { omitUndefined } from "../lib/object";
 import {
   requireOAuthVerifiedEmail,
   resolveOAuthProviderRuntime,
@@ -214,20 +215,25 @@ export async function getAuthorizationUrlForProvider(
     stateHash,
     codeVerifier,
     provider: provider.id,
-    redirectUrl: args.options?.redirectUrl,
-    callbackUrl,
-    redirectTo: args.options?.redirectTo,
-    errorRedirectTo: args.options?.errorRedirectTo,
+    ...omitUndefined({
+      redirectUrl: args.options?.redirectUrl,
+      callbackUrl,
+      redirectTo: args.options?.redirectTo,
+      errorRedirectTo: args.options?.errorRedirectTo,
+    }),
     expiresAt,
   });
   await ctx.scheduler.runAt(expiresAt, internal.providers.oauth.cleanup, {});
 
   return {
-    authorizationUrl: runtime.buildAuthorizationUrl(provider, {
-      state,
-      codeChallenge,
-      callbackUrl,
-    }),
+    authorizationUrl: runtime.buildAuthorizationUrl(
+      provider,
+      omitUndefined({
+        state,
+        codeChallenge,
+        callbackUrl,
+      })
+    ),
   };
 }
 
@@ -321,11 +327,13 @@ export async function handleOAuthCallbackForProvider(
       name: profile.name,
       image: profile.image,
       encryptedAccessToken,
-      encryptedRefreshToken,
-      accessTokenExpiresAt,
-      ipAddress: args.ipAddress,
-      userAgent: args.userAgent,
-      defaultRole: args.defaultRole,
+      ...omitUndefined({
+        encryptedRefreshToken,
+        accessTokenExpiresAt,
+        ipAddress: args.ipAddress,
+        userAgent: args.userAgent,
+        defaultRole: args.defaultRole,
+      }),
     }
   );
 
@@ -383,12 +391,12 @@ export const getAuthorizationUrl = internalMutation({
   handler: async (ctx, args) =>
     await getAuthorizationUrlForProvider(ctx, {
       provider: args.provider as OAuthProviderConfig,
-      options: {
+      options: omitUndefined({
         callbackUrl: args.callbackUrl,
         redirectTo: args.redirectTo,
         errorRedirectTo: args.errorRedirectTo,
         redirectUrl: args.redirectUrl,
-      },
+      }),
     }),
 });
 
@@ -418,8 +426,10 @@ export const finalizeCallback = internalMutation({
     if (existingAccount) {
       await patchAccount(ctx.db, existingAccount._id, {
         accessToken: args.encryptedAccessToken,
-        refreshToken: args.encryptedRefreshToken,
-        accessTokenExpiresAt: args.accessTokenExpiresAt,
+        ...omitUndefined({
+          refreshToken: args.encryptedRefreshToken,
+          accessTokenExpiresAt: args.accessTokenExpiresAt,
+        }),
       });
       userId = existingAccount.userId;
     } else {
@@ -434,8 +444,10 @@ export const finalizeCallback = internalMutation({
         userId = await insertUser(ctx.db, {
           email: args.email,
           emailVerified: true,
-          name: args.name,
-          image: args.image,
+          ...omitUndefined({
+            name: args.name,
+            image: args.image,
+          }),
         });
         if (args.defaultRole !== undefined) {
           await upsertAdminStateForUser(ctx.db, userId, { role: args.defaultRole });
@@ -444,8 +456,10 @@ export const finalizeCallback = internalMutation({
         userId = existingUser._id;
         await patchUser(ctx.db, existingUser._id, {
           emailVerified: true,
-          name: existingUser.name ?? args.name,
-          image: existingUser.image ?? args.image,
+          ...omitUndefined({
+            name: existingUser.name ?? args.name,
+            image: existingUser.image ?? args.image,
+          }),
         });
       }
 
@@ -454,8 +468,10 @@ export const finalizeCallback = internalMutation({
         providerId: args.providerId,
         accountId: args.accountId,
         accessToken: args.encryptedAccessToken,
-        refreshToken: args.encryptedRefreshToken,
-        accessTokenExpiresAt: args.accessTokenExpiresAt,
+        ...omitUndefined({
+          refreshToken: args.encryptedRefreshToken,
+          accessTokenExpiresAt: args.accessTokenExpiresAt,
+        }),
       });
     }
 
@@ -471,8 +487,10 @@ export const finalizeCallback = internalMutation({
 
     const sessionToken = await createSession(ctx.db, {
       userId,
-      ipAddress: args.ipAddress,
-      userAgent: args.userAgent,
+      ...omitUndefined({
+        ipAddress: args.ipAddress,
+        userAgent: args.userAgent,
+      }),
     });
 
     return {
@@ -502,10 +520,12 @@ export const handleCallback = internalAction({
       provider: args.provider as OAuthProviderConfig,
       code: args.code,
       state: args.state,
-      callbackUrl: args.callbackUrl,
-      redirectUrl: args.redirectUrl,
-      ipAddress: args.ipAddress,
-      userAgent: args.userAgent,
-      defaultRole: args.defaultRole,
+      ...omitUndefined({
+        callbackUrl: args.callbackUrl,
+        redirectUrl: args.redirectUrl,
+        ipAddress: args.ipAddress,
+        userAgent: args.userAgent,
+        defaultRole: args.defaultRole,
+      }),
     }),
 });

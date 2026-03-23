@@ -4,7 +4,11 @@ import { useState } from "react";
 import { convexQuery, useConvexMutation } from "@convex-dev/react-query";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api } from "../../../convex/_generated/api";
-import { formatTimestamp, messageFromError } from "./organization-playground-shared";
+import {
+  formatTimestamp,
+  messageFromError,
+  type OrganizationDomain,
+} from "./organization-playground-shared";
 
 export function DomainsSection({
   organizationId,
@@ -100,10 +104,13 @@ export function DomainsSection({
 
       {domainsQuery.isError ? (
         <p className="muted">You do not have permission to view domains.</p>
-      ) : (domainsQuery.data?.length ?? 0) === 0 ? (
+      ) : (
+        ((domainsQuery.data as OrganizationDomain[] | undefined)?.length ?? 0)
+      ) === 0 ? (
         <p className="muted">No domains yet.</p>
       ) : (
-        domainsQuery.data!.map((domain) => (
+        (domainsQuery.data as OrganizationDomain[]).map(
+          (domain: OrganizationDomain) => (
           <div key={domain._id} className="card">
             <strong>{domain.hostname}</strong>
             <p className="session-detail">

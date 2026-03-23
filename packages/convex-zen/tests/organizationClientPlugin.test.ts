@@ -3,7 +3,7 @@ import { createConvexZenClient, defineConvexZen } from "../src/client";
 import {
   OrganizationPlugin,
   organizationPlugin,
-} from "../src/client/plugins/organization";
+} from "../../convex-zen-organization/src";
 
 function makeOrganizationPlugin() {
   return new OrganizationPlugin(
@@ -321,6 +321,7 @@ describe("ConvexZen organization plugins", () => {
         },
       },
       defineConvexZen({
+        resolveUserId: async () => "resolved_user",
         plugins: [
           organizationPlugin({
             accessControl: {
@@ -341,14 +342,11 @@ describe("ConvexZen organization plugins", () => {
 
     await auth.plugins.organization.listOrganizations(
       { runQuery },
-      {
-        actorUserId: "resolved_user",
-      }
+      {}
     );
     const hasPermission = await auth.plugins.organization.hasPermission(
       { runQuery },
       {
-        actorUserId: "resolved_user",
         organizationId: "org_1",
         permission: { resource: "project", action: "write" },
       }

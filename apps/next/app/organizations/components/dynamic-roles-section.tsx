@@ -7,6 +7,9 @@ import { api } from "../../../convex/_generated/api";
 import {
   EMPTY_PERMISSION_LIST,
   messageFromError,
+  type OrganizationPermissionList,
+  type OrganizationRole,
+  type OrganizationRoleListResult,
 } from "./organization-playground-shared";
 
 export function DynamicRolesSection({
@@ -41,9 +44,13 @@ export function DynamicRolesSection({
     })
   );
 
-  const roles = rolesQuery.data?.roles ?? [];
+  const roles =
+    ((rolesQuery.data as OrganizationRoleListResult | undefined)?.roles ?? []);
   const availablePermissions =
-    permissionsQuery.data?.permissions ?? EMPTY_PERMISSION_LIST.permissions;
+    (
+      (permissionsQuery.data as OrganizationPermissionList | undefined) ??
+      EMPTY_PERMISSION_LIST
+    ).permissions;
   const canCreateRole = canCreateRoleQuery.data ?? false;
   const canUpdateRole = canUpdateRoleQuery.data ?? false;
   const canDeleteRole = canDeleteRoleQuery.data ?? false;
@@ -204,7 +211,7 @@ export function DynamicRolesSection({
       ) : roles.length === 0 ? (
         <p className="muted">No custom roles yet.</p>
       ) : (
-        roles.map((role) => (
+        roles.map((role: OrganizationRole) => (
           <div key={role._id} className="card">
             {editingRoleId === role._id && canUpdateRole ? (
               <form

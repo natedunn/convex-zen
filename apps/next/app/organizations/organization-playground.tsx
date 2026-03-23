@@ -11,14 +11,19 @@ import { MembersSection } from "./components/members-section";
 import { OrganizationSetupSection } from "./components/organization-setup-section";
 import { OrganizationSummarySection } from "./components/organization-summary-section";
 import { PermissionProbeSection } from "./components/permission-probe-section";
-import type { OrganizationListEntry } from "./components/organization-playground-shared";
+import type {
+  OrganizationListEntry,
+  OrganizationListResult,
+} from "./components/organization-playground-shared";
 import { messageFromError } from "./components/organization-playground-shared";
 
 export function OrganizationPlayground() {
   const organizationsQuery = useQuery(
     convexQuery(api.zen.plugin.organization.listOrganizations, {})
   );
-  const organizations = organizationsQuery.data?.organizations ?? [];
+  const organizations =
+    (organizationsQuery.data as OrganizationListResult | undefined)
+      ?.organizations ?? [];
   const [selectedOrganizationId, setSelectedOrganizationId] = useState("");
   const selectedOrganization =
     organizations.find(

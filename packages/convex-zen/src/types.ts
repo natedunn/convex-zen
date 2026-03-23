@@ -1,6 +1,13 @@
 /**
  * Core interfaces for convex-zen plugin and provider system.
  */
+import type {
+  DefaultFunctionArgs,
+  RegisteredAction,
+  RegisteredMutation,
+  RegisteredQuery,
+} from "convex/server";
+import type { ObjectType, PropertyValidators } from "convex/values";
 
 /** Interface for sending transactional emails. */
 export interface EmailProvider {
@@ -188,19 +195,24 @@ export type AuthPluginFunctionKind = "query" | "mutation" | "action";
 
 export type AuthPluginFunctionAuth = "public" | "actor" | "optionalActor";
 
-export interface AuthPluginPublicFunction {
+export const PLUGIN_FUNCTION_METADATA_KEY = "__convexZenPluginFunction" as const;
+
+export type PluginGatewayFieldConfig = {
+  actorEmail?: boolean;
+};
+
+export type PluginFunctionMetadata = {
   kind: AuthPluginFunctionKind;
   auth: AuthPluginFunctionAuth;
-  runtimeMethod: string;
-  componentPath?: string;
-  argsSource: string;
-  castType?: string;
-}
+  args: PropertyValidators;
+  actor?: PluginGatewayFieldConfig | undefined;
+};
 
-export interface AuthPluginPublicFunctions {
-  preambleSource?: string;
-  functions: Record<string, AuthPluginPublicFunction>;
-}
+export type PluginFunctionCarrier<
+  TMetadata extends PluginFunctionMetadata = PluginFunctionMetadata,
+> = {
+  [PLUGIN_FUNCTION_METADATA_KEY]?: TMetadata;
+};
 
 export interface AuthPluginHooks<TOptions = unknown> {
   onUserCreated?: {
@@ -209,40 +221,172 @@ export interface AuthPluginHooks<TOptions = unknown> {
   assertCanCreateSession?: boolean;
   assertCanResolveSession?: boolean;
   assertCanReadAuthUser?: boolean;
-  onUserDeleted?: boolean;
+  onUserDeleted?: (
+    context: PluginUserDeletedHookContext<TOptions, PluginGatewayModule, object>
+  ) => Promise<void> | void;
 }
 
-export interface AuthPluginClientRuntimeContext<TOptions = unknown> {
+export type PluginGatewayActorMetadata = {
+  actorEmail?: boolean;
+};
+
+export type PluginGatewayFunctionMetadata = {
+  kind: AuthPluginFunctionKind;
+  auth: AuthPluginFunctionAuth;
+  args: Record<string, unknown>;
+  actor?: PluginGatewayActorMetadata | undefined;
+};
+
+export type PluginGatewayRuntimeMethods = Record<
+  string,
+  PluginGatewayFunctionMetadata
+>;
+
+export type PluginGatewayModule = Record<string, unknown>;
+type StripInjectedPluginArgs<TArgs> = TArgs extends Record<string, unknown>
+  ? Omit<TArgs, "actorUserId" | "actorEmail">
+  : TArgs;
+
+type PluginMetadataArgs<TExport> =
+  TExport extends {
+    __convexZenPluginFunction: { args: infer TArgs extends PropertyValidators };
+  }
+    ? StripInjectedPluginArgs<ObjectType<TArgs>>
+    : TExport extends {
+          __convexZenPluginFunction?: {
+            args: infer TArgs extends PropertyValidators;
+          };
+        }
+      ? StripInjectedPluginArgs<ObjectType<TArgs>>
+      : never;
+
+type PluginRegisteredReturn<TExport> =
+  TExport extends RegisteredQuery<"public", DefaultFunctionArgs, infer TReturn>
+    ? Awaited<TReturn> extends void
+      ? null
+      : Awaited<TReturn>
+    : TExport extends RegisteredMutation<
+          "public",
+          DefaultFunctionArgs,
+          infer TReturn
+        >
+      ? Awaited<TReturn> extends void
+        ? null
+        : Awaited<TReturn>
+      : TExport extends RegisteredAction<
+            "public",
+            DefaultFunctionArgs,
+            infer TReturn
+          >
+        ? Awaited<TReturn> extends void
+          ? null
+          : Awaited<TReturn>
+        : never;
+
+type PluginGatewayFunctionExport<TExport> =
+  [PluginMetadataArgs<TExport>] extends [never]
+    ? TExport extends RegisteredQuery<"public", infer TArgs, infer TReturn>
+      ? {
+          args: StripInjectedPluginArgs<TArgs>;
+          return: Awaited<TReturn> extends void ? null : Awaited<TReturn>;
+        }
+      : TExport extends RegisteredMutation<"public", infer TArgs, infer TReturn>
+        ? {
+            args: StripInjectedPluginArgs<TArgs>;
+            return: Awaited<TReturn> extends void ? null : Awaited<TReturn>;
+          }
+        : TExport extends RegisteredAction<"public", infer TArgs, infer TReturn>
+          ? {
+              args: StripInjectedPluginArgs<TArgs>;
+              return: Awaited<TReturn> extends void ? null : Awaited<TReturn>;
+            }
+          : never
+    : {
+        args: PluginMetadataArgs<TExport>;
+        return: PluginRegisteredReturn<TExport>;
+      };
+
+export type PluginGatewayFunctionArgs<TExport> =
+  PluginGatewayFunctionExport<TExport> extends infer TFunction
+    ? [TFunction] extends [never]
+      ? never
+      : TFunction extends { args: infer TArgs }
+        ? TArgs
+        : never
+    : never;
+
+export type PluginGatewayFunctionReturn<TExport> =
+  PluginGatewayFunctionExport<TExport> extends infer TFunction
+    ? [TFunction] extends [never]
+      ? never
+      : TFunction extends { return: infer TReturn }
+        ? TReturn
+        : never
+    : never;
+
+export type PluginGatewayRuntimeMap<TGateway extends PluginGatewayModule> = {
+  [TMethod in Extract<keyof TGateway, string> as PluginGatewayFunctionExport<
+    TGateway[TMethod]
+  > extends never
+    ? never
+    : TMethod]: (
+    ctx: unknown,
+    args: PluginGatewayFunctionArgs<TGateway[TMethod]>
+  ) => Promise<PluginGatewayFunctionReturn<TGateway[TMethod]>>;
+};
+
+export interface PluginRuntimeExtensionContext<
+  TOptions = unknown,
+  TGateway extends PluginGatewayModule = PluginGatewayModule,
+> {
   component: Record<string, unknown>;
   childName: string;
   runtimeKind: "app" | "component";
   options: TOptions;
+  gateway: PluginGatewayRuntimeMap<TGateway>;
   requireActorUserId: (ctx: unknown) => Promise<string>;
   resolveUserId: (ctx: unknown) => Promise<string | null>;
+  callInternalMutation: (
+    ctx: unknown,
+    functionName: string,
+    args: Record<string, unknown>
+  ) => Promise<unknown>;
+  deleteAuthUser: (ctx: unknown, userId: string) => Promise<void>;
 }
 
-export interface AuthPluginComponentDefinition {
-  importPath: string;
-  childName?: string;
+export interface PluginUserDeletedHookContext<
+  TOptions = unknown,
+  TGateway extends PluginGatewayModule = PluginGatewayModule,
+  TRuntimeExtension extends object = {},
+> {
+  ctx: unknown;
+  userId: string;
+  options: TOptions;
+  runtime: PluginGatewayRuntimeMap<TGateway> & TRuntimeExtension;
 }
 
-export interface AuthPluginDefinition<
+export interface PluginDefinition<
   TId extends string = string,
   TOptions = unknown,
-  TRuntime = unknown,
+  TGateway extends PluginGatewayModule = PluginGatewayModule,
+  TRuntimeExtension extends object = {},
 > {
   id: TId;
-  component: AuthPluginComponentDefinition;
+  gateway: TGateway;
   normalizeOptions?: (options: TOptions | undefined) => TOptions;
-  createClientRuntime: (
-    context: AuthPluginClientRuntimeContext<TOptions>
-  ) => TRuntime;
-  publicFunctions?: AuthPluginPublicFunctions;
-  hooks?: AuthPluginHooks<TOptions>;
+  optionsSchema?: unknown;
+  extendRuntime?: (
+    context: PluginRuntimeExtensionContext<TOptions, TGateway>
+  ) => TRuntimeExtension;
+  hooks?: AuthPluginHooks<TOptions> & {
+    onUserDeleted?: (
+      context: PluginUserDeletedHookContext<TOptions, TGateway, TRuntimeExtension>
+    ) => Promise<void> | void;
+  };
 }
 
 export interface ConvexAuthPlugin<
-  TDefinition extends AuthPluginDefinition<any, any, any> = AuthPluginDefinition<
+  TDefinition extends PluginDefinition<any, any, any, any> = PluginDefinition<
     any,
     any,
     any
@@ -250,42 +394,43 @@ export interface ConvexAuthPlugin<
 > {
   id: TDefinition["id"];
   definition: TDefinition;
-  options: TDefinition extends AuthPluginDefinition<any, infer TOptions, any>
+  options: TDefinition extends PluginDefinition<any, infer TOptions, any, any>
     ? TOptions
     : never;
 }
 
 export interface AuthPluginFactory<
-  TDefinition extends AuthPluginDefinition<any, any, any> = AuthPluginDefinition<
+  TDefinition extends PluginDefinition<any, any, any, any> = PluginDefinition<
     any,
     any,
     any
   >,
 > {
   (
-    options?: TDefinition extends AuthPluginDefinition<any, infer TOptions, any>
+    options?: TDefinition extends PluginDefinition<any, infer TOptions, any, any>
       ? TOptions
       : never
   ): ConvexAuthPlugin<TDefinition>;
   definition: TDefinition;
 }
 
-export function defineAuthPlugin<
+export function definePlugin<
   TId extends string,
   TOptions,
-  TRuntime,
+  TGateway extends PluginGatewayModule,
+  TRuntimeExtension extends object,
 >(
-  definition: AuthPluginDefinition<TId, TOptions, TRuntime>
-): AuthPluginFactory<AuthPluginDefinition<TId, TOptions, TRuntime>> {
+  definition: PluginDefinition<TId, TOptions, TGateway, TRuntimeExtension>
+): AuthPluginFactory<PluginDefinition<TId, TOptions, TGateway, TRuntimeExtension>> {
   const factory = ((
     options?: TOptions
-  ): ConvexAuthPlugin<AuthPluginDefinition<TId, TOptions, TRuntime>> => ({
+  ): ConvexAuthPlugin<PluginDefinition<TId, TOptions, TGateway, TRuntimeExtension>> => ({
     id: definition.id,
     definition,
     options: definition.normalizeOptions
       ? definition.normalizeOptions(options)
       : (options as TOptions),
-  })) as AuthPluginFactory<AuthPluginDefinition<TId, TOptions, TRuntime>>;
+  })) as AuthPluginFactory<PluginDefinition<TId, TOptions, TGateway, TRuntimeExtension>>;
   factory.definition = definition;
   return factory;
 }

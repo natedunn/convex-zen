@@ -5,6 +5,7 @@ import zenConfig from "../../zen.config";
 
 const runtimeComponent = {
   core: components.core,
+  "exampleComponent": components["exampleComponent"],
   "adminComponent": components["adminComponent"],
   "organizationComponent": components["organizationComponent"],
 } as const;

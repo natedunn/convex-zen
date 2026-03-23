@@ -3,12 +3,14 @@
 import { useState } from "react";
 import { convexQuery, useConvexMutation } from "@convex-dev/react-query";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import type { FunctionReturnType } from "convex/server";
 import { api } from "../../../convex/_generated/api";
 import {
   buildRoleOptions,
   formatTimestamp,
   messageFromError,
+  type OrganizationInvitation,
+  type OrganizationInviteResult,
+  type OrganizationRoleListResult,
   parseRoleValue,
 } from "./organization-playground-shared";
 
@@ -39,15 +41,16 @@ export function InvitationsSection({
   const [inviteToken, setInviteToken] = useState<string | null>(null);
   const [acceptToken, setAcceptToken] = useState("");
 
-  const roleOptions = buildRoleOptions(rolesQuery.data?.roles ?? []);
+  const roleOptions = buildRoleOptions(
+    ((rolesQuery.data as OrganizationRoleListResult | undefined)?.roles ?? [])
+  );
   const inviteMemberMutation = useMutation({
     mutationFn: useConvexMutation(api.zen.plugin.organization.inviteMember),
-    onSuccess: (
-      result: FunctionReturnType<typeof api.zen.plugin.organization.inviteMember>
-    ) => {
+    onSuccess: (result) => {
+      const typedResult = result as OrganizationInviteResult;
       setInviteEmail("");
       setInviteRoleValue("member");
-      setInviteToken(result.token);
+      setInviteToken(typedResult.token);
       void invitationsQuery.refetch();
     },
   });
@@ -178,10 +181,12 @@ export function InvitationsSection({
 
       {invitationsQuery.isError ? (
         <p className="muted">You do not have permission to view invites.</p>
-      ) : (invitationsQuery.data?.length ?? 0) === 0 ? (
+      ) : (
+        ((invitationsQuery.data as OrganizationInvitation[] | undefined)?.length ?? 0)
+      ) === 0 ? (
         <p className="muted">No outgoing invitations.</p>
       ) : (
-        invitationsQuery.data!.map((invitation) => (
+        (invitationsQuery.data as OrganizationInvitation[]).map((invitation) => (
           <div key={invitation._id} className="card">
             <strong>{invitation.email}</strong>
             <p className="session-detail">Role: {invitation.roleName}</p>

@@ -8,14 +8,16 @@ import { generateAuthFunctions } from "../src/cli/generate";
 const tempDirs: string[] = [];
 const packageDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const convexZenEntry = path.join(packageDir, "src", "client", "index.ts");
-const adminPluginEntry = path.join(packageDir, "src", "client", "plugins", "admin.ts");
-const organizationPluginEntry = path.join(
+const convexZenComponentEntry = path.join(packageDir, "src", "component", "index.ts");
+const adminPluginEntry = path.resolve(packageDir, "..", "convex-zen-admin", "src", "index.ts");
+const organizationPluginEntry = path.resolve(
   packageDir,
+  "..",
+  "convex-zen-organization",
   "src",
-  "client",
-  "plugins",
-  "organization.ts"
+  "index.ts"
 );
+const examplePluginPackage = "convex-zen-example";
 
 async function createTempWorkspace(): Promise<string> {
   const cwd = await mkdtemp(path.join(tmpdir(), "convex-zen-generate-"));
@@ -29,9 +31,9 @@ async function writeZenConfigFile(cwd: string, source: string): Promise<void> {
 }
 
 async function writeCustomPluginFile(cwd: string): Promise<void> {
-  await mkdir(path.join(cwd, "convex", "customPlugin"), { recursive: true });
+  await mkdir(path.join(cwd, "convex", "plugins", "custom"), { recursive: true });
   await writeFile(
-    path.join(cwd, "convex", "customPlugin", "convex.config.ts"),
+    path.join(cwd, "convex", "plugins", "custom", "convex.config.ts"),
     `
 import { defineComponent } from "convex/server";
 
@@ -42,26 +44,30 @@ export default custom;
     "utf8"
   );
   await writeFile(
-    path.join(cwd, "convex", "customPlugin.ts"),
+    path.join(cwd, "convex", "plugins", "custom", "gateway.ts"),
     `
-import { defineAuthPlugin } from ${JSON.stringify(convexZenEntry)};
+import { v } from "convex/values";
+import { pluginQuery } from ${JSON.stringify(convexZenComponentEntry)};
 
-export const customPlugin = defineAuthPlugin({
-  id: "custom",
-  component: { importPath: "./customPlugin/convex.config" },
-  createClientRuntime: () => ({
-    getMessage: async () => "hello",
-  }),
-  publicFunctions: {
-    functions: {
-      getMessage: {
-        kind: "query",
-        auth: "public",
-        runtimeMethod: "getMessage",
-        argsSource: "{}",
-      },
-    },
+export const getMessage = pluginQuery({
+  auth: "public",
+  args: {
+    value: v.optional(v.string()),
   },
+  handler: async (_ctx, _args) => "hello",
+});
+`,
+    "utf8"
+  );
+  await writeFile(
+    path.join(cwd, "convex", "plugins", "custom", "index.ts"),
+    `
+import { definePlugin } from ${JSON.stringify(convexZenEntry)};
+import * as gateway from "./gateway";
+
+export const customPlugin = definePlugin({
+  id: "custom",
+  gateway,
 });
 `,
     "utf8"
@@ -114,7 +120,7 @@ export default zenConfig;
       "utf8"
     );
     expect(componentSource).toContain('import core from "convex-zen/core/convex.config";');
-    expect(componentSource).toContain('import adminComponent from "convex-zen/plugins/admin/convex.config";');
+    expect(componentSource).toContain('convex-zen-admin/src/convex.config');
     expect(componentSource).toContain('const zenComponent = defineComponent("zenComponent");');
     expect(componentSource).toContain('zenComponent.use(core, { name: "core" });');
     expect(componentSource).toContain('zenComponent.use(adminComponent, { name: "adminComponent" });');
@@ -156,7 +162,7 @@ export default zenConfig;
     );
     expect(adminSource).toContain('import { auth } from "../_generated/auth";');
     expect(adminSource).toContain("export const listUsers = query({");
-    expect(adminSource).toContain("return auth.plugins.admin.listUsers(ctx, {");
+    expect(adminSource).toContain("return auth.plugins.admin.listUsers(ctx, args);");
   });
 
   it("removes disabled plugin files and unmounts them from the generated component", async () => {
@@ -250,7 +256,7 @@ export default zenConfig;
       cwd,
       `
 import { defineConvexZen } from ${JSON.stringify(convexZenEntry)};
-import { customPlugin } from "./customPlugin";
+import { customPlugin } from "./plugins/custom";
 
 const zenConfig = defineConvexZen({
   plugins: [customPlugin()],
@@ -270,16 +276,17 @@ export default zenConfig;
       path.join(cwd, "convex", "zen", "component", "convex.config.ts"),
       "utf8"
     );
-    expect(componentSource).toContain('import custom from "../../customPlugin/convex.config";');
-    expect(componentSource).toContain('zenComponent.use(custom, { name: "custom" });');
+    expect(componentSource).toContain('import customComponent from "../../plugins/custom/convex.config";');
+    expect(componentSource).toContain('zenComponent.use(customComponent, { name: "customComponent" });');
 
     const pluginSource = await readFile(
       path.join(cwd, "convex", "zen", "plugin", "custom.ts"),
       "utf8"
     );
     expect(pluginSource).toContain('import { auth } from "../_generated/auth";');
+    expect(pluginSource).toContain('import * as pluginGateway from "../../plugins/custom/gateway";');
     expect(pluginSource).toContain("export const getMessage = query({");
-    expect(pluginSource).toContain("return auth.plugins.custom.getMessage(ctx, args as any);");
+    expect(pluginSource).toContain("return auth.plugins.custom.getMessage(ctx, args);");
 
     const generatedSource = await readFile(
       path.join(cwd, "convex", "zen", "_generated", "meta.ts"),
@@ -485,5 +492,48 @@ export default zenConfig;
     await expect(
       readFile(path.join(cwd, "convex", "zen", "_generated", "oauth.ts"), "utf8")
     ).rejects.toThrow();
+  });
+
+  it("resolves an external plugin package by bare module specifier", async () => {
+    const cwd = await createTempWorkspace();
+    await writeZenConfigFile(
+      cwd,
+      `
+import { defineConvexZen } from ${JSON.stringify(convexZenEntry)};
+import { examplePlugin } from ${JSON.stringify(examplePluginPackage)};
+
+const zenConfig = defineConvexZen({
+  plugins: [examplePlugin()],
+});
+
+export default zenConfig;
+`
+    );
+
+    const result = await generateAuthFunctions({
+      cwd,
+      check: false,
+      verbose: false,
+    });
+
+    expect(result.created).toContain(path.join("convex", "zen", "plugin", "example.ts"));
+
+    const componentSource = await readFile(
+      path.join(cwd, "convex", "zen", "component", "convex.config.ts"),
+      "utf8"
+    );
+    expect(componentSource).toContain(
+      'import exampleComponent from "convex-zen-example/convex.config";'
+    );
+
+    const pluginSource = await readFile(
+      path.join(cwd, "convex", "zen", "plugin", "example.ts"),
+      "utf8"
+    );
+    expect(pluginSource).toContain(
+      'import * as pluginGateway from "convex-zen-example/gateway";'
+    );
+    expect(pluginSource).toContain("return auth.plugins.example.log(ctx, args);");
+    expect(pluginSource).toContain("return auth.plugins.example.listLogs(ctx, args);");
   });
 });

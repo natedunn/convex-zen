@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "../../../convex/_generated/api";
 import type {
   OrganizationListEntry,
+  OrganizationMembership,
 } from "./organization-playground-shared";
 import { messageFromError } from "./organization-playground-shared";
 
@@ -37,7 +38,7 @@ export function OrganizationSummarySection({
         <strong>Your role:</strong>{" "}
         {membershipQuery.isLoading
           ? "Loading..."
-          : membershipQuery.data?.roleName ?? "unknown"}
+          : (membershipQuery.data as OrganizationMembership)?.roleName ?? "unknown"}
       </p>
       <div className="actions">
         <button

@@ -1,5 +1,5 @@
 import {
-  defineAuthPlugin,
+  definePlugin,
   BuiltInOrganizationAccessControl,
   Organization,
   OrganizationAccessControl,
@@ -22,8 +22,9 @@ import {
   OrganizationRoleListResult,
   OrganizationRoleRecord,
   OrganizationSlugCheckResult,
-} from "../../types";
-import { resolveComponentFn } from "../helpers";
+  type PluginGatewayRuntimeMap,
+} from "convex-zen";
+import * as gatewayModule from "./gateway";
 
 /**
  * Organization plugin client module.
@@ -75,6 +76,39 @@ type RunsMutations = {
   runMutation(fn: unknown, args: Record<string, unknown>): Promise<unknown>;
 };
 
+type OrganizationRuntimeHelpers = {
+  callInternalMutation?: (
+    ctx: RunsMutations,
+    functionName: string,
+    args: Record<string, unknown>
+  ) => Promise<unknown>;
+};
+
+function resolveComponentFn(
+  api: Record<string, unknown>,
+  path: string
+): unknown {
+  const [modulePath, funcName] = path.split(":");
+  if (!modulePath || !funcName) {
+    throw new Error(`Invalid function path: ${path}`);
+  }
+  const parts = modulePath.split("/");
+  let ref: Record<string, unknown> = api;
+  for (const part of parts) {
+    const next = ref[part];
+    if (!next || typeof next !== "object" || Array.isArray(next)) {
+      throw new Error(`Invalid function path segment: ${part}`);
+    }
+    ref = next as Record<string, unknown>;
+  }
+  const resolved = ref[funcName];
+  if (!resolved) {
+    throw new Error(`Function not found: ${path}`);
+  }
+  return resolved;
+}
+
+type OrganizationGatewayRuntime = PluginGatewayRuntimeMap<typeof gatewayModule>;
 type RuntimeRolePermissions = Record<string, string[]>;
 
 function permissionToken(resource: string, action: string): string {
@@ -181,305 +215,6 @@ const organizationRoleAssignmentValidator = v.union(
   }),
 );`;
 
-export const organizationPlugin = defineAuthPlugin<
-  "organization",
-  OrganizationPluginConfig<any, any>,
-  OrganizationPlugin<any, any>
->({
-  id: "organization",
-  component: {
-    importPath: "convex-zen/plugins/organization/convex.config",
-    childName: "organizationComponent",
-  },
-  normalizeOptions: (
-    config?: OrganizationPluginConfig<any, any>
-  ): OrganizationPluginConfig<any, any> =>
-    ({
-      allowUserOrganizationCreation:
-        config?.allowUserOrganizationCreation !== false,
-      inviteExpiresInMs:
-        config?.inviteExpiresInMs ?? DEFAULT_INVITE_EXPIRES_MS,
-      ...(config?.subdomainSuffix !== undefined
-        ? { subdomainSuffix: config.subdomainSuffix }
-        : {}),
-      ...(config?.accessControl !== undefined
-        ? { accessControl: config.accessControl }
-        : {}),
-      ...(config?.roles !== undefined ? { roles: config.roles } : {}),
-    }),
-  createClientRuntime: ({ component, childName, options, runtimeKind }) =>
-    new OrganizationPlugin(
-      component,
-      options as OrganizationPluginConfig<any, any>,
-      childName,
-      runtimeKind
-    ),
-  publicFunctions: {
-    preambleSource: ORGANIZATION_PLUGIN_PREAMBLE,
-    functions: {
-      checkSlug: {
-        kind: "query",
-        auth: "public",
-        runtimeMethod: "checkSlug",
-        componentPath: "organization/gateway:checkSlug",
-        argsSource: "{\n    slug: v.string(),\n  }",
-      },
-      createOrganization: {
-        kind: "mutation",
-        auth: "actor",
-        runtimeMethod: "createOrganization",
-        componentPath: "organization/gateway:createOrganization",
-        argsSource:
-          "{\n    name: v.string(),\n    slug: v.string(),\n    logo: v.optional(v.string()),\n  }",
-      },
-      updateOrganization: {
-        kind: "mutation",
-        auth: "actor",
-        runtimeMethod: "updateOrganization",
-        componentPath: "organization/gateway:updateOrganization",
-        argsSource:
-          "{\n    organizationId: v.string(),\n    name: v.optional(v.string()),\n    slug: v.optional(v.string()),\n    logo: v.optional(v.string()),\n  }",
-      },
-      deleteOrganization: {
-        kind: "mutation",
-        auth: "actor",
-        runtimeMethod: "deleteOrganization",
-        componentPath: "organization/gateway:deleteOrganization",
-        argsSource: "{\n    organizationId: v.string(),\n  }",
-      },
-      listOrganizations: {
-        kind: "query",
-        auth: "actor",
-        runtimeMethod: "listOrganizations",
-        componentPath: "organization/gateway:listOrganizations",
-        argsSource: "{}",
-      },
-      getOrganization: {
-        kind: "query",
-        auth: "actor",
-        runtimeMethod: "getOrganization",
-        componentPath: "organization/gateway:getOrganization",
-        argsSource: "{\n    organizationId: v.string(),\n  }",
-      },
-      getMembership: {
-        kind: "query",
-        auth: "actor",
-        runtimeMethod: "getMembership",
-        componentPath: "organization/gateway:getMembership",
-        argsSource: "{\n    organizationId: v.string(),\n  }",
-      },
-      listMembers: {
-        kind: "query",
-        auth: "actor",
-        runtimeMethod: "listMembers",
-        componentPath: "organization/gateway:listMembers",
-        argsSource: "{\n    organizationId: v.string(),\n  }",
-      },
-      inviteMember: {
-        kind: "mutation",
-        auth: "actor",
-        runtimeMethod: "inviteMember",
-        componentPath: "organization/gateway:inviteMember",
-        argsSource:
-          "{\n    organizationId: v.string(),\n    email: v.string(),\n    role: organizationRoleAssignmentValidator,\n  }",
-        castType: "InviteMemberArgs",
-      },
-      listInvitations: {
-        kind: "query",
-        auth: "actor",
-        runtimeMethod: "listInvitations",
-        componentPath: "organization/gateway:listInvitations",
-        argsSource: "{\n    organizationId: v.string(),\n  }",
-      },
-      listIncomingInvitations: {
-        kind: "query",
-        auth: "actor",
-        runtimeMethod: "listIncomingInvitations",
-        componentPath: "organization/gateway:listIncomingInvitations",
-        argsSource: "{}",
-      },
-      acceptInvitation: {
-        kind: "mutation",
-        auth: "actor",
-        runtimeMethod: "acceptInvitation",
-        componentPath: "organization/gateway:acceptInvitation",
-        argsSource: "{\n    token: v.string(),\n  }",
-      },
-      acceptIncomingInvitation: {
-        kind: "mutation",
-        auth: "actor",
-        runtimeMethod: "acceptIncomingInvitation",
-        componentPath: "organization/gateway:acceptIncomingInvitation",
-        argsSource: "{\n    invitationId: v.string(),\n  }",
-      },
-      cancelInvitation: {
-        kind: "mutation",
-        auth: "actor",
-        runtimeMethod: "cancelInvitation",
-        componentPath: "organization/gateway:cancelInvitation",
-        argsSource: "{\n    invitationId: v.string(),\n  }",
-      },
-      declineIncomingInvitation: {
-        kind: "mutation",
-        auth: "actor",
-        runtimeMethod: "declineIncomingInvitation",
-        componentPath: "organization/gateway:declineIncomingInvitation",
-        argsSource: "{\n    invitationId: v.string(),\n  }",
-      },
-      removeMember: {
-        kind: "mutation",
-        auth: "actor",
-        runtimeMethod: "removeMember",
-        componentPath: "organization/gateway:removeMember",
-        argsSource: "{\n    organizationId: v.string(),\n    userId: v.string(),\n  }",
-      },
-      setMemberRole: {
-        kind: "mutation",
-        auth: "actor",
-        runtimeMethod: "setMemberRole",
-        componentPath: "organization/gateway:setMemberRole",
-        argsSource:
-          "{\n    organizationId: v.string(),\n    userId: v.string(),\n    role: organizationRoleAssignmentValidator,\n  }",
-        castType: "SetMemberRoleArgs",
-      },
-      transferOwnership: {
-        kind: "mutation",
-        auth: "actor",
-        runtimeMethod: "transferOwnership",
-        componentPath: "organization/gateway:transferOwnership",
-        argsSource:
-          "{\n    organizationId: v.string(),\n    newOwnerUserId: v.string(),\n  }",
-      },
-      createRole: {
-        kind: "mutation",
-        auth: "actor",
-        runtimeMethod: "createRole",
-        componentPath: "organization/gateway:createRole",
-        argsSource:
-          "{\n    organizationId: v.string(),\n    name: v.string(),\n    slug: v.string(),\n    description: v.optional(v.string()),\n    permissions: v.array(v.string()),\n  }",
-      },
-      listRoles: {
-        kind: "query",
-        auth: "actor",
-        runtimeMethod: "listRoles",
-        componentPath: "organization/gateway:listRoles",
-        argsSource: "{\n    organizationId: v.string(),\n  }",
-      },
-      listAvailablePermissions: {
-        kind: "query",
-        auth: "actor",
-        runtimeMethod: "listAvailablePermissions",
-        componentPath: "organization/gateway:listAvailablePermissions",
-        argsSource: "{\n    organizationId: v.string(),\n  }",
-      },
-      getRole: {
-        kind: "query",
-        auth: "actor",
-        runtimeMethod: "getRole",
-        componentPath: "organization/gateway:getRole",
-        argsSource: "{\n    roleId: v.string(),\n  }",
-      },
-      updateRole: {
-        kind: "mutation",
-        auth: "actor",
-        runtimeMethod: "updateRole",
-        componentPath: "organization/gateway:updateRole",
-        argsSource:
-          "{\n    roleId: v.string(),\n    name: v.optional(v.string()),\n    slug: v.optional(v.string()),\n    description: v.optional(v.string()),\n    permissions: v.optional(v.array(v.string())),\n  }",
-      },
-      deleteRole: {
-        kind: "mutation",
-        auth: "actor",
-        runtimeMethod: "deleteRole",
-        componentPath: "organization/gateway:deleteRole",
-        argsSource: "{\n    roleId: v.string(),\n  }",
-      },
-      addDomain: {
-        kind: "mutation",
-        auth: "actor",
-        runtimeMethod: "addDomain",
-        componentPath: "organization/gateway:addDomain",
-        argsSource:
-          "{\n    organizationId: v.string(),\n    hostname: v.string(),\n  }",
-      },
-      listDomains: {
-        kind: "query",
-        auth: "actor",
-        runtimeMethod: "listDomains",
-        componentPath: "organization/gateway:listDomains",
-        argsSource: "{\n    organizationId: v.string(),\n  }",
-      },
-      getDomainVerificationChallenge: {
-        kind: "query",
-        auth: "actor",
-        runtimeMethod: "getDomainVerificationChallenge",
-        componentPath: "organization/gateway:getDomainVerificationChallenge",
-        argsSource: "{\n    domainId: v.string(),\n  }",
-      },
-      markDomainVerified: {
-        kind: "mutation",
-        auth: "actor",
-        runtimeMethod: "markDomainVerified",
-        componentPath: "organization/gateway:markDomainVerified",
-        argsSource: "{\n    domainId: v.string(),\n  }",
-      },
-      removeDomain: {
-        kind: "mutation",
-        auth: "actor",
-        runtimeMethod: "removeDomain",
-        componentPath: "organization/gateway:removeDomain",
-        argsSource: "{\n    domainId: v.string(),\n  }",
-      },
-      resolveOrganizationByHost: {
-        kind: "query",
-        auth: "public",
-        runtimeMethod: "resolveOrganizationByHost",
-        componentPath: "organization/gateway:resolveOrganizationByHost",
-        argsSource: "{\n    host: v.string(),\n  }",
-      },
-      hasRole: {
-        kind: "query",
-        auth: "actor",
-        runtimeMethod: "hasRole",
-        componentPath: "organization/gateway:hasRole",
-        argsSource:
-          "{\n    organizationId: v.string(),\n    role: v.optional(v.string()),\n    roles: v.optional(v.array(v.string())),\n  }",
-        castType: "HasRoleArgs",
-      },
-      requireRole: {
-        kind: "query",
-        auth: "actor",
-        runtimeMethod: "requireRole",
-        componentPath: "organization/gateway:requireRole",
-        argsSource:
-          "{\n    organizationId: v.string(),\n    role: v.optional(v.string()),\n    roles: v.optional(v.array(v.string())),\n  }",
-        castType: "RequireRoleArgs",
-      },
-      hasPermission: {
-        kind: "query",
-        auth: "actor",
-        runtimeMethod: "hasPermission",
-        componentPath: "organization/gateway:hasPermission",
-        argsSource:
-          "{\n    organizationId: v.string(),\n    permission: organizationPermissionValidator,\n  }",
-        castType: "HasPermissionArgs",
-      },
-      requirePermission: {
-        kind: "query",
-        auth: "actor",
-        runtimeMethod: "requirePermission",
-        componentPath: "organization/gateway:requirePermission",
-        argsSource:
-          "{\n    organizationId: v.string(),\n    permission: organizationPermissionValidator,\n  }",
-        castType: "RequirePermissionArgs",
-      },
-    },
-  },
-  hooks: {
-    onUserDeleted: true,
-  },
-});
-
 /** Shared config-to-type transforms used by `ConvexZen` and this module. */
 export type OrganizationAccessControlFromConfig<TConfig> =
   TConfig extends OrganizationPluginConfig<infer TCustomAccessControl, any>
@@ -525,23 +260,54 @@ export class OrganizationPlugin<
   > = {},
 > {
   constructor(
-    private readonly componentApi: Record<string, unknown>,
+    gatewayOrComponentApi: OrganizationGatewayRuntime | Record<string, unknown>,
     private readonly config: OrganizationPluginConfig<TCustomAccessControl, TCustomRoles>,
-    private readonly childName: string = "organization",
-    private readonly runtimeKind: "app" | "component" = "app"
-  ) {}
-
-  private resolvePath(path: string): string {
-    if (this.runtimeKind === "app") {
-      return path;
-    }
-    return path.startsWith("organization/")
-      ? `${this.childName}${path.slice("organization".length)}`
-      : path;
+    childName: string = "organizationComponent",
+    private readonly runtimeKind: "app" | "component" = "app",
+    private readonly helpers: OrganizationRuntimeHelpers = {}
+  ) {
+    this.gateway = this.isGatewayRuntime(gatewayOrComponentApi)
+      ? gatewayOrComponentApi
+      : this.createLegacyGatewayRuntime(gatewayOrComponentApi, childName);
   }
 
-  private fn(path: string): unknown {
-    return resolveComponentFn(this.componentApi, this.resolvePath(path));
+  private readonly gateway: OrganizationGatewayRuntime;
+
+  private isGatewayRuntime(
+    value: OrganizationGatewayRuntime | Record<string, unknown>
+  ): value is OrganizationGatewayRuntime {
+    return typeof (value as OrganizationGatewayRuntime).checkSlug === "function";
+  }
+
+  private createLegacyGatewayRuntime(
+    componentApi: Record<string, unknown>,
+    childName: string
+  ): OrganizationGatewayRuntime {
+    return new Proxy({} as OrganizationGatewayRuntime, {
+      get: (_target, property) => {
+        if (typeof property !== "string") {
+          return undefined;
+        }
+        const path =
+          this.runtimeKind === "component"
+            ? `${childName}/gateway:${property}`
+            : `organization/gateway:${property}`;
+        return async (ctx: unknown, args: Record<string, unknown>) => {
+          const ref = resolveComponentFn(componentApi, path);
+          if (
+            property.startsWith("list") ||
+            property.startsWith("get") ||
+            property.startsWith("has") ||
+            property.startsWith("require") ||
+            property === "checkSlug" ||
+            property === "resolveOrganizationByHost"
+          ) {
+            return await (ctx as RunsQueries).runQuery(ref, args);
+          }
+          return await (ctx as RunsMutations).runMutation(ref, args);
+        };
+      },
+    });
   }
 
   private async runGatewayMutation(
@@ -549,7 +315,12 @@ export class OrganizationPlugin<
     path: string,
     args: Record<string, unknown>
   ): Promise<unknown> {
-    return ctx.runMutation(this.fn(path), args);
+    const functionName = path.slice(path.indexOf(":") + 1) as keyof OrganizationGatewayRuntime;
+    const method = this.gateway[functionName] as (
+      ctx: RunsMutations,
+      args: Record<string, unknown>
+    ) => Promise<unknown>;
+    return await method(ctx, args);
   }
 
   private async runGatewayQuery(
@@ -557,7 +328,12 @@ export class OrganizationPlugin<
     path: string,
     args: Record<string, unknown>
   ): Promise<unknown> {
-    return ctx.runQuery(this.fn(path), args);
+    const functionName = path.slice(path.indexOf(":") + 1) as keyof OrganizationGatewayRuntime;
+    const method = this.gateway[functionName] as (
+      ctx: RunsQueries,
+      args: Record<string, unknown>
+    ) => Promise<unknown>;
+    return await method(ctx, args);
   }
 
   private resolveAllowUserOrganizationCreation(): boolean {
@@ -1100,4 +876,58 @@ export class OrganizationPlugin<
   get subdomainSuffix() {
     return this.resolveSubdomainSuffix();
   }
+
+  async deleteUserRelations(
+    ctx: RunsMutations,
+    args: {
+      userId: string;
+    }
+  ): Promise<void> {
+    if (!this.helpers.callInternalMutation) {
+      throw new Error("Organization deleteUserRelations is unavailable in this runtime");
+    }
+    await this.helpers.callInternalMutation(ctx, "deleteUserRelations", args);
+  }
 }
+
+export const organizationPlugin = definePlugin<
+  "organization",
+  OrganizationPluginConfig<any, any>,
+  typeof gatewayModule,
+  OrganizationPlugin<any, any>
+>({
+  id: "organization",
+  gateway: gatewayModule,
+  normalizeOptions: (
+    config?: OrganizationPluginConfig<any, any>
+  ): OrganizationPluginConfig<any, any> =>
+    ({
+      allowUserOrganizationCreation:
+        config?.allowUserOrganizationCreation !== false,
+      inviteExpiresInMs:
+        config?.inviteExpiresInMs ?? DEFAULT_INVITE_EXPIRES_MS,
+      ...(config?.subdomainSuffix !== undefined
+        ? { subdomainSuffix: config.subdomainSuffix }
+        : {}),
+      ...(config?.accessControl !== undefined
+        ? { accessControl: config.accessControl }
+        : {}),
+      ...(config?.roles !== undefined ? { roles: config.roles } : {}),
+    }),
+  extendRuntime: ({ gateway, options, runtimeKind, callInternalMutation }) =>
+    new OrganizationPlugin(
+      gateway as OrganizationGatewayRuntime,
+      options as OrganizationPluginConfig<any, any>,
+      "organizationComponent",
+      runtimeKind,
+      { callInternalMutation }
+    ),
+  hooks: {
+    onUserDeleted: async ({ ctx, userId, runtime }) => {
+      await (runtime as OrganizationPlugin<any, any>).deleteUserRelations(
+        ctx as RunsMutations,
+        { userId }
+      );
+    },
+  },
+});

@@ -7,6 +7,8 @@ import { api } from "../../../convex/_generated/api";
 import {
   buildRoleOptions,
   messageFromError,
+  type OrganizationMember,
+  type OrganizationRoleListResult,
   parseRoleValue,
 } from "./organization-playground-shared";
 
@@ -40,9 +42,12 @@ export function MembersSection({
     })
   );
 
-  const members = membersQuery.data ?? [];
+  const members = (membersQuery.data as OrganizationMember[] | undefined) ?? [];
   const roleOptions = useMemo(
-    () => buildRoleOptions(rolesQuery.data?.roles ?? []),
+    () =>
+      buildRoleOptions(
+        ((rolesQuery.data as OrganizationRoleListResult | undefined)?.roles ?? [])
+      ),
     [rolesQuery.data]
   );
   const [memberRoleDrafts, setMemberRoleDrafts] = useState<Record<string, string>>(

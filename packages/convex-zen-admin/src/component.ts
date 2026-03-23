@@ -1,14 +1,20 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery, type DatabaseReader, type DatabaseWriter } from "../_generated/server";
-import type { Id } from "../_generated/dataModel";
+import {
+  internalMutation,
+  internalQuery,
+  type DatabaseReader,
+  type DatabaseWriter,
+} from "../../convex-zen/src/component/_generated/server";
+import type { Id } from "../../convex-zen/src/component/_generated/dataModel";
+import { omitUndefined } from "../../convex-zen/src/component/lib/object";
 import {
   deleteUserWithRelations,
   getAdminStateForUser,
   getAdminUserRecord,
   isAdminStateCurrentlyBanned,
   upsertAdminStateForUser,
-} from "../core/users";
-import { invalidateAllUserSessions } from "../core/sessions";
+} from "../../convex-zen/src/component/core/users";
+import { invalidateAllUserSessions } from "../../convex-zen/src/component/core/sessions";
 
 export function normalizeAdminRole(adminRole?: string): string {
   const normalizedRole = adminRole?.trim();
@@ -110,8 +116,10 @@ export async function banUserByAdmin(
 
   await upsertAdminStateForUser(db, args.userId, {
     banned: true,
-    banReason: args.reason,
-    banExpires: args.expiresAt,
+    ...omitUndefined({
+      banReason: args.reason,
+      banExpires: args.expiresAt,
+    }),
   });
 
   const sessions = await db
@@ -193,6 +201,16 @@ export async function deleteUserByAdmin(
   await deleteUserWithRelations(db, args.userId);
 }
 
+export async function deleteAdminStateForUser(
+  db: DatabaseWriter,
+  userId: Id<"users">
+): Promise<void> {
+  const adminUser = await getAdminUserRecord(db, userId);
+  if (adminUser) {
+    await db.delete(adminUser._id);
+  }
+}
+
 /** List users with cursor-based pagination.
  *
  * paginate() is not available in components, so we use _creationTime as a
@@ -265,4 +283,16 @@ export const deleteUser = internalMutation({
     userId: v.id("users"),
   },
   handler: async (ctx, args) => await deleteUserByAdmin(ctx.db, args),
+});
+
+export const deleteUserAdminState = internalMutation({
+  args: {
+    actorUserId: v.id("users"),
+    adminRole: v.optional(v.string()),
+    userId: v.id("users"),
+  },
+  handler: async (ctx, { actorUserId, adminRole, userId }) => {
+    await assertAdminActor(ctx.db, actorUserId, adminRole);
+    await deleteAdminStateForUser(ctx.db, userId);
+  },
 });

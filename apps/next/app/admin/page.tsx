@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { UserRow, type UserRowData } from "@convex-zen/playground-ui";
 
+type AdminListUsersResult = {
+  users: UserRowData[];
+};
+
 export default function AdminPage() {
   const router = useRouter();
   const [users, setUsers] = useState<UserRowData[]>([]);
@@ -20,8 +24,10 @@ export default function AdminPage() {
         router.replace("/signin");
         return;
       }
-      const result = await authClient.plugin.admin.listUsers({ limit: 50 });
-      setUsers(result.users as UserRowData[]);
+      const result = (await authClient.plugin.admin.listUsers({
+        limit: 50,
+      })) as AdminListUsersResult;
+      setUsers(result.users);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Could not load users";
       if (message.includes("Unauthorized")) {

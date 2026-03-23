@@ -8,7 +8,7 @@ Enable the plugin in `convex/zen.config.ts`:
 
 ```ts
 import { ConvexZen } from "convex-zen";
-import { organizationPlugin } from "convex-zen/plugins/organization";
+import { organizationPlugin } from "convex-zen-organization";
 import { components } from "./_generated/api";
 
 export const auth = new ConvexZen(components.convexAuth, {

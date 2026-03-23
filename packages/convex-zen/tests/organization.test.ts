@@ -1,9 +1,28 @@
 import { convexTest } from "convex-test";
+import { makeFunctionReference, type FunctionReference } from "convex/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  createConvexZenClient,
+  defineConvexZen,
+} from "../src/client";
 import schema from "../src/component/schema";
-import { internal } from "../src/component/_generated/api";
+import { organizationPlugin } from "../../convex-zen-organization/src";
 
-const modules = import.meta.glob("../src/component/**/*.*s");
+const modules = {
+  ...import.meta.glob("../src/component/**/*.*s"),
+  "../src/component/plugins/organization/gateway.ts": () =>
+    import("../../convex-zen-organization/src/gateway"),
+};
+
+function organizationQueryRef(name: string): FunctionReference<"query", "public"> {
+  return makeFunctionReference(`plugins/organization/gateway:${name}`);
+}
+
+function organizationMutationRef(
+  name: string
+): FunctionReference<"mutation", "public"> {
+  return makeFunctionReference(`plugins/organization/gateway:${name}`);
+}
 
 function systemRole(role: "owner" | "admin" | "member") {
   return { type: "system" as const, systemRole: role };
@@ -38,7 +57,7 @@ async function createOrganization(
   slug: string,
   name = "Acme"
 ) {
-  return (await t.mutation(internal.plugins.organization.createOrganization, {
+  return (await t.mutation(organizationMutationRef("createOrganization"), {
     actorUserId,
     name,
     slug,
@@ -126,7 +145,7 @@ describe("organization plugin", () => {
       systemRole: "member",
     });
 
-    const listed = (await t.query(internal.plugins.organization.listOrganizations, {
+    const listed = (await t.query(organizationQueryRef("listOrganizations"), {
       actorUserId: adminId,
     })) as {
       organizations: Array<{
@@ -144,7 +163,7 @@ describe("organization plugin", () => {
     ).toEqual(["admin", "member"]);
 
     await expect(
-      t.mutation(internal.plugins.organization.inviteMember, {
+      t.mutation(organizationMutationRef("inviteMember"), {
         actorUserId: memberId,
         organizationId: orgA.organization._id,
         email: "new-user@example.com",
@@ -152,7 +171,7 @@ describe("organization plugin", () => {
       })
     ).rejects.toThrow("Forbidden");
 
-    const updated = (await t.mutation(internal.plugins.organization.updateOrganization, {
+    const updated = (await t.mutation(organizationMutationRef("updateOrganization"), {
       actorUserId: adminId,
       organizationId: orgA.organization._id,
       name: "Org A Updated",
@@ -160,7 +179,7 @@ describe("organization plugin", () => {
     expect(updated.name).toBe("Org A Updated");
 
     await expect(
-      t.mutation(internal.plugins.organization.updateOrganization, {
+      t.mutation(organizationMutationRef("updateOrganization"), {
         actorUserId: memberId,
         organizationId: orgA.organization._id,
         name: "Should Fail",
@@ -175,7 +194,7 @@ describe("organization plugin", () => {
     const wrongUserId = await createUser(t, "wrong@example.com");
     const { organization } = await createOrganization(t, ownerId, "invites-org");
 
-    const invitation = (await t.mutation(internal.plugins.organization.inviteMember, {
+    const invitation = (await t.mutation(organizationMutationRef("inviteMember"), {
       actorUserId: ownerId,
       organizationId: organization._id,
       email: "INVITEE@example.com",
@@ -189,7 +208,7 @@ describe("organization plugin", () => {
     expect(invitation.invitation.roleName).toBe("member");
 
     await expect(
-      t.mutation(internal.plugins.organization.inviteMember, {
+      t.mutation(organizationMutationRef("inviteMember"), {
         actorUserId: ownerId,
         organizationId: organization._id,
         email: "invitee@example.com",
@@ -198,19 +217,19 @@ describe("organization plugin", () => {
     ).rejects.toThrow("A pending invitation already exists");
 
     await expect(
-      t.mutation(internal.plugins.organization.acceptInvitation, {
+      t.mutation(organizationMutationRef("acceptInvitation"), {
         actorUserId: wrongUserId,
         token: invitation.token,
       })
     ).rejects.toThrow("Invitation email does not match");
 
-    const accepted = (await t.mutation(internal.plugins.organization.acceptInvitation, {
+    const accepted = (await t.mutation(organizationMutationRef("acceptInvitation"), {
       actorUserId: invitedId,
       token: invitation.token,
     })) as { acceptedAt?: number };
     expect(typeof accepted.acceptedAt).toBe("number");
 
-    const membership = (await t.query(internal.plugins.organization.getMembership, {
+    const membership = (await t.query(organizationQueryRef("getMembership"), {
       actorUserId: invitedId,
       organizationId: organization._id,
     })) as { roleName: string; roleType: string } | null;
@@ -218,21 +237,21 @@ describe("organization plugin", () => {
     expect(membership?.roleName).toBe("member");
 
     const incomingAfterAccept = (await t.query(
-      internal.plugins.organization.listIncomingInvitations,
+      organizationQueryRef("listIncomingInvitations"),
       {
         actorUserId: invitedId,
       }
     )) as Array<{ _id: string }>;
     expect(incomingAfterAccept).toHaveLength(0);
 
-    const cancelled = (await t.mutation(internal.plugins.organization.inviteMember, {
+    const cancelled = (await t.mutation(organizationMutationRef("inviteMember"), {
       actorUserId: ownerId,
       organizationId: organization._id,
       email: "cancel@example.com",
       role: systemRole("member"),
     })) as { invitation: { _id: string } };
     const cancelledInvite = (await t.mutation(
-      internal.plugins.organization.cancelInvitation,
+      organizationMutationRef("cancelInvitation"),
       {
         actorUserId: ownerId,
         invitationId: cancelled.invitation._id,
@@ -240,7 +259,7 @@ describe("organization plugin", () => {
     )) as { cancelledAt?: number };
     expect(typeof cancelledInvite.cancelledAt).toBe("number");
 
-    const expiring = (await t.mutation(internal.plugins.organization.inviteMember, {
+    const expiring = (await t.mutation(organizationMutationRef("inviteMember"), {
       actorUserId: ownerId,
       organizationId: organization._id,
       email: "late@example.com",
@@ -251,7 +270,7 @@ describe("organization plugin", () => {
     vi.advanceTimersByTime(1001);
 
     await expect(
-      t.mutation(internal.plugins.organization.acceptInvitation, {
+      t.mutation(organizationMutationRef("acceptInvitation"), {
         actorUserId: lateInviteeId,
         token: expiring.token,
       })
@@ -265,14 +284,14 @@ describe("organization plugin", () => {
     const otherId = await createUser(t, "other-incoming@example.com");
     const { organization } = await createOrganization(t, ownerId, "incoming-org");
 
-    await t.mutation(internal.plugins.organization.inviteMember, {
+    await t.mutation(organizationMutationRef("inviteMember"), {
       actorUserId: ownerId,
       organizationId: organization._id,
       email: "invitee-incoming@example.com",
       role: systemRole("member"),
     });
 
-    await t.mutation(internal.plugins.organization.inviteMember, {
+    await t.mutation(organizationMutationRef("inviteMember"), {
       actorUserId: ownerId,
       organizationId: organization._id,
       email: "other-incoming@example.com",
@@ -280,7 +299,7 @@ describe("organization plugin", () => {
     });
 
     const incoming = (await t.query(
-      internal.plugins.organization.listIncomingInvitations,
+      organizationQueryRef("listIncomingInvitations"),
       {
         actorUserId: invitedId,
       }
@@ -296,7 +315,7 @@ describe("organization plugin", () => {
     expect(incoming[0]?.organization.slug).toBe("incoming-org");
 
     const otherIncoming = (await t.query(
-      internal.plugins.organization.listIncomingInvitations,
+      organizationQueryRef("listIncomingInvitations"),
       {
         actorUserId: otherId,
       }
@@ -305,7 +324,7 @@ describe("organization plugin", () => {
     expect(otherIncoming[0]?.roleName).toBe("admin");
 
     const acceptedIncoming = await t.mutation(
-      internal.plugins.organization.acceptIncomingInvitation,
+      organizationMutationRef("acceptIncomingInvitation"),
       {
         actorUserId: invitedId,
         invitationId: incoming[0]!._id,
@@ -313,14 +332,14 @@ describe("organization plugin", () => {
     );
     expect((acceptedIncoming as { acceptedAt?: number }).acceptedAt).toBeTypeOf("number");
 
-    const acceptedMembership = (await t.query(internal.plugins.organization.getMembership, {
+    const acceptedMembership = (await t.query(organizationQueryRef("getMembership"), {
       actorUserId: invitedId,
       organizationId: organization._id,
     })) as { roleName: string } | null;
     expect(acceptedMembership?.roleName).toBe("member");
 
     const declinedIncoming = await t.mutation(
-      internal.plugins.organization.declineIncomingInvitation,
+      organizationMutationRef("declineIncomingInvitation"),
       {
         actorUserId: otherId,
         invitationId: otherIncoming[0]!._id,
@@ -329,7 +348,7 @@ describe("organization plugin", () => {
     expect((declinedIncoming as { declinedAt?: number }).declinedAt).toBeTypeOf("number");
 
     const incomingAfterResolution = (await t.query(
-      internal.plugins.organization.listIncomingInvitations,
+      organizationQueryRef("listIncomingInvitations"),
       {
         actorUserId: invitedId,
       }
@@ -337,7 +356,7 @@ describe("organization plugin", () => {
     expect(incomingAfterResolution).toHaveLength(0);
 
     const otherIncomingAfterDecline = (await t.query(
-      internal.plugins.organization.listIncomingInvitations,
+      organizationQueryRef("listIncomingInvitations"),
       {
         actorUserId: otherId,
       }
@@ -358,7 +377,7 @@ describe("organization plugin", () => {
     });
 
     await expect(
-      t.mutation(internal.plugins.organization.removeMember, {
+      t.mutation(organizationMutationRef("removeMember"), {
         actorUserId: ownerId,
         organizationId: organization._id,
         userId: ownerId,
@@ -366,7 +385,7 @@ describe("organization plugin", () => {
     ).rejects.toThrow("owner cannot leave");
 
     await expect(
-      t.mutation(internal.plugins.organization.setMemberRole, {
+      t.mutation(organizationMutationRef("setMemberRole"), {
         actorUserId: ownerId,
         organizationId: organization._id,
         userId: memberId,
@@ -374,18 +393,18 @@ describe("organization plugin", () => {
       })
     ).rejects.toThrow("transferOwnership");
 
-    await t.mutation(internal.plugins.organization.transferOwnership, {
+    await t.mutation(organizationMutationRef("transferOwnership"), {
       actorUserId: ownerId,
       organizationId: organization._id,
       newOwnerUserId: memberId,
     });
 
-    const ownerMembership = (await t.query(internal.plugins.organization.getMembership, {
+    const ownerMembership = (await t.query(organizationQueryRef("getMembership"), {
       actorUserId: ownerId,
       organizationId: organization._id,
     })) as { roleName: string } | null;
     const newOwnerMembership = (await t.query(
-      internal.plugins.organization.getMembership,
+      organizationQueryRef("getMembership"),
       {
         actorUserId: memberId,
         organizationId: organization._id,
@@ -408,7 +427,7 @@ describe("organization plugin", () => {
       systemRole: "member",
     });
 
-    const createdRole = (await t.mutation(internal.plugins.organization.createRole, {
+    const createdRole = (await t.mutation(organizationMutationRef("createRole"), {
       actorUserId: ownerId,
       organizationId: organization._id,
       name: "Billing Admin",
@@ -419,13 +438,13 @@ describe("organization plugin", () => {
     expect(createdRole.slug).toBe("billing-admin");
     expect(createdRole.permissions).toEqual(["billing:read"]);
 
-    const listedRoles = (await t.query(internal.plugins.organization.listRoles, {
+    const listedRoles = (await t.query(organizationQueryRef("listRoles"), {
       actorUserId: ownerId,
       organizationId: organization._id,
     })) as { roles: Array<{ slug: string }> };
     expect(listedRoles.roles.map((role) => role.slug)).toContain("billing-admin");
 
-    await t.mutation(internal.plugins.organization.setMemberRole, {
+    await t.mutation(organizationMutationRef("setMemberRole"), {
       actorUserId: ownerId,
       organizationId: organization._id,
       userId: billingAdminId,
@@ -435,7 +454,7 @@ describe("organization plugin", () => {
       },
     });
 
-    const membership = (await t.query(internal.plugins.organization.getMembership, {
+    const membership = (await t.query(organizationQueryRef("getMembership"), {
       actorUserId: billingAdminId,
       organizationId: organization._id,
     })) as {
@@ -449,7 +468,7 @@ describe("organization plugin", () => {
     expect(membership?.customRoleId).toBe(createdRole._id);
 
     await expect(
-      t.query(internal.plugins.organization.requirePermission, {
+      t.query(organizationQueryRef("requirePermission"), {
         actorUserId: billingAdminId,
         organizationId: organization._id,
         permission: {
@@ -462,7 +481,7 @@ describe("organization plugin", () => {
     });
 
     await expect(
-      t.query(internal.plugins.organization.requirePermission, {
+      t.query(organizationQueryRef("requirePermission"), {
         actorUserId: billingAdminId,
         organizationId: organization._id,
         permission: {
@@ -472,7 +491,7 @@ describe("organization plugin", () => {
       })
     ).rejects.toThrow("Forbidden");
 
-    const hasRole = await t.query(internal.plugins.organization.hasRole, {
+    const hasRole = await t.query(organizationQueryRef("hasRole"), {
       actorUserId: billingAdminId,
       organizationId: organization._id,
       role: "billing-admin",
@@ -480,25 +499,25 @@ describe("organization plugin", () => {
     expect(hasRole).toBe(true);
 
     await expect(
-      t.mutation(internal.plugins.organization.deleteRole, {
+      t.mutation(organizationMutationRef("deleteRole"), {
         actorUserId: ownerId,
         roleId: createdRole._id,
       })
     ).rejects.toThrow("members are assigned");
 
-    await t.mutation(internal.plugins.organization.setMemberRole, {
+    await t.mutation(organizationMutationRef("setMemberRole"), {
       actorUserId: ownerId,
       organizationId: organization._id,
       userId: billingAdminId,
       role: systemRole("member"),
     });
 
-    await t.mutation(internal.plugins.organization.deleteRole, {
+    await t.mutation(organizationMutationRef("deleteRole"), {
       actorUserId: ownerId,
       roleId: createdRole._id,
     });
 
-    const deletedRole = await t.query(internal.plugins.organization.getRole, {
+    const deletedRole = await t.query(organizationQueryRef("getRole"), {
       actorUserId: ownerId,
       roleId: createdRole._id,
     });
@@ -524,7 +543,7 @@ describe("organization plugin", () => {
     });
 
     const ownerPermissions = (await t.query(
-      internal.plugins.organization.listAvailablePermissions,
+      organizationQueryRef("listAvailablePermissions"),
       {
         actorUserId: ownerId,
         organizationId: organization._id,
@@ -554,7 +573,7 @@ describe("organization plugin", () => {
     expect(ownerPermissions.permissions).toContain("project:write");
 
     const adminPermissions = (await t.query(
-      internal.plugins.organization.listAvailablePermissions,
+      organizationQueryRef("listAvailablePermissions"),
       {
         actorUserId: adminId,
         organizationId: organization._id,
@@ -578,7 +597,7 @@ describe("organization plugin", () => {
     expect(adminPermissions.permissions).toContain("accessControl:read");
 
     await expect(
-      t.query(internal.plugins.organization.listAvailablePermissions, {
+      t.query(organizationQueryRef("listAvailablePermissions"), {
         actorUserId: memberId,
         organizationId: organization._id,
         accessControl: {
@@ -610,7 +629,7 @@ describe("organization plugin", () => {
       systemRole: "member",
     });
 
-    const role = (await t.mutation(internal.plugins.organization.createRole, {
+    const role = (await t.mutation(organizationMutationRef("createRole"), {
       actorUserId: ownerId,
       organizationId: organization._id,
       name: "Project Editor",
@@ -618,20 +637,20 @@ describe("organization plugin", () => {
       permissions: ["project:write"],
     })) as { _id: string };
 
-    await t.mutation(internal.plugins.organization.inviteMember, {
+    await t.mutation(organizationMutationRef("inviteMember"), {
       actorUserId: ownerId,
       organizationId: organization._id,
       email: "pending-member5@example.com",
       role: systemRole("member"),
     });
 
-    const domain = (await t.mutation(internal.plugins.organization.addDomain, {
+    const domain = (await t.mutation(organizationMutationRef("addDomain"), {
       actorUserId: ownerId,
       organizationId: organization._id,
       hostname: "app.delete-org.test",
     })) as { _id: string };
 
-    await t.mutation(internal.plugins.organization.deleteOrganization, {
+    await t.mutation(organizationMutationRef("deleteOrganization"), {
       actorUserId: ownerId,
       organizationId: organization._id,
     });
@@ -679,24 +698,24 @@ describe("organization plugin", () => {
     const ownerId = await createUser(t, "owner6@example.com");
     const { organization } = await createOrganization(t, ownerId, "domain-org");
 
-    const domain = (await t.mutation(internal.plugins.organization.addDomain, {
+    const domain = (await t.mutation(organizationMutationRef("addDomain"), {
       actorUserId: ownerId,
       organizationId: organization._id,
       hostname: "portal.domain-org.test",
     })) as { _id: string };
 
-    const unresolved = await t.query(internal.plugins.organization.resolveOrganizationByHost, {
+    const unresolved = await t.query(organizationQueryRef("resolveOrganizationByHost"), {
       host: "portal.domain-org.test",
     });
     expect(unresolved).toBeNull();
 
-    await t.mutation(internal.plugins.organization.markDomainVerified, {
+    await t.mutation(organizationMutationRef("markDomainVerified"), {
       actorUserId: ownerId,
       domainId: domain._id,
     });
 
     const resolvedByDomain = (await t.query(
-      internal.plugins.organization.resolveOrganizationByHost,
+      organizationQueryRef("resolveOrganizationByHost"),
       {
         host: "portal.domain-org.test",
       }
@@ -704,7 +723,7 @@ describe("organization plugin", () => {
     expect(resolvedByDomain?.slug).toBe("domain-org");
 
     const resolvedBySubdomain = (await t.query(
-      internal.plugins.organization.resolveOrganizationByHost,
+      organizationQueryRef("resolveOrganizationByHost"),
       {
         host: "domain-org.example.com",
         subdomainSuffix: "example.com",
@@ -725,10 +744,36 @@ describe("organization plugin", () => {
       systemRole: "member",
     });
 
-    await expect(
-      t.mutation(internal.core.users.remove, {
-        userId: ownerId,
+    const auth = createConvexZenClient(
+      {
+        core: {
+          users: {
+            remove: makeFunctionReference("core/users:remove"),
+          },
+        },
+        organization: {
+          gateway: {
+            deleteUserRelations: makeFunctionReference(
+              "plugins/organization/gateway:deleteUserRelations"
+            ),
+          },
+        },
+      },
+      defineConvexZen({
+        plugins: [organizationPlugin()],
       })
+    );
+
+    await expect(
+      auth.deleteAuthUser(
+        {
+          runMutation: (fn, args) => t.mutation(fn, args),
+        },
+        ownerId
+      )
     ).rejects.toThrow("Transfer ownership first");
+
+    const ownerStillExists = await t.run((ctx) => ctx.db.get(ownerId as never));
+    expect(ownerStillExists).not.toBeNull();
   });
 });

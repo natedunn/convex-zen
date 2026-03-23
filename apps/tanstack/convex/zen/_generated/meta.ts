@@ -23,6 +23,10 @@ export const authMeta = {
       "setRole": "mutation",
       "unbanUser": "mutation"
     },
+    "example": {
+      "listLogs": "query",
+      "log": "mutation"
+    },
     "organization": {
       "acceptIncomingInvitation": "mutation",
       "acceptInvitation": "mutation",

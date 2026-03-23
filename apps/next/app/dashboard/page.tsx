@@ -11,6 +11,30 @@ type Session = {
   sessionId: string;
 } | null;
 
+type OrganizationListEntry = {
+  organization: {
+    _id: string;
+    name: string;
+    slug: string;
+  };
+  membership: {
+    roleName: string;
+  };
+};
+
+type OrganizationListResult = {
+  organizations: OrganizationListEntry[];
+};
+
+type IncomingInvitationEntry = {
+  _id: string;
+  organization: {
+    name: string;
+    slug: string;
+  };
+  roleName: string;
+};
+
 export default function DashboardPage() {
   const router = useRouter();
   const [session, setSession] = useState<Session>(null);
@@ -43,20 +67,24 @@ export default function DashboardPage() {
         ]);
         setEmail(user?.email);
         setOrganizations(
-          organizationResult.organizations.map((entry) => ({
+          (organizationResult as OrganizationListResult).organizations.map(
+            (entry: OrganizationListEntry) => ({
             _id: entry.organization._id,
             name: entry.organization.name,
             slug: entry.organization.slug,
             roleName: entry.membership.roleName,
-          }))
+            })
+          )
         );
         setIncomingInvitations(
-          incomingResult.map((invitation) => ({
+          (incomingResult as IncomingInvitationEntry[]).map(
+            (invitation: IncomingInvitationEntry) => ({
             _id: invitation._id,
             organizationName: invitation.organization.name,
             organizationSlug: invitation.organization.slug,
             roleName: invitation.roleName,
-          }))
+            })
+          )
         );
         setInviteError(null);
       } catch {
