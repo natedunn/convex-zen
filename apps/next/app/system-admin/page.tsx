@@ -5,11 +5,11 @@ import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { UserRow, type UserRowData } from "@convex-zen/playground-ui";
 
-type AdminListUsersResult = {
+type SystemAdminListUsersResult = {
   users: UserRowData[];
 };
 
-export default function AdminPage() {
+export default function SystemAdminPage() {
   const router = useRouter();
   const [users, setUsers] = useState<UserRowData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,9 +24,9 @@ export default function AdminPage() {
         router.replace("/signin");
         return;
       }
-      const result = (await authClient.plugin.admin.listUsers({
+      const result = (await authClient.plugin.systemAdmin.listUsers({
         limit: 50,
-      })) as AdminListUsersResult;
+      })) as SystemAdminListUsersResult;
       setUsers(result.users);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Could not load users";
@@ -52,7 +52,7 @@ export default function AdminPage() {
     const reason = window.prompt("Ban reason:");
     if (!reason) return;
     try {
-      await authClient.plugin.admin.banUser({ userId, reason });
+      await authClient.plugin.systemAdmin.banUser({ userId, reason });
       setUsers((current) =>
         current.map((u) =>
           u._id === userId ? { ...u, banned: true, banReason: reason } : u
@@ -65,7 +65,7 @@ export default function AdminPage() {
 
   const handleUnban = async (userId: string) => {
     try {
-      await authClient.plugin.admin.unbanUser({ userId });
+      await authClient.plugin.systemAdmin.unbanUser({ userId });
       setUsers((current) =>
         current.map((u) =>
           u._id === userId ? { ...u, banned: false, banReason: undefined } : u
@@ -81,7 +81,7 @@ export default function AdminPage() {
     const role = window.prompt("New role:", currentUser?.role ?? "user");
     if (!role) return;
     try {
-      await authClient.plugin.admin.setRole({ userId, role });
+      await authClient.plugin.systemAdmin.setRole({ userId, role });
       setUsers((current) =>
         current.map((u) => (u._id === userId ? { ...u, role } : u))
       );
@@ -93,7 +93,7 @@ export default function AdminPage() {
   if (loading) {
     return (
       <div className="card">
-        <h2>Admin</h2>
+        <h2>System Admin</h2>
         <p className="loading-text">Loading...</p>
       </div>
     );
@@ -101,7 +101,7 @@ export default function AdminPage() {
 
   return (
     <>
-      <h2 className="page-title">Admin</h2>
+      <h2 className="page-title">System Admin</h2>
       {error && <p className="text-error">{error}</p>}
 
       <p className="section-label">Users ({users.length})</p>

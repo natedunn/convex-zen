@@ -9,10 +9,10 @@
  */
 
 import type * as _runtime from "../_runtime.js";
-import type * as admin_gateway from "../admin/gateway.js";
 import type * as example_gateway from "../example/gateway.js";
 import type * as gateway from "../gateway.js";
 import type * as organization_gateway from "../organization/gateway.js";
+import type * as systemAdmin_gateway from "../systemAdmin/gateway.js";
 
 import type {
   ApiFromModules,
@@ -23,10 +23,10 @@ import { anyApi, componentsGeneric } from "convex/server";
 
 const fullApi: ApiFromModules<{
   _runtime: typeof _runtime;
-  "admin/gateway": typeof admin_gateway;
   "example/gateway": typeof example_gateway;
   gateway: typeof gateway;
   "organization/gateway": typeof organization_gateway;
+  "systemAdmin/gateway": typeof systemAdmin_gateway;
 }> = anyApi as any;
 
 /**
@@ -211,7 +211,7 @@ export const components = componentsGeneric() as unknown as {
       >;
     };
   };
-  adminComponent: {
+  systemAdminComponent: {
     gateway: {
       banUser: FunctionReference<
         "mutation",

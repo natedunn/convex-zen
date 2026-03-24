@@ -6,18 +6,18 @@ import { internal } from "../src/component/_generated/api";
 
 const modules = {
   ...import.meta.glob("../src/component/**/*.*s"),
-  "../src/component/plugins/admin/gateway.ts": () =>
-    import("../../convex-zen-admin/src/gateway"),
+  "../src/component/plugins/system-admin/gateway.ts": () =>
+    import("../../convex-zen-system-admin/src/gateway"),
 };
 const CONVEX_DIRECT_CALL_WARNING =
   "Convex functions should not directly call other Convex functions.";
 
 function adminQueryRef(name: string): FunctionReference<"query", "public"> {
-  return makeFunctionReference(`plugins/admin/gateway:${name}`);
+  return makeFunctionReference(`plugins/system-admin/gateway:${name}`);
 }
 
 function adminMutationRef(name: string): FunctionReference<"mutation", "public"> {
-  return makeFunctionReference(`plugins/admin/gateway:${name}`);
+  return makeFunctionReference(`plugins/system-admin/gateway:${name}`);
 }
 
 async function createUser(

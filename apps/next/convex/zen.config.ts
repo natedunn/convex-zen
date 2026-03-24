@@ -1,5 +1,5 @@
 import { createConvexZenClient, defineConvexZen, discordProvider, githubProvider, googleProvider } from "convex-zen";
-import { adminPlugin } from "convex-zen-admin";
+import { systemAdminPlugin } from "convex-zen-system-admin";
 import { organizationPlugin } from "convex-zen-organization";
 
 function readRequiredOAuthEnv(
@@ -49,7 +49,7 @@ const zenConfig = defineConvexZen({
 	providers,
 	requireEmailVerified: true,
 	plugins: [
-		adminPlugin({ defaultRole: "user", adminRole: "admin" }),
+		systemAdminPlugin({ defaultRole: "user", adminRole: "admin" }),
 		organizationPlugin({
 			accessControl: {
 				billing: ["read"],

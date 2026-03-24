@@ -54,7 +54,7 @@ describe("createNextAuthClient", () => {
   it("adds plugin/core/query helpers when convexFunctions + meta are provided", async () => {
     const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
-      if (url.includes("/plugin/admin/list-users")) {
+      if (url.includes("/plugin/system-admin/list-users")) {
         return new Response(
           JSON.stringify({ users: [], cursor: null, isDone: true }),
           {
@@ -82,8 +82,8 @@ describe("createNextAuthClient", () => {
           currentUser: queryRef("core.currentUser"),
         },
         plugin: {
-          admin: {
-            listUsers: queryRef("plugin.admin.listUsers"),
+          systemAdmin: {
+            listUsers: queryRef("plugin.systemAdmin.listUsers"),
           },
         },
       },
@@ -92,19 +92,19 @@ describe("createNextAuthClient", () => {
           currentUser: "query",
         },
         plugin: {
-          admin: {
+          systemAdmin: {
             listUsers: "query",
           },
         },
       },
     });
 
-    await authClient.plugin.admin.listUsers({ limit: 5 });
+    await authClient.plugin.systemAdmin.listUsers({ limit: 5 });
     expect(String(fetchImpl.mock.calls[0]?.[0])).toContain(
-      "/api/auth/plugin/admin/list-users"
+      "/api/auth/plugin/system-admin/list-users"
     );
 
-    const listUsersQuery = authClient.plugin.admin.listUsers.query({ limit: 2 });
+    const listUsersQuery = authClient.plugin.systemAdmin.listUsers.query({ limit: 2 });
     expect(listUsersQuery.queryKey[0]).toBe("convexAuthQuery");
     expect(typeof listUsersQuery.queryFn).toBe("function");
     await expect(listUsersQuery.queryFn?.({})).resolves.toEqual({

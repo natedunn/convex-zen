@@ -212,7 +212,7 @@ export default function DashboardPage() {
 
       <div className="flow-links">
         <Link href="/organizations">Organization playground</Link>
-        <Link href="/admin">Admin playground</Link>
+        <Link href="/system-admin">System Admin playground</Link>
         <Link href="/">Back to diagnostics</Link>
       </div>
     </>

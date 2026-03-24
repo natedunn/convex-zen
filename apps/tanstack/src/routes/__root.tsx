@@ -74,7 +74,7 @@ function RootComponent() {
 									<Link to="/signin">Sign In</Link>
 									<Link to="/reset">Reset Password</Link>
 									<Link to="/dashboard">Dashboard</Link>
-									<Link to="/admin">Admin</Link>
+									<Link to="/system-admin">System Admin</Link>
 								</nav>
 							</section>
 						</header>

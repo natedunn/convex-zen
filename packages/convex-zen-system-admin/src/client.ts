@@ -1,7 +1,7 @@
 import {
   definePlugin,
-  type AdminListUsersResult,
-  type AdminPluginOptions,
+  type SystemAdminListUsersResult,
+  type SystemAdminPluginOptions,
   type PluginGatewayRuntimeMap,
 } from "convex-zen";
 import * as gatewayModule from "./gateway";
@@ -14,7 +14,7 @@ type RunsMutations = {
   runMutation(fn: unknown, args: Record<string, unknown>): Promise<unknown>;
 };
 
-type AdminRuntimeHelpers = {
+type SystemAdminRuntimeHelpers = {
   callInternalMutation?: (
     ctx: RunsMutations,
     functionName: string,
@@ -47,40 +47,40 @@ function resolveComponentFn(
   return resolved;
 }
 
-type AdminGatewayRuntime = PluginGatewayRuntimeMap<typeof gatewayModule>;
+type SystemAdminGatewayRuntime = PluginGatewayRuntimeMap<typeof gatewayModule>;
 
-export class AdminPlugin {
+export class SystemAdminPlugin {
   private readonly usesGatewayRuntime: boolean;
 
   constructor(
-    gatewayOrComponentApi: AdminGatewayRuntime | Record<string, unknown>,
-    private readonly config: AdminPluginOptions,
-    childName: string = "adminComponent",
+    gatewayOrComponentApi: SystemAdminGatewayRuntime | Record<string, unknown>,
+    private readonly config: SystemAdminPluginOptions,
+    childName: string = "systemAdminComponent",
     private readonly runtimeKind: "app" | "component" = "app",
-    private readonly helpers: AdminRuntimeHelpers = {}
+    private readonly helpers: SystemAdminRuntimeHelpers = {}
   ) {
     this.usesGatewayRuntime = this.isGatewayRuntime(gatewayOrComponentApi);
     this.gateway = this.usesGatewayRuntime
-      ? (gatewayOrComponentApi as AdminGatewayRuntime)
+      ? (gatewayOrComponentApi as SystemAdminGatewayRuntime)
       : this.createLegacyGatewayRuntime(gatewayOrComponentApi, childName);
   }
 
-  private readonly gateway: AdminGatewayRuntime;
+  private readonly gateway: SystemAdminGatewayRuntime;
 
   private isGatewayRuntime(
-    value: AdminGatewayRuntime | Record<string, unknown>
-  ): value is AdminGatewayRuntime {
-    return typeof (value as AdminGatewayRuntime).isAdmin === "function";
+    value: SystemAdminGatewayRuntime | Record<string, unknown>
+  ): value is SystemAdminGatewayRuntime {
+    return typeof (value as SystemAdminGatewayRuntime).isAdmin === "function";
   }
 
   private createLegacyGatewayRuntime(
     componentApi: Record<string, unknown>,
     childName: string
-  ): AdminGatewayRuntime {
+  ): SystemAdminGatewayRuntime {
     const gatewayPath = (functionName: string) =>
       this.runtimeKind === "component"
         ? `${childName}/gateway:${functionName}`
-        : `admin/gateway:${functionName}`;
+        : `systemAdmin/gateway:${functionName}`;
     return {
       isAdmin: async (ctx, args) =>
         await (ctx as RunsQueries).runQuery(
@@ -112,7 +112,7 @@ export class AdminPlugin {
           resolveComponentFn(componentApi, gatewayPath("deleteUser")),
           args
         ),
-    } as AdminGatewayRuntime;
+    } as SystemAdminGatewayRuntime;
   }
 
   private resolveAdminRole(): string {
@@ -133,7 +133,7 @@ export class AdminPlugin {
       actorUserId?: string;
     }
   ): Promise<boolean> {
-    const inputArgs = this.usesGatewayRuntime
+    const inputArgs = this.usesGatewayRuntime || this.runtimeKind === "app"
       ? {}
       : { actorUserId: args?.actorUserId };
     return this.gateway.isAdmin(ctx, this.withAdminRole(inputArgs)) as Promise<boolean>;
@@ -146,10 +146,13 @@ export class AdminPlugin {
       limit?: number;
       cursor?: string;
     }
-  ): Promise<AdminListUsersResult> {
+  ): Promise<SystemAdminListUsersResult> {
     const { actorUserId, ...rest } = args;
-    const inputArgs = this.usesGatewayRuntime ? rest : { actorUserId, ...rest };
-    return this.gateway.listUsers(ctx, this.withAdminRole(inputArgs)) as Promise<AdminListUsersResult>;
+    const inputArgs =
+      this.usesGatewayRuntime || this.runtimeKind === "app"
+        ? rest
+        : { actorUserId, ...rest };
+    return this.gateway.listUsers(ctx, this.withAdminRole(inputArgs)) as Promise<SystemAdminListUsersResult>;
   }
 
   async banUser(
@@ -162,7 +165,10 @@ export class AdminPlugin {
     }
   ): Promise<void> {
     const { actorUserId, ...rest } = args;
-    const inputArgs = this.usesGatewayRuntime ? rest : { actorUserId, ...rest };
+    const inputArgs =
+      this.usesGatewayRuntime || this.runtimeKind === "app"
+        ? rest
+        : { actorUserId, ...rest };
     return this.gateway.banUser(ctx, this.withAdminRole(inputArgs)) as Promise<void>;
   }
 
@@ -174,7 +180,10 @@ export class AdminPlugin {
     }
   ): Promise<void> {
     const { actorUserId, ...rest } = args;
-    const inputArgs = this.usesGatewayRuntime ? rest : { actorUserId, ...rest };
+    const inputArgs =
+      this.usesGatewayRuntime || this.runtimeKind === "app"
+        ? rest
+        : { actorUserId, ...rest };
     return this.gateway.unbanUser(ctx, this.withAdminRole(inputArgs)) as Promise<void>;
   }
 
@@ -187,7 +196,10 @@ export class AdminPlugin {
     }
   ): Promise<void> {
     const { actorUserId, ...rest } = args;
-    const inputArgs = this.usesGatewayRuntime ? rest : { actorUserId, ...rest };
+    const inputArgs =
+      this.usesGatewayRuntime || this.runtimeKind === "app"
+        ? rest
+        : { actorUserId, ...rest };
     return this.gateway.setRole(ctx, this.withAdminRole(inputArgs)) as Promise<void>;
   }
 
@@ -200,7 +212,10 @@ export class AdminPlugin {
   ): Promise<void> {
     if (!this.helpers.callInternalMutation || !this.helpers.deleteAuthUser) {
       const { actorUserId, ...rest } = args;
-      const inputArgs = this.usesGatewayRuntime ? rest : { actorUserId, ...rest };
+      const inputArgs =
+        this.usesGatewayRuntime || this.runtimeKind === "app"
+          ? rest
+          : { actorUserId, ...rest };
       return this.gateway.deleteUser(ctx, this.withAdminRole(inputArgs)) as Promise<void>;
     }
 
@@ -230,26 +245,29 @@ export class AdminPlugin {
   }
 }
 
-export const adminPlugin = definePlugin({
-  id: "admin",
+export const systemAdminPlugin = definePlugin({
+  id: "systemAdmin",
   gateway: gatewayModule,
-  normalizeOptions: (config?: AdminPluginOptions): AdminPluginOptions => ({
+  normalizeOptions: (config?: SystemAdminPluginOptions): SystemAdminPluginOptions => ({
     ...(config?.defaultRole !== undefined
       ? { defaultRole: config.defaultRole }
       : {}),
     ...(config?.adminRole !== undefined ? { adminRole: config.adminRole } : {}),
   }),
   extendRuntime: ({
+    component,
     gateway,
     options,
     runtimeKind,
     callInternalMutation,
     deleteAuthUser,
   }) =>
-    new AdminPlugin(
-      gateway as AdminGatewayRuntime,
+    new SystemAdminPlugin(
+      (runtimeKind === "app"
+        ? component
+        : gateway) as SystemAdminGatewayRuntime | Record<string, unknown>,
       options,
-      "adminComponent",
+      "systemAdminComponent",
       runtimeKind,
       { callInternalMutation, deleteAuthUser }
     ),

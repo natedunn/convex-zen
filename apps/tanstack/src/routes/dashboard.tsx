@@ -260,7 +260,7 @@ function DashboardPage() {
 
 			<div className="flow-links">
 				<Link to="/organizations">Organization playground</Link>
-				<Link to="/admin">Admin playground</Link>
+				<Link to="/system-admin">System Admin playground</Link>
 				<Link to="/">Back to diagnostics</Link>
 			</div>
 		</>

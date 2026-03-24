@@ -74,7 +74,7 @@ No magic. Every public method has a JSDoc comment. Every security decision has a
 - **Email/password auth** — sign up, email verification, sign in, password reset
 - **OAuth** — Google and GitHub with PKCE
 - **Session management** — sliding window sessions with absolute timeout
-- **Admin plugin** — list users, ban/unban, assign roles, delete
+- **System Admin plugin** — list users, ban/unban, assign roles, delete
 - **Organization plugin** — orgs, memberships, invites, roles, and verified domains
 - **Rate limiting** — brute-force protection on auth endpoints
 - **Strong cryptography** — Argon2id passwords, SHA-256 session token storage, 256-bit random tokens
@@ -133,7 +133,7 @@ packages/convex-zen/
     │   ├── index.ts                   # ConvexZen class
     │   ├── providers.ts               # googleProvider(), githubProvider()
     │   └── plugins/
-    │       ├── admin.ts               # adminPlugin() factory + AdminPlugin class
+    │       ├── systemAdmin.ts         # systemAdminPlugin() factory + SystemAdminPlugin class
     │       └── organization.ts        # organizationPlugin() factory + OrganizationPlugin class
     └── component/                     # Convex component (server-side)
         ├── convex.config.ts           # defineComponent("convexAuth")
@@ -162,7 +162,7 @@ convex-zen/expo         → src/client/expo.ts
 convex-zen/next         → src/client/next.ts
 convex-zen/react        → src/client/react.ts
 convex-zen/tanstack-start → src/client/tanstack-start.ts
-convex-zen-admin → packages/convex-zen-admin/src/index.ts
+convex-zen-system-admin → packages/convex-zen-system-admin/src/index.ts
 convex-zen-organization → packages/convex-zen-organization/src/index.ts
 convex-zen/convex.config → src/component/convex.config.ts
 ```
@@ -259,7 +259,7 @@ All gateway functions are `action` type because actions can call queries, mutati
 // convex/auth.ts
 import { ConvexZen } from "convex-zen";
 import { googleProvider, githubProvider } from "convex-zen";
-import { adminPlugin } from "convex-zen-admin";
+import { systemAdminPlugin } from "convex-zen-system-admin";
 import { components } from "./_generated/api";
 
 export const auth = new ConvexZen(components.convexAuth, {
@@ -271,7 +271,7 @@ export const auth = new ConvexZen(components.convexAuth, {
     sendVerificationEmail: async (to, code) => { /* Resend, etc. */ },
     sendPasswordResetEmail: async (to, code) => { /* ... */ },
   },
-  plugins: [adminPlugin({ defaultRole: "user", adminRole: "admin" })],
+  plugins: [systemAdminPlugin({ defaultRole: "user", adminRole: "admin" })],
   requireEmailVerified: true,  // default
 });
 
@@ -296,12 +296,12 @@ export default http;
 | `signOut(ctx, token)` | action | Invalidate one session |
 | `signOutAll(ctx, userId)` | action | Invalidate all sessions for a user |
 | `registerRoutes(http, options?)` | — | Mount OAuth callback HTTP routes |
-| `plugins.admin` | — | Returns `AdminPlugin` instance (or null if not configured) |
+| `plugins.systemAdmin` | — | Returns `SystemAdminPlugin` instance (or null if not configured) |
 
-### AdminPlugin methods (all use `runAction` ctx)
+### SystemAdminPlugin methods (all use `runAction` ctx)
 
 ```ts
-const admin = auth.plugins.admin;
+const admin = auth.plugins.systemAdmin;
 await admin.listUsers(ctx, { limit?: number, cursor?: string })
   // → { users, cursor, isDone }
 await admin.banUser(ctx, { userId, reason?, expiresAt? })
@@ -387,7 +387,7 @@ TanStack Start (SSR) + TanStack Router (file-based) + Convex React client. Demon
 | `/signin` | Sign in form, stores token in `localStorage` |
 | `/reset` | Password reset (two phases: request → enter code) |
 | `/dashboard` | Protected — shows userId/sessionId, sign out button |
-| `/admin` | Admin panel — user list, ban, role assignment |
+| `/system-admin` | System Admin panel — user list, ban, role assignment |
 
 ### Convex setup
 
@@ -405,7 +405,7 @@ apps/tanstack/convex/
 - Emails print to Convex dev server console (no real email service needed)
 - `requireEmailVerified: false` in dev for convenience
 - Session token stored in `localStorage` (demo only — use HttpOnly cookies in production)
-- Admin plugin active with `defaultRole: "user"`, `adminRole: "admin"`
+- System Admin plugin active with `defaultRole: "user"`, `adminRole: "admin"`
 
 ### Environment variables
 

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { FunctionReference } from "convex/server";
-import { adminApiPlugin } from "../src/client/tanstack-start/admin-plugin";
+import { systemAdminApiPlugin } from "../src/client/tanstack-start/system-admin-plugin";
 
 const listUsersRef = { name: "listUsers" } as unknown as FunctionReference<
   "query",
@@ -31,11 +31,11 @@ function jsonResponseBody(response: Response): Promise<unknown> {
   return response.json() as Promise<unknown>;
 }
 
-describe("adminApiPlugin", () => {
+describe("systemAdminApiPlugin", () => {
   it("uses authenticated fetchers for listUsers", async () => {
     const fetchAuthQuery = vi.fn(async () => ({ users: [], cursor: null, isDone: true }));
     const fetchQuery = vi.fn();
-    const plugin = adminApiPlugin().create({
+    const plugin = systemAdminApiPlugin().create({
       tanstackAuth: {
         getSession: vi.fn(),
         getToken: vi.fn(),
@@ -62,9 +62,9 @@ describe("adminApiPlugin", () => {
     });
 
     const response = await plugin.handle({
-      request: new Request("https://example.com/api/auth/admin/list-users", { method: "POST" }),
+      request: new Request("https://example.com/api/auth/system-admin/list-users", { method: "POST" }),
       method: "POST",
-      action: "admin/list-users",
+      action: "system-admin/list-users",
       readJson: async () => ({ limit: 25 }),
       json: (data, status = 200) => new Response(JSON.stringify(data), { status }),
     });
@@ -82,7 +82,7 @@ describe("adminApiPlugin", () => {
   it("prefers explicit convex function overrides when provided", async () => {
     const fetchAuthMutation = vi.fn(async () => ({ ok: true }));
     const fetchMutation = vi.fn();
-    const plugin = adminApiPlugin({
+    const plugin = systemAdminApiPlugin({
       convexFunctions: {
         listUsers: listUsersRef,
         banUser: customBanRef,
@@ -117,9 +117,9 @@ describe("adminApiPlugin", () => {
     });
 
     await plugin.handle({
-      request: new Request("https://example.com/api/auth/admin/ban-user", { method: "POST" }),
+      request: new Request("https://example.com/api/auth/system-admin/ban-user", { method: "POST" }),
       method: "POST",
-      action: "admin/ban-user",
+      action: "system-admin/ban-user",
       readJson: async () => ({ userId: "u2", reason: "abuse" }),
       json: (data, status = 200) => new Response(JSON.stringify(data), { status }),
     });
@@ -133,7 +133,7 @@ describe("adminApiPlugin", () => {
 
   it("throws a clear error if required refs cannot be resolved", () => {
     expect(() =>
-      adminApiPlugin().create({
+      systemAdminApiPlugin().create({
         tanstackAuth: {
           getSession: vi.fn(),
           getToken: vi.fn(),
@@ -152,12 +152,12 @@ describe("adminApiPlugin", () => {
         },
         convexFunctions: {},
       })
-    ).toThrow('adminApiPlugin could not resolve "listUsers" convex function');
+    ).toThrow('systemAdminApiPlugin could not resolve "listUsers" convex function');
   });
 
   it("throws when any admin ref is missing", () => {
     expect(() =>
-      adminApiPlugin().create({
+      systemAdminApiPlugin().create({
         tanstackAuth: {
           getSession: vi.fn(),
           getToken: vi.fn(),
@@ -181,6 +181,6 @@ describe("adminApiPlugin", () => {
           unbanUser: unbanUserRef,
         },
       })
-    ).toThrow('adminApiPlugin could not resolve "deleteUser" convex function');
+    ).toThrow('systemAdminApiPlugin could not resolve "deleteUser" convex function');
   });
 });

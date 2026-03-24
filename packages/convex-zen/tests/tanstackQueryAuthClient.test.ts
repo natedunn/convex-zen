@@ -44,8 +44,8 @@ function createNonEnumerableConvexFunctionsProxy() {
   const coreRefs = {
     currentUser: queryRef("core.currentUser"),
   };
-  const adminRefs = {
-    listUsers: queryRef("plugin.admin.listUsers"),
+  const systemAdminRefs = {
+    listUsers: queryRef("plugin.systemAdmin.listUsers"),
   };
   const core = new Proxy(
     {},
@@ -58,12 +58,12 @@ function createNonEnumerableConvexFunctionsProxy() {
       getOwnPropertyDescriptor: () => undefined,
     }
   );
-  const admin = new Proxy(
+  const systemAdmin = new Proxy(
     {},
     {
       get: (_target, prop) =>
         typeof prop === "string"
-          ? (adminRefs as Record<string, unknown>)[prop]
+          ? (systemAdminRefs as Record<string, unknown>)[prop]
           : undefined,
       ownKeys: () => [],
       getOwnPropertyDescriptor: () => undefined,
@@ -72,7 +72,7 @@ function createNonEnumerableConvexFunctionsProxy() {
   const plugin = new Proxy(
     {},
     {
-      get: (_target, prop) => (prop === "admin" ? admin : undefined),
+      get: (_target, prop) => (prop === "systemAdmin" ? systemAdmin : undefined),
       ownKeys: () => [],
       getOwnPropertyDescriptor: () => undefined,
     }
@@ -107,30 +107,30 @@ describe("createTanStackAuthClient", () => {
       );
     });
 
-    const listUsersRef = queryRef("plugin.admin.listUsers");
+    const listUsersRef = queryRef("plugin.systemAdmin.listUsers");
     const authClient = createTanStackAuthClient({
       fetch: fetchImpl,
       convexFunctions: {
         plugin: {
-          admin: {
+          systemAdmin: {
             listUsers: listUsersRef,
           },
         },
       },
       pluginMeta: {
-        admin: {
+        systemAdmin: {
           listUsers: "query",
         },
       },
     });
 
-    await authClient.plugin.admin.listUsers({ limit: 5 });
+    await authClient.plugin.systemAdmin.listUsers({ limit: 5 });
     expect(String(fetchImpl.mock.calls[0]?.[0])).toContain(
-      "/api/auth/plugin/admin/list-users"
+      "/api/auth/plugin/system-admin/list-users"
     );
 
-    const queryOptions = authClient.plugin.admin.listUsers.query({ limit: 7 });
-    const queryOptionsAlias = authClient.plugin.admin.listUsers.queryOptions({
+    const queryOptions = authClient.plugin.systemAdmin.listUsers.query({ limit: 7 });
+    const queryOptionsAlias = authClient.plugin.systemAdmin.listUsers.queryOptions({
       limit: 7,
     });
     expect(queryOptions.queryKey[0]).toBe("convexAuthQuery");
@@ -143,7 +143,7 @@ describe("createTanStackAuthClient", () => {
     const queryData = await queryOptions.queryFn?.({});
     expect(queryData).toEqual({ users: [], cursor: null, isDone: true });
     expect(String(fetchImpl.mock.calls[1]?.[0])).toContain(
-      "/api/auth/plugin/admin/list-users"
+      "/api/auth/plugin/system-admin/list-users"
     );
 
     const queryClient = {
@@ -151,12 +151,12 @@ describe("createTanStackAuthClient", () => {
       ensureQueryData: vi.fn(async () => ({ users: ["ok"] })),
     };
 
-    await authClient.plugin.admin.listUsers.prefetchQuery(queryClient, {
+    await authClient.plugin.systemAdmin.listUsers.prefetchQuery(queryClient, {
       limit: 10,
     });
     expect(queryClient.prefetchQuery).toHaveBeenCalledOnce();
 
-    const ensured = await authClient.plugin.admin.listUsers.ensureQueryData(
+    const ensured = await authClient.plugin.systemAdmin.listUsers.ensureQueryData(
       queryClient,
       { limit: 2 }
     );
@@ -164,20 +164,20 @@ describe("createTanStackAuthClient", () => {
   });
 
   it("adds mutation and action helpers", async () => {
-    const banUserRef = mutationRef("plugin.admin.banUser");
-    const exportAuditRef = actionRef("plugin.admin.exportAudit");
+    const banUserRef = mutationRef("plugin.systemAdmin.banUser");
+    const exportAuditRef = actionRef("plugin.systemAdmin.exportAudit");
     const authClient = createTanStackAuthClient({
       fetch: vi.fn(async () => new Response("{}")),
       convexFunctions: {
         plugin: {
-          admin: {
+          systemAdmin: {
             banUser: banUserRef,
             exportAudit: exportAuditRef,
           },
         },
       },
       pluginMeta: {
-        admin: {
+        systemAdmin: {
           banUser: "mutation",
           exportAudit: "action",
         },
@@ -187,11 +187,11 @@ describe("createTanStackAuthClient", () => {
     const mutationExecutor = {
       mutation: vi.fn(async () => ({ ok: true })),
     };
-    const runBanUser = authClient.plugin.admin.banUser.mutationFn(
+    const runBanUser = authClient.plugin.systemAdmin.banUser.mutationFn(
       mutationExecutor
     );
     await runBanUser({ userId: "u_1" });
-    await authClient.plugin.admin.banUser.mutate(mutationExecutor, {
+    await authClient.plugin.systemAdmin.banUser.mutate(mutationExecutor, {
       userId: "u_2",
     });
     expect(mutationExecutor.mutation).toHaveBeenNthCalledWith(1, banUserRef, {
@@ -204,37 +204,37 @@ describe("createTanStackAuthClient", () => {
     const actionExecutor = {
       action: vi.fn(async () => ({ csv: "ok" })),
     };
-    const actionOptions = authClient.plugin.admin.exportAudit.query({});
-    const actionOptionsAlias = authClient.plugin.admin.exportAudit.queryOptions({});
+    const actionOptions = authClient.plugin.systemAdmin.exportAudit.query({});
+    const actionOptionsAlias = authClient.plugin.systemAdmin.exportAudit.queryOptions({});
     expect(actionOptions.queryKey[0]).toBe("convexAction");
     expect(typeof actionOptions.queryKey[1]).toBe("string");
     expect(actionOptions.queryKey[2]).toEqual({});
     expect(actionOptionsAlias).toEqual(actionOptions);
 
-    const runExportAudit = authClient.plugin.admin.exportAudit.actionFn(
+    const runExportAudit = authClient.plugin.systemAdmin.exportAudit.actionFn(
       actionExecutor
     );
     await runExportAudit({});
-    await authClient.plugin.admin.exportAudit.runAction(actionExecutor, {});
+    await authClient.plugin.systemAdmin.exportAudit.runAction(actionExecutor, {});
     expect(actionExecutor.action).toHaveBeenNthCalledWith(1, exportAuditRef, {});
     expect(actionExecutor.action).toHaveBeenNthCalledWith(2, exportAuditRef, {});
   });
 
   it("uses the connected Convex client as the default mutation and action executor", async () => {
-    const banUserRef = mutationRef("plugin.admin.banUser");
-    const exportAuditRef = actionRef("plugin.admin.exportAudit");
+    const banUserRef = mutationRef("plugin.systemAdmin.banUser");
+    const exportAuditRef = actionRef("plugin.systemAdmin.exportAudit");
     const authClient = createTanStackAuthClient({
       fetch: vi.fn(async () => new Response("{}")),
       convexFunctions: {
         plugin: {
-          admin: {
+          systemAdmin: {
             banUser: banUserRef,
             exportAudit: exportAuditRef,
           },
         },
       },
       pluginMeta: {
-        admin: {
+        systemAdmin: {
           banUser: "mutation",
           exportAudit: "action",
         },
@@ -250,9 +250,9 @@ describe("createTanStackAuthClient", () => {
 
     authClient.connectConvexAuth(convexClient);
 
-    const runBanUser = authClient.plugin.admin.banUser.mutationFn();
+    const runBanUser = authClient.plugin.systemAdmin.banUser.mutationFn();
     await runBanUser({ userId: "u_3" });
-    await authClient.plugin.admin.banUser.mutate({ userId: "u_4" });
+    await authClient.plugin.systemAdmin.banUser.mutate({ userId: "u_4" });
     expect(convexClient.mutation).toHaveBeenNthCalledWith(1, banUserRef, {
       userId: "u_3",
     });
@@ -260,9 +260,9 @@ describe("createTanStackAuthClient", () => {
       userId: "u_4",
     });
 
-    const runExportAudit = authClient.plugin.admin.exportAudit.actionFn();
+    const runExportAudit = authClient.plugin.systemAdmin.exportAudit.actionFn();
     await runExportAudit({});
-    await authClient.plugin.admin.exportAudit.runAction({});
+    await authClient.plugin.systemAdmin.exportAudit.runAction({});
     expect(convexClient.action).toHaveBeenNthCalledWith(1, exportAuditRef, {});
     expect(convexClient.action).toHaveBeenNthCalledWith(2, exportAuditRef, {});
   });
@@ -286,13 +286,13 @@ describe("createTanStackAuthClient", () => {
           currentUser: currentUserRef,
         },
         plugin: {
-          admin: {
-            listUsers: queryRef("plugin.admin.listUsers"),
+          systemAdmin: {
+            listUsers: queryRef("plugin.systemAdmin.listUsers"),
           },
         },
       },
       pluginMeta: {
-        admin: {
+        systemAdmin: {
           listUsers: "query",
         },
       },
@@ -333,7 +333,7 @@ describe("createTanStackAuthClient", () => {
     expect(rootCurrentUserOptions.queryKey[0]).toBe("convexAuthQuery");
     expect(currentUserOptions.queryKey[1]).toBe("core.currentUser");
     expect(typeof currentUserOptions.queryFn).toBe("function");
-    expect(typeof authClient.plugin.admin.listUsers.query({}).queryFn).toBe(
+    expect(typeof authClient.plugin.systemAdmin.listUsers.query({}).queryFn).toBe(
       "function"
     );
     const currentUser = await currentUserOptions.queryFn?.({});
@@ -352,13 +352,13 @@ describe("createTanStackAuthClient", () => {
           customLookup: customLookupRef,
         },
         plugin: {
-          admin: {
-            listUsers: queryRef("plugin.admin.listUsers"),
+          systemAdmin: {
+            listUsers: queryRef("plugin.systemAdmin.listUsers"),
           },
         },
       },
       pluginMeta: {
-        admin: {
+        systemAdmin: {
           listUsers: "query",
         },
       },
@@ -379,13 +379,13 @@ describe("createTanStackAuthClient", () => {
         fetch: vi.fn(async () => new Response("{}")),
         convexFunctions: {
           plugin: {
-            admin: {
-              listUsers: queryRef("plugin.admin.listUsers"),
+            systemAdmin: {
+              listUsers: queryRef("plugin.systemAdmin.listUsers"),
             },
           },
         },
         pluginMeta: {
-          admin: {
+          systemAdmin: {
             listUsers: "query",
           },
         },
@@ -394,24 +394,24 @@ describe("createTanStackAuthClient", () => {
   });
 
   it("keeps query option result typing for framework adapters", () => {
-    const listUsersRef = typedListUsersQueryRef("plugin.admin.listUsers");
+    const listUsersRef = typedListUsersQueryRef("plugin.systemAdmin.listUsers");
     const authClient = createTanStackAuthClient({
       fetch: vi.fn(async () => new Response("{}")),
       convexFunctions: {
         plugin: {
-          admin: {
+          systemAdmin: {
             listUsers: listUsersRef,
           },
         },
       },
       pluginMeta: {
-        admin: {
+        systemAdmin: {
           listUsers: "query",
         },
       },
     });
 
-    const options = authClient.plugin.admin.listUsers.query({ limit: 10 });
+    const options = authClient.plugin.systemAdmin.listUsers.query({ limit: 10 });
     const inferData = <TData>(
       input: {
         queryFn?: (context: unknown) => TData | Promise<TData>;
@@ -440,7 +440,7 @@ describe("createTanStackAuthClient", () => {
             currentUser: FunctionReference<"query", "public">;
           };
           plugin: {
-            admin: {
+            systemAdmin: {
               listUsers: FunctionReference<"query", "public">;
             };
           };
@@ -450,7 +450,7 @@ describe("createTanStackAuthClient", () => {
           currentUser: "query",
         },
         plugin: {
-          admin: {
+          systemAdmin: {
             listUsers: "query",
           },
         },

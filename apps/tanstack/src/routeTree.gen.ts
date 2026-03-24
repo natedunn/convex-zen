@@ -10,18 +10,23 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as VerifyRouteImport } from './routes/verify'
+import { Route as SystemAdminRouteImport } from './routes/system-admin'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SigninRouteImport } from './routes/signin'
 import { Route as ResetRouteImport } from './routes/reset'
 import { Route as OrganizationsRouteImport } from './routes/organizations'
 import { Route as DashboardRouteImport } from './routes/dashboard'
-import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api.auth.$'
 
 const VerifyRoute = VerifyRouteImport.update({
   id: '/verify',
   path: '/verify',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SystemAdminRoute = SystemAdminRouteImport.update({
+  id: '/system-admin',
+  path: '/system-admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignupRoute = SignupRouteImport.update({
@@ -49,11 +54,6 @@ const DashboardRoute = DashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminRoute = AdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -67,35 +67,35 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
   '/dashboard': typeof DashboardRoute
   '/organizations': typeof OrganizationsRoute
   '/reset': typeof ResetRoute
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
+  '/system-admin': typeof SystemAdminRoute
   '/verify': typeof VerifyRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
   '/dashboard': typeof DashboardRoute
   '/organizations': typeof OrganizationsRoute
   '/reset': typeof ResetRoute
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
+  '/system-admin': typeof SystemAdminRoute
   '/verify': typeof VerifyRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
   '/dashboard': typeof DashboardRoute
   '/organizations': typeof OrganizationsRoute
   '/reset': typeof ResetRoute
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
+  '/system-admin': typeof SystemAdminRoute
   '/verify': typeof VerifyRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
@@ -103,46 +103,46 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/admin'
     | '/dashboard'
     | '/organizations'
     | '/reset'
     | '/signin'
     | '/signup'
+    | '/system-admin'
     | '/verify'
     | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/admin'
     | '/dashboard'
     | '/organizations'
     | '/reset'
     | '/signin'
     | '/signup'
+    | '/system-admin'
     | '/verify'
     | '/api/auth/$'
   id:
     | '__root__'
     | '/'
-    | '/admin'
     | '/dashboard'
     | '/organizations'
     | '/reset'
     | '/signin'
     | '/signup'
+    | '/system-admin'
     | '/verify'
     | '/api/auth/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AdminRoute: typeof AdminRoute
   DashboardRoute: typeof DashboardRoute
   OrganizationsRoute: typeof OrganizationsRoute
   ResetRoute: typeof ResetRoute
   SigninRoute: typeof SigninRoute
   SignupRoute: typeof SignupRoute
+  SystemAdminRoute: typeof SystemAdminRoute
   VerifyRoute: typeof VerifyRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
@@ -154,6 +154,13 @@ declare module '@tanstack/react-router' {
       path: '/verify'
       fullPath: '/verify'
       preLoaderRoute: typeof VerifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/system-admin': {
+      id: '/system-admin'
+      path: '/system-admin'
+      fullPath: '/system-admin'
+      preLoaderRoute: typeof SystemAdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/signup': {
@@ -191,13 +198,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin': {
-      id: '/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AdminRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/': {
       id: '/'
       path: '/'
@@ -217,12 +217,12 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AdminRoute: AdminRoute,
   DashboardRoute: DashboardRoute,
   OrganizationsRoute: OrganizationsRoute,
   ResetRoute: ResetRoute,
   SigninRoute: SigninRoute,
   SignupRoute: SignupRoute,
+  SystemAdminRoute: SystemAdminRoute,
   VerifyRoute: VerifyRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }

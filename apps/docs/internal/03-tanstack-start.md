@@ -17,7 +17,7 @@ File: `packages/convex-zen/src/client/tanstack-start-client.ts`
 File: `packages/convex-zen/src/client/tanstack-start-plugins.ts`
 
 - `pluginApiPlugin({ pluginMeta, routePrefix? })`
-- `adminApiPlugin({ convexFunctions?, routePrefix? })` (explicit/manual plugin)
+- `systemAdminApiPlugin({ convexFunctions?, routePrefix? })` (explicit/manual plugin)
 
 File: `packages/convex-zen/src/client/tanstack-start-plugin-meta.ts`
 
@@ -35,12 +35,12 @@ Auto plugin routes use:
 Route shape:
 
 - `POST /api/auth/plugin/<plugin-name>/<function-name>`
-- Example: `plugin.admin.listUsers` -> `/api/auth/plugin/admin/list-users`
+- Example: `plugin.systemAdmin.listUsers` -> `/api/auth/plugin/system-admin/list-users`
 
 Client shape:
 
 - `authClient.plugin.<pluginName>.<functionName>(args)`
-- Example: `authClient.plugin.admin.listUsers({ limit: 50 })`
+- Example: `authClient.plugin.systemAdmin.listUsers({ limit: 50 })`
 - `authClient.core.<functionName>(args)` (auto-inferred from `api.zen.core.*`)
 - Example: `authClient.core.signUp({ email, password })`
 - non-conflicting core methods are also auto-aliased at root (for example `authClient.signUp(...)`)
@@ -111,7 +111,7 @@ Use one of these patterns per app/page.
 ### 1) Route-backed only (default)
 
 - Keep using `authClient.getSession()`, `authClient.signIn.email(...)`, `authClient.signOut()`.
-- Use route-backed plugin/core methods (for example `authClient.plugin.admin.listUsers(args)`).
+- Use route-backed plugin/core methods (for example `authClient.plugin.systemAdmin.listUsers(args)`).
 - Do not connect Convex direct auth bridge.
 
 ### 2) Hybrid (recommended for TanStack Query apps)
@@ -130,10 +130,10 @@ authClient.connectConvexAuth(convex);
 
 - Route-backed helpers:
   - `useQuery(authClient.currentUser.query())`
-  - `useQuery(authClient.plugin.admin.listUsers.query({ limit: 10 }))`
+  - `useQuery(authClient.plugin.systemAdmin.listUsers.query({ limit: 10 }))`
 - Direct Convex query factories (when desired):
   - `useQuery(convexQuery(api.zen.core.currentUser, {}))`
-  - `useQuery(convexQuery(api.zen.plugin.admin.listUsers, { limit: 10 }))`
+  - `useQuery(convexQuery(api.zen.plugin.systemAdmin.listUsers, { limit: 10 }))`
 
 ### 3) Direct-mode emphasis
 
@@ -215,7 +215,7 @@ so it is not overridden by `ConvexQueryClient` subscriptions for `convexQuery(..
 import { useQuery } from "@tanstack/react-query";
 
 const usersQuery = useQuery(
-  authClient.plugin.admin.listUsers.query({ limit: 10 })
+  authClient.plugin.systemAdmin.listUsers.query({ limit: 10 })
 );
 
 const users = usersQuery.data?.users;

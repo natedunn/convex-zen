@@ -236,7 +236,7 @@ describe("createNextAuthServer", () => {
     const validateSession = mutationRef("auth.core.validateSession");
     const invalidateSession = mutationRef("auth.core.invalidateSession");
     const currentUser = queryRef("auth.core.currentUser");
-    const listUsers = queryRef("auth.plugin.admin.listUsers");
+    const listUsers = queryRef("auth.plugin.systemAdmin.listUsers");
 
     mutationHandler.mockImplementation(async (fn: unknown, args: unknown) => {
       if (fn === validateSession) {
@@ -274,7 +274,7 @@ describe("createNextAuthServer", () => {
           currentUser,
         },
         plugin: {
-          admin: {
+          systemAdmin: {
             listUsers,
           },
         },
@@ -286,7 +286,7 @@ describe("createNextAuthServer", () => {
           currentUser: FunctionReference<"query", "public">;
         };
         plugin: {
-          admin: {
+          systemAdmin: {
             listUsers: FunctionReference<"query", "public">;
           };
         };
@@ -296,7 +296,7 @@ describe("createNextAuthServer", () => {
           currentUser: "query",
         },
         plugin: {
-          admin: {
+          systemAdmin: {
             listUsers: "query",
           },
         },
@@ -321,7 +321,7 @@ describe("createNextAuthServer", () => {
     });
 
     const pluginResponse = await authServer.handler(
-      new Request("http://localhost/api/auth/plugin/admin/list-users", {
+      new Request("http://localhost/api/auth/plugin/system-admin/list-users", {
         method: "POST",
         headers: {
           cookie: "cz_session=token_1",

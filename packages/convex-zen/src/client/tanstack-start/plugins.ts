@@ -8,12 +8,15 @@ import type {
 import { toKebabCase } from "../plugin-meta";
 import { readFunctionRef, isRecord, readMember } from "../helpers";
 
-export { adminApiPlugin } from "./admin-plugin";
+export { systemAdminApiPlugin } from "./system-admin-plugin";
 export type {
-  TanStackStartAdminApiPluginConvexFunctions,
-  TanStackStartAdminApiPluginOptions,
-} from "./admin-plugin";
-export { ADMIN_API_PLUGIN_ID, REQUIRED_ADMIN_CONVEX_FUNCTIONS } from "./admin-plugin";
+  TanStackStartSystemAdminApiPluginConvexFunctions,
+  TanStackStartSystemAdminApiPluginOptions,
+} from "./system-admin-plugin";
+export {
+  SYSTEM_ADMIN_API_PLUGIN_ID,
+  REQUIRED_SYSTEM_ADMIN_CONVEX_FUNCTIONS,
+} from "./system-admin-plugin";
 
 export const CORE_API_PLUGIN_ID = "core" as const;
 
