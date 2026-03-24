@@ -1,3 +1,10 @@
+# [1.11.0](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.10.0...convex-zen-v1.11.0) (2026-03-24)
+
+
+### Features
+
+* **system-admin:** rename admin plugin to systemAdmin ([c1c8782](https://github.com/natedunn/convex-zen/commit/c1c87821659c658863b5fcb58d871ce684c62a3e))
+
 # [1.10.0](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.9.1...convex-zen-v1.10.0) (2026-03-23)
 
 
