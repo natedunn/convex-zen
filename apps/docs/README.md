@@ -1,9 +1,9 @@
 # convex-zen docs
 
-This directory now has two tracks:
+This directory has two tracks:
 
 - `apps/docs/internal`: implementation notes for internal contributors and LLM context.
-- `apps/docs/external`: public-facing documentation we can publish later.
+- `apps/docs/external`: source material for the public docs site.
 
 ## Internal docs
 

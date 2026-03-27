@@ -1,6 +1,6 @@
 # OAuth (Convex Zen)
 
-This guide covers the shared OAuth model in `convex-zen` across:
+This page covers the shared OAuth flow in `convex-zen` across:
 
 - Next.js
 - TanStack Start
@@ -8,7 +8,7 @@ This guide covers the shared OAuth model in `convex-zen` across:
 
 ## Supported built-in providers
 
-`convex-zen` currently ships first-class helpers for:
+Built-in helpers are available for:
 
 - `googleProvider(...)`
 - `githubProvider(...)`
@@ -18,14 +18,13 @@ Configure them in `convex/zen.config.ts`:
 
 ```ts
 import {
-  ConvexZen,
+  defineConvexZen,
   discordProvider,
   githubProvider,
   googleProvider,
 } from "convex-zen";
-import { components } from "./_generated/api";
 
-export const authOptions = {
+export default defineConvexZen({
   providers: [
     githubProvider({
       clientId: process.env.GITHUB_CLIENT_ID!,
@@ -40,9 +39,7 @@ export const authOptions = {
       clientSecret: process.env.DISCORD_CLIENT_SECRET!,
     }),
   ],
-};
-
-export const auth = new ConvexZen(components.convexAuth, authOptions);
+});
 ```
 
 ## Provider secrets
@@ -89,7 +86,7 @@ await authClient.signIn.oauth("google", {
 });
 ```
 
-Behavior:
+What happens:
 
 - starts at `/api/auth/sign-in/:provider`
 - redirects to the provider
@@ -167,7 +164,7 @@ Rejected:
 
 ## Lower-level Convex flow
 
-The lower-level flow exists for Expo and for custom web flows such as popups or manual redirects:
+These lower-level functions are available for Expo and for custom web flows such as popups or manual redirects:
 
 - `getOAuthUrl`
 - `handleOAuthCallback`

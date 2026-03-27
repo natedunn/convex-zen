@@ -33,6 +33,13 @@ pnpm -C apps/tanstack exec convex dev
 pnpm -C apps/tanstack dev
 ```
 
+The main authoring flow is:
+
+- define your auth config in `convex/zen.config.ts` with `defineConvexZen(...)`
+- add the Convex auth bridge in `convex/auth.config.ts`
+- run `npx convex-zen generate`
+- wire your framework adapter to the generated refs and metadata
+
 Expo example:
 
 ```bash

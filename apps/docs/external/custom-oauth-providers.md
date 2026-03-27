@@ -1,8 +1,8 @@
 # Custom OAuth Providers (Convex Zen)
 
-This guide covers the public custom provider API in `convex-zen`.
+This page covers the public custom-provider API in `convex-zen`.
 
-The built-in providers (`googleProvider`, `githubProvider`, `discordProvider`) use the same runtime contract internally, so they are the canonical reference implementations.
+The built-in providers (`googleProvider`, `githubProvider`, `discordProvider`) use the same runtime contract internally, so they are the best reference points.
 
 ## Define providers in `convex/zen.config.ts`
 
@@ -10,13 +10,12 @@ Custom providers should be defined in `convex/zen.config.ts` so their runtimes r
 
 ```ts
 import {
-  ConvexZen,
   buildOAuthAuthorizationUrl,
+  defineConvexZen,
   defineOAuthProvider,
   exchangeOAuthAuthorizationCode,
   requireOAuthVerifiedEmail,
 } from "convex-zen";
-import { components } from "./_generated/api";
 
 const acmeProvider = defineOAuthProvider({
   id: "acme",
@@ -62,7 +61,7 @@ const acmeProvider = defineOAuthProvider({
   },
 });
 
-export const authOptions = {
+export default defineConvexZen({
   providers: [
     acmeProvider({
       clientId: process.env.ACME_CLIENT_ID!,
@@ -70,14 +69,12 @@ export const authOptions = {
       tenant: "workspace-1",
     }),
   ],
-};
-
-export const auth = new ConvexZen(components.convexAuth, authOptions);
+});
 ```
 
 ## Runtime contract
 
-The provider helper returns a serializable config, and the runtime implements the provider behavior:
+The provider helper returns a serializable config. The runtime implements the provider behavior:
 
 - `buildAuthorizationUrl`
 - `exchangeAuthorizationCode`
@@ -132,4 +129,4 @@ await authClient.signIn.oauth("acme", {
 
 ## Stability
 
-Custom providers are intended for real use, but the provider contract may still evolve before it is declared stable. Check the changelog when upgrading.
+Custom providers are usable today, but the contract may still evolve before it is considered stable. Check the changelog when you upgrade.

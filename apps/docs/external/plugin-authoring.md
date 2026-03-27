@@ -1,6 +1,6 @@
 # Plugin Authoring
 
-The plugin API is now gateway-first:
+The plugin API is gateway-first:
 
 - you define public plugin methods once, in `gateway.ts`
 - `convex-zen` reads those gateway exports and generates the same wrapper output as before
@@ -31,7 +31,7 @@ convex/
 
 - `convex.config.ts`: the Convex component for the plugin
 - `schema.ts`: plugin-owned tables, if the plugin stores data
-- `gateway.ts`: the single source of truth for public plugin functions
+- `gateway.ts`: where public plugin functions live
 - `index.ts`: exports the plugin with `definePlugin(...)`
 - `runtime.ts`: optional higher-level helpers layered on top of generated gateway methods
 
@@ -78,7 +78,7 @@ Important details:
 
 - use `pluginQuery`, `pluginMutation`, or `pluginAction`
 - `auth` controls how `convex-zen` injects identity
-- gateway exports are the only source of truth for generated wrappers and runtime methods
+- gateway exports drive the generated wrappers and runtime methods
 
 ## `auth` modes
 

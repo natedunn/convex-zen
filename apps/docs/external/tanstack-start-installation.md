@@ -1,6 +1,6 @@
 # TanStack Start Installation (Convex Zen)
 
-This guide walks through installing `convex-zen` in a TanStack Start app.
+This is the TanStack Start setup for `convex-zen`.
 
 ## Prerequisites
 
@@ -10,7 +10,7 @@ This guide walks through installing `convex-zen` in a TanStack Start app.
 
 ## 1. Create a TanStack Start app
 
-Create a new TanStack Start app with the current official scaffold command, then open the app directory.
+Start with a TanStack Start app, then open the app directory.
 
 ```bash
 cd <your-app>
@@ -21,9 +21,11 @@ If you already have a TanStack Start app, continue from here.
 ## 2. Install dependencies
 
 ```bash
-pnpm add convex convex-zen @convex-dev/react-query @tanstack/react-query
+pnpm add convex convex-zen convex-zen-system-admin convex-zen-organization @convex-dev/react-query @tanstack/react-query
 pnpm add -D concurrently
 ```
+
+If you are not using the example plugins, leave out `convex-zen-system-admin` and `convex-zen-organization`.
 
 ## 3. Add Convex app wiring
 
@@ -44,26 +46,25 @@ Create `convex/schema.ts`:
 ```ts
 import { defineSchema } from "convex/server";
 
-// Auth tables are owned by the convexAuth component.
+// The Convex Zen component defines its own auth tables.
 export default defineSchema({});
 ```
 
-## 4. Configure Convex Zen auth
+## 4. Define your auth config
 
 Create `convex/zen.config.ts`:
 
 ```ts
 import {
-	ConvexZen,
+	defineConvexZen,
 	discordProvider,
 	githubProvider,
 	googleProvider,
 } from "convex-zen";
 import { systemAdminPlugin } from "convex-zen-system-admin";
 import { organizationPlugin } from "convex-zen-organization";
-import { components } from "./_generated/api";
 
-export const authOptions = {
+export default defineConvexZen({
 	emailProvider: {
 		sendVerificationEmail: async (to: string, code: string) => {
 			console.log(`Verification email -> ${to}: ${code}`);
@@ -104,14 +105,14 @@ export const authOptions = {
 			subdomainSuffix: "example.com",
 		}),
 	],
-};
-
-export const auth = new ConvexZen(components.convexAuth, authOptions);
+});
 ```
+
+`convex/zen.config.ts` is just the config file. The runtime wrappers come from `npx convex-zen generate`.
 
 ## 5. Add Convex auth provider config
 
-Create `convex/zen.config.ts`:
+Create `convex/auth.config.ts`:
 
 ```ts
 import type { AuthConfig } from "convex/server";
@@ -132,7 +133,7 @@ Run:
 npx convex-zen generate
 ```
 
-This creates generated wrappers used by the TanStack adapter (for example `convex/zen/core.ts` and `convex/zen/_generated/meta.ts`).
+This generates the wrappers the TanStack adapter uses, including `convex/zen/core.ts`, `convex/zen/plugin/*`, and `convex/zen/_generated/meta.ts`.
 
 For provider callback URLs, Convex env setup, and the shared browser flow, see:
 - [oauth.md](./oauth.md)
@@ -169,7 +170,7 @@ export const authClient = createTanStackAuthClient({
 });
 ```
 
-Route-backed OAuth is available through `authClient.signIn.oauth(...)`, for example:
+Route-backed OAuth is available through `authClient.signIn.oauth(...)`:
 
 ```ts
 await authClient.signIn.oauth("google", {
@@ -181,7 +182,7 @@ await authClient.signIn.oauth("google", {
 For custom providers, shared runtime helpers, `runtimeConfig`, and `trustVerifiedEmail`, see:
 - [custom-oauth-providers.md](./custom-oauth-providers.md)
 
-Create `src/routes/api.zen.$.tsx`:
+Create `src/routes/api.auth.$.tsx`:
 
 ```tsx
 import { createFileRoute } from "@tanstack/react-router";
@@ -210,7 +211,7 @@ function createRouterContext() {
 		import.meta.env["VITE_CONVEX_URL"] as string,
 	);
 
-	// Binds Convex requests to the current auth token/session.
+	// Keep the Convex client in sync with the current auth session.
 	authClient.connectConvexAuth(convex);
 
 	return { convex };
@@ -289,7 +290,8 @@ pnpm dev
 │       │   ├── _runtime.ts           # generated
 │       │   └── gateway.ts            # generated
 │       ├── plugin/
-│       │   └── admin.ts              # generated when admin plugin is enabled
+│       │   ├── organization.ts       # generated when organization plugin is enabled
+│       │   └── systemAdmin.ts        # generated when system-admin plugin is enabled
 │       └── _generated/
 │           ├── auth.ts               # generated
 │           ├── meta.ts               # generated
@@ -301,5 +303,5 @@ pnpm dev
     ├── router.tsx
     └── routes/
         ├── __root.tsx
-        └── api.zen.$.tsx
+        └── api.auth.$.tsx
 ```

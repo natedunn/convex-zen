@@ -1,17 +1,16 @@
 # Organizations Plugin
 
-The `organization` plugin adds workspace-style membership on top of `convex-zen`'s global user identity model.
+The `organization` plugin adds workspace-style membership on top of `convex-zen`'s global user model.
 
 ## Setup
 
 Enable the plugin in `convex/zen.config.ts`:
 
 ```ts
-import { ConvexZen } from "convex-zen";
+import { defineConvexZen } from "convex-zen";
 import { organizationPlugin } from "convex-zen-organization";
-import { components } from "./_generated/api";
 
-export const auth = new ConvexZen(components.convexAuth, {
+export default defineConvexZen({
   plugins: [
     organizationPlugin({
       accessControl: {
@@ -75,15 +74,15 @@ The organizations plugin does not implement that handoff for you. It only stores
 
 ## Common APIs
 
-From the `ConvexZen` auth object:
+From the generated runtime auth object:
 
 ```ts
-await auth.organization.createOrganization(ctx, {
+await auth.plugins.organization.createOrganization(ctx, {
   name: "Acme",
   slug: "acme",
 });
 
-await auth.organization.inviteMember(ctx, {
+await auth.plugins.organization.inviteMember(ctx, {
   organizationId,
   email: "teammate@example.com",
   role: {
@@ -92,14 +91,14 @@ await auth.organization.inviteMember(ctx, {
   },
 });
 
-const billingAdminRole = await auth.organization.createRole(ctx, {
+const billingAdminRole = await auth.plugins.organization.createRole(ctx, {
   organizationId,
   name: "Billing Admin",
   slug: "billing-admin",
   permissions: ["billing:read"],
 });
 
-await auth.organization.setMemberRole(ctx, {
+await auth.plugins.organization.setMemberRole(ctx, {
   organizationId,
   userId,
   role: {
@@ -108,7 +107,7 @@ await auth.organization.setMemberRole(ctx, {
   },
 });
 
-const canWrite = await auth.organization.hasPermission(ctx, {
+const canWrite = await auth.plugins.organization.hasPermission(ctx, {
   organizationId,
   permission: {
     resource: "project",
@@ -117,4 +116,4 @@ const canWrite = await auth.organization.hasPermission(ctx, {
 });
 ```
 
-Generated plugin routes are also exposed through `authClient.plugin.organization.*` when you use the Next or TanStack adapters with generated metadata.
+If you use the Next or TanStack adapters with generated metadata, the same methods are available on `authClient.plugin.organization.*`.

@@ -150,6 +150,8 @@ function assertUniquePluginIds(plugins: PluginList): void {
 export function defineConvexZen<TPlugins extends PluginList>(
 	options: ConvexZenDefinition<TPlugins>,
 ): ConvexZenDefinition<TPlugins> {
+	// `convex/zen.config.ts` should export this plain config object.
+	// The CLI generator imports that file later and builds the runtime helpers.
 	assertUniquePluginIds(options.plugins ?? []);
 	return options;
 }
@@ -170,7 +172,7 @@ export function createConvexZenClient<TPlugins extends PluginList>(
  * ConvexZen — the main integration class for convex-zen.
  *
  * Instantiate once in the host app with the component reference and config.
- * All auth operations go through this class.
+ * In most apps this is created for you by generated runtime helpers.
  *
  * @example
  * ```ts
@@ -179,7 +181,7 @@ export function createConvexZenClient<TPlugins extends PluginList>(
  * import { systemAdminPlugin } from "convex-zen-system-admin";
  * import { components } from "./_generated/api";
  *
- * export const auth = new ConvexZen(components.authComponent, {
+ * export const auth = new ConvexZen(components.zenComponent, {
  *   providers: [googleProvider({ clientId: "...", clientSecret: "..." })],
  *   emailProvider: {
  *     sendVerificationEmail: async (to, code) => { ... },

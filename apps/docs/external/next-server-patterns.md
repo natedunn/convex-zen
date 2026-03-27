@@ -1,10 +1,10 @@
 # Next.js Advanced Server Patterns (Convex Zen)
 
-This page covers advanced server-side patterns for `convex-zen/next` in Next App Router apps.
+This page covers a few server-side patterns for `convex-zen/next` in App Router apps.
 
 ## 1. Auth server setup with explicit plugin control
 
-By default, `createNextAuthServer(...)` uses `plugins: "auto"` and wires core/plugin API routes from generated metadata.
+By default, `createNextAuthServer(...)` uses `plugins: "auto"` and wires core and plugin API routes from generated metadata.
 
 ```ts
 import { createNextAuthServer } from "convex-zen/next";
@@ -101,7 +101,7 @@ export default async function SettingsPage() {
 
 ## 3. Server fetchers with and without explicit `Request`
 
-In App Router server components, no-request overloads are available:
+In App Router server components, you can use the overloads that do not require an explicit `Request`:
 
 ```ts
 import { fetchAuthQuery } from "@/lib/auth-server";

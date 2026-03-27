@@ -2,7 +2,7 @@
 
 `convex-zen/expo` is the native-storage auth client for managed Expo apps.
 
-It differs from the Next.js and TanStack Start integrations in one important way:
+It works a little differently from the Next.js and TanStack Start integrations:
 
 - Expo does not use `/api/auth/*` routes.
 - Expo does not use cookies.
@@ -72,7 +72,7 @@ export const authClient = createExpoAuthClient({
 
 The Expo example uses direct auth client calls and does not authenticate a `ConvexReactClient` with the session token.
 
-That distinction matters because the Expo session token is not the same thing as a Convex identity JWT. If you want a fully authenticated `ConvexReactClient`, add an identity-JWT bridge instead of passing the raw session token through `setAuth(...)`.
+That matters because the Expo session token is not the same as a Convex identity JWT. If you want a fully authenticated `ConvexReactClient`, add an identity-JWT bridge instead of passing the raw session token through `setAuth(...)`.
 
 ## Email/password sign-in
 
@@ -97,7 +97,7 @@ await authClient.signOut();
 
 ## Generated core/plugin methods
 
-If you pass metadata, Expo can generate direct callable methods:
+If you pass metadata, Expo adds direct callable methods:
 
 ```ts
 const currentUser = await authClient.currentUser({});
