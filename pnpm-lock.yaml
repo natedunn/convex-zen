@@ -14,15 +14,15 @@ importers:
       '@semantic-release/commit-analyzer':
         specifier: ^13.0.1
         version: 13.0.1(semantic-release@25.0.3(typescript@5.9.3))
+      '@semantic-release/exec':
+        specifier: ^7.1.0
+        version: 7.1.0(semantic-release@25.0.3(typescript@5.9.3))
       '@semantic-release/git':
         specifier: ^10.0.1
         version: 10.0.1(semantic-release@25.0.3(typescript@5.9.3))
       '@semantic-release/github':
         specifier: ^12.0.6
         version: 12.0.6(semantic-release@25.0.3(typescript@5.9.3))
-      '@semantic-release/npm':
-        specifier: ^13.1.4
-        version: 13.1.4(semantic-release@25.0.3(typescript@5.9.3))
       '@semantic-release/release-notes-generator':
         specifier: ^14.1.0
         version: 14.1.0(semantic-release@25.0.3(typescript@5.9.3))
@@ -111,15 +111,15 @@ importers:
       convex-zen:
         specifier: workspace:*
         version: link:../../packages/convex-zen
-      convex-zen-system-admin:
-        specifier: workspace:*
-        version: link:../../packages/convex-zen-system-admin
       convex-zen-organization:
         specifier: workspace:*
         version: link:../../packages/convex-zen-organization
+      convex-zen-system-admin:
+        specifier: workspace:*
+        version: link:../../packages/convex-zen-system-admin
       next:
         specifier: ^15.1.0
-        version: 15.5.12(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        version: 15.5.12(@babel/core@7.29.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       react:
         specifier: ^19.0.0
         version: 19.2.4
@@ -172,15 +172,15 @@ importers:
       convex-zen:
         specifier: workspace:*
         version: link:../../packages/convex-zen
-      convex-zen-system-admin:
-        specifier: workspace:*
-        version: link:../../packages/convex-zen-system-admin
       convex-zen-example:
         specifier: workspace:*
         version: link:../../packages/convex-zen-example
       convex-zen-organization:
         specifier: workspace:*
         version: link:../../packages/convex-zen-organization
+      convex-zen-system-admin:
+        specifier: workspace:*
+        version: link:../../packages/convex-zen-system-admin
       react:
         specifier: ^19.0.0
         version: 19.2.4
@@ -254,7 +254,7 @@ importers:
         version: 0.0.33(convex@1.32.0(react@19.2.4))
       next:
         specifier: 15.5.12
-        version: 15.5.12(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        version: 15.5.12(@babel/core@7.29.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       react:
         specifier: ^19.0.0
         version: 19.2.4
@@ -264,19 +264,6 @@ importers:
       vitest:
         specifier: ^2.0.0
         version: 2.1.9(@types/node@22.19.11)(lightningcss@1.32.0)(terser@5.46.0)
-
-  packages/convex-zen-system-admin:
-    dependencies:
-      convex:
-        specifier: ^1.17.0
-        version: 1.32.0(react@19.2.4)
-      convex-zen:
-        specifier: workspace:*
-        version: link:../convex-zen
-    devDependencies:
-      typescript:
-        specifier: ^5.5.0
-        version: 5.9.3
 
   packages/convex-zen-example:
     dependencies:
@@ -292,6 +279,19 @@ importers:
         version: 5.9.3
 
   packages/convex-zen-organization:
+    dependencies:
+      convex:
+        specifier: ^1.17.0
+        version: 1.32.0(react@19.2.4)
+      convex-zen:
+        specifier: workspace:*
+        version: link:../convex-zen
+    devDependencies:
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+
+  packages/convex-zen-system-admin:
     dependencies:
       convex:
         specifier: ^1.17.0
@@ -2292,6 +2292,12 @@ packages:
   '@semantic-release/error@4.0.0':
     resolution: {integrity: sha512-mgdxrHTLOjOddRVYIYDo0fR3/v61GNN1YGkfbrjuIKg/uMgCd+Qzo3UAXJ+woLQQpos4pl5Esuw5A7AoNlzjUQ==}
     engines: {node: '>=18'}
+
+  '@semantic-release/exec@7.1.0':
+    resolution: {integrity: sha512-4ycZ2atgEUutspPZ2hxO6z8JoQt4+y/kkHvfZ1cZxgl9WKJId1xPj+UadwInj+gMn2Gsv+fLnbrZ4s+6tK2TFQ==}
+    engines: {node: '>=20.8.1'}
+    peerDependencies:
+      semantic-release: '>=24.1.0'
 
   '@semantic-release/git@10.0.1':
     resolution: {integrity: sha512-eWrx5KguUcU2wUPaO6sfvZI0wPafUKAMNC18aXY4EnNcrZL86dEmpNVnC9uMpGZkmZJ9EfCVJBQx4pV4EMGT1w==}
@@ -8043,6 +8049,18 @@ snapshots:
 
   '@semantic-release/error@4.0.0': {}
 
+  '@semantic-release/exec@7.1.0(semantic-release@25.0.3(typescript@5.9.3))':
+    dependencies:
+      '@semantic-release/error': 4.0.0
+      aggregate-error: 3.1.0
+      debug: 4.4.3
+      execa: 9.6.1
+      lodash-es: 4.17.23
+      parse-json: 8.3.0
+      semantic-release: 25.0.3(typescript@5.9.3)
+    transitivePeerDependencies:
+      - supports-color
+
   '@semantic-release/git@10.0.1(semantic-release@25.0.3(typescript@5.9.3))':
     dependencies:
       '@semantic-release/error': 3.0.0
@@ -10778,7 +10796,7 @@ snapshots:
 
   nerf-dart@1.0.0: {}
 
-  next@15.5.12(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
+  next@15.5.12(@babel/core@7.29.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
     dependencies:
       '@next/env': 15.5.12
       '@swc/helpers': 0.5.15
@@ -10786,7 +10804,7 @@ snapshots:
       postcss: 8.4.31
       react: 19.2.4
       react-dom: 19.2.4(react@19.2.4)
-      styled-jsx: 5.1.6(react@19.2.4)
+      styled-jsx: 5.1.6(@babel/core@7.29.0)(react@19.2.4)
     optionalDependencies:
       '@next/swc-darwin-arm64': 15.5.12
       '@next/swc-darwin-x64': 15.5.12
@@ -11720,10 +11738,12 @@ snapshots:
 
   structured-headers@0.4.1: {}
 
-  styled-jsx@5.1.6(react@19.2.4):
+  styled-jsx@5.1.6(@babel/core@7.29.0)(react@19.2.4):
     dependencies:
       client-only: 0.0.1
       react: 19.2.4
+    optionalDependencies:
+      '@babel/core': 7.29.0
 
   styleq@0.1.3: {}
 
