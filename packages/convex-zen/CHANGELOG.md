@@ -1,3 +1,10 @@
+# [1.13.0](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.12.0...convex-zen-v1.13.0) (2026-04-08)
+
+
+### Features
+
+* **ci:** automate multi-package releases ([9000bce](https://github.com/natedunn/convex-zen/commit/9000bcead47d78ac4bc243a82affa6cedf00fb6a))
+
 # [1.12.0](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.11.0...convex-zen-v1.12.0) (2026-04-08)
 
 
