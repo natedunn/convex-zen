@@ -1,3 +1,15 @@
+# [1.12.0](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.11.0...convex-zen-v1.12.0) (2026-04-08)
+
+
+### Bug Fixes
+
+* **ci:** use node 24 for trusted publishing ([baf98f8](https://github.com/natedunn/convex-zen/commit/baf98f865ae20d1264fa5ce3cde2bfaeb8fe112d))
+
+
+### Features
+
+* **repo:** prepare standalone plugin packages ([3054c19](https://github.com/natedunn/convex-zen/commit/3054c19105a662339e95929e1658496d75762af8))
+
 # [1.11.0](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.10.0...convex-zen-v1.11.0) (2026-03-24)
 
 
