@@ -8,6 +8,8 @@ dist/
 coverage/
 *.tsbuildinfo
 *.lcov
+.release-tmp/
+*.tgz
 
 # Tooling caches
 .vite/

@@ -4,17 +4,15 @@ import {
   internalQuery,
   type DatabaseReader,
   type DatabaseWriter,
-} from "../../convex-zen/src/component/_generated/server";
-import type { Id } from "../../convex-zen/src/component/_generated/dataModel";
-import { omitUndefined } from "../../convex-zen/src/component/lib/object";
-import {
+  type Id,
   deleteUserWithRelations,
   getAdminStateForUser,
   getAdminUserRecord,
   isAdminStateCurrentlyBanned,
+  invalidateAllUserSessions,
+  omitUndefined,
   upsertAdminStateForUser,
-} from "../../convex-zen/src/component/core/users";
-import { invalidateAllUserSessions } from "../../convex-zen/src/component/core/sessions";
+} from "convex-zen/component/plugin-support";
 
 export function normalizeAdminRole(adminRole?: string): string {
   const normalizedRole = adminRole?.trim();

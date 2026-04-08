@@ -4,7 +4,7 @@
   "description": "Production-grade auth component for Convex",
   "repository": {
     "type": "git",
-    "url": "https://github.com/natedunn/convex-zen"
+    "url": "git+https://github.com/natedunn/convex-zen.git"
   },
   "type": "module",
   "bin": {
@@ -56,6 +56,10 @@
     "./component": {
       "types": "./src/component/index.ts",
       "import": "./src/component/index.ts"
+    },
+    "./component/plugin-support": {
+      "types": "./src/component/plugin-support.ts",
+      "import": "./src/component/plugin-support.ts"
     },
     "./convex.config": {
       "types": "./src/component/convex.config.ts",
@@ -110,6 +114,10 @@
         "types": "./dist/component/index.d.ts",
         "import": "./dist/component/index.js"
       },
+      "./component/plugin-support": {
+        "types": "./dist/component/plugin-support.d.ts",
+        "import": "./dist/component/plugin-support.js"
+      },
       "./convex.config": {
         "types": "./dist/component/convex.config.d.ts",
         "import": "./dist/component/convex.config.js"
@@ -118,6 +126,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "build:dist": "rm -rf dist tsconfig.tsbuildinfo && tsc",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest"

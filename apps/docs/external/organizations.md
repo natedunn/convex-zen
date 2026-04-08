@@ -4,6 +4,12 @@ The `organization` plugin adds workspace-style membership on top of `convex-zen`
 
 ## Setup
 
+Install the plugin package:
+
+```bash
+pnpm add convex convex-zen convex-zen-organization
+```
+
 Enable the plugin in `convex/zen.config.ts`:
 
 ```ts
