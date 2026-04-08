@@ -7,6 +7,9 @@ on:
       - main
     paths:
       - packages/convex-zen/**
+      - packages/convex-zen-organization/**
+      - packages/convex-zen-system-admin/**
+      - scripts/release/**
       - package.json
       - pnpm-lock.yaml
       - .releaserc.cjs
@@ -46,8 +49,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build publishable package
-        run: pnpm --filter convex-zen build
+      - name: Verify publishable packages
+        run: pnpm --filter convex-zen --filter convex-zen-organization --filter convex-zen-system-admin build
 
       - name: Release
         env:

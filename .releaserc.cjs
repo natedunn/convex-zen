@@ -11,9 +11,12 @@ module.exports = {
       },
     ],
     [
-      "@semantic-release/npm",
+      "@semantic-release/exec",
       {
-        pkgRoot: "packages/convex-zen",
+        prepareCmd:
+          "node scripts/release/prepare-packages.mjs ${nextRelease.version}",
+        publishCmd:
+          "node scripts/release/publish-packages.mjs ${nextRelease.version} ${nextRelease.channel}",
       },
     ],
     [
@@ -28,10 +31,12 @@ module.exports = {
       {
         assets: [
           "packages/convex-zen/package.json",
+          "packages/convex-zen-organization/package.json",
+          "packages/convex-zen-system-admin/package.json",
           "packages/convex-zen/CHANGELOG.md",
         ],
         message:
-          "chore(release): convex-zen ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}",
+          "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}",
       },
     ],
   ],
