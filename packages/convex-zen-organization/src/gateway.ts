@@ -1,12 +1,15 @@
 import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
-import type {
-  MutationCtx,
-  QueryCtx,
-} from "../../convex-zen/src/component/_generated/server";
-import type { Id } from "../../convex-zen/src/component/_generated/dataModel";
-import { pluginMutation, pluginQuery } from "convex-zen/component";
-import { omitUndefined } from "../../convex-zen/src/component/lib/object";
+import {
+  omitUndefined,
+  type Id,
+  type MutationCtx,
+  type QueryCtx,
+} from "convex-zen/component/plugin-support";
+import {
+  pluginMutation,
+  pluginQuery,
+} from "convex-zen/component";
 import {
   acceptIncomingOrganizationInvitation,
   acceptOrganizationInvitation,

@@ -4,10 +4,11 @@ import {
   internalQuery,
   type DatabaseReader,
   type DatabaseWriter,
-} from "../../convex-zen/src/component/_generated/server";
-import type { Id } from "../../convex-zen/src/component/_generated/dataModel";
-import { generateToken, hashToken } from "../../convex-zen/src/component/lib/crypto";
-import { omitUndefined } from "../../convex-zen/src/component/lib/object";
+  type Id,
+  generateToken,
+  hashToken,
+  omitUndefined,
+} from "convex-zen/component/plugin-support";
 
 const OWNER_ROLE = "owner";
 const ADMIN_ROLE = "admin";

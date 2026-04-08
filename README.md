@@ -12,10 +12,17 @@ Production-grade authentication for Convex, built as a reusable component packag
 
 In short: we do not import Better Auth runtime into app code. We keep auth logic in Convex component functions and expose a familiar integration surface.
 
-## Package name
+## Packages
 
 ```bash
-npm install convex-zen
+npm install convex convex-zen
+```
+
+Optional standalone plugins:
+
+```bash
+npm install convex convex-zen convex-zen-organization
+npm install convex convex-zen convex-zen-system-admin
 ```
 
 ## Workspace
@@ -53,6 +60,7 @@ pnpm -C apps/expo start
 ```bash
 pnpm -C packages/convex-zen test
 pnpm -C packages/convex-zen build
+pnpm -C packages/convex-zen build:dist
 pnpm -C apps/tanstack build
 pnpm -C apps/expo build
 ```
