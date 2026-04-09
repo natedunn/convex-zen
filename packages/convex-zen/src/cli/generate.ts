@@ -120,12 +120,17 @@ function readExportTarget(
     if (typeof defaultTarget === "string") {
       return defaultTarget;
     }
-    const typesTarget = (entry as Record<string, unknown>).types;
-    if (typeof typesTarget === "string") {
-      return typesTarget;
-    }
   }
   return null;
+}
+
+async function fileExistsAndIsFile(filePath: string): Promise<boolean> {
+  try {
+    const fileStats = await stat(filePath);
+    return fileStats.isFile();
+  } catch {
+    return false;
+  }
 }
 
 async function findWorkspacePackage(
@@ -199,7 +204,7 @@ async function resolvePackageImportFromDescriptor(
 
   for (const candidate of fallbackCandidates) {
     const candidatePath = path.resolve(packageDescriptor.dir, candidate);
-    if (await fileExists(candidatePath)) {
+    if (await fileExistsAndIsFile(candidatePath)) {
       return pathToFileURL(candidatePath).href;
     }
   }

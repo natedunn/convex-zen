@@ -106,11 +106,17 @@ async function writeInstalledPluginPackage(cwd: string): Promise<void> {
     `
 import * as gateway from "./gateway.js";
 
-export const installedPlugin = {
-  definition: {
+export function installedPlugin(options) {
+  return {
     id: "installed",
-    gateway,
-  },
+    definition: installedPlugin.definition,
+    options,
+  };
+}
+
+installedPlugin.definition = {
+  id: "installed",
+  gateway,
 };
 `,
     "utf8"
@@ -132,6 +138,157 @@ export const getMessage = {
   );
   await writeFile(
     path.join(packageDir, "dist", "convex.config.js"),
+    `
+export default {};
+`,
+    "utf8"
+  );
+}
+
+async function writeInstalledPluginPackageWithTypesExportOnly(
+  cwd: string
+): Promise<void> {
+  const packageDir = path.join(
+    cwd,
+    "node_modules",
+    "acme-types-export-plugin"
+  );
+  await mkdir(path.join(packageDir, "dist"), { recursive: true });
+  await writeFile(
+    path.join(packageDir, "package.json"),
+    JSON.stringify(
+      {
+        name: "acme-types-export-plugin",
+        version: "1.0.0",
+        type: "module",
+        main: "./dist/index.js",
+        exports: {
+          ".": {
+            types: "./dist/index.d.ts",
+          },
+          "./gateway": {
+            import: "./dist/gateway.js",
+          },
+          "./convex.config": {
+            import: "./dist/convex.config.js",
+          },
+        },
+      },
+      null,
+      2
+    ),
+    "utf8"
+  );
+  await writeFile(
+    path.join(packageDir, "dist", "index.js"),
+    `
+import * as gateway from "./gateway.js";
+
+export function typesExportPlugin(options) {
+  return {
+    id: "typesExport",
+    definition: typesExportPlugin.definition,
+    options,
+  };
+}
+
+typesExportPlugin.definition = {
+  id: "typesExport",
+  gateway,
+};
+`,
+    "utf8"
+  );
+  await writeFile(
+    path.join(packageDir, "dist", "index.d.ts"),
+    `
+export declare function typesExportPlugin(options?: unknown): unknown;
+`,
+    "utf8"
+  );
+  await writeFile(
+    path.join(packageDir, "dist", "gateway.js"),
+    `
+const PLUGIN_FUNCTION_METADATA_KEY = "__convexZenPluginFunction";
+
+export const getMessage = {
+  [PLUGIN_FUNCTION_METADATA_KEY]: {
+    kind: "query",
+    auth: "public",
+    args: {},
+  },
+};
+`,
+    "utf8"
+  );
+  await writeFile(
+    path.join(packageDir, "dist", "convex.config.js"),
+    `
+export default {};
+`,
+    "utf8"
+  );
+}
+
+async function writeInstalledPluginPackageWithSubpathDirectory(
+  cwd: string
+): Promise<void> {
+  const packageDir = path.join(
+    cwd,
+    "node_modules",
+    "acme-subpath-plugin"
+  );
+  await mkdir(path.join(packageDir, "factory"), { recursive: true });
+  await writeFile(
+    path.join(packageDir, "package.json"),
+    JSON.stringify(
+      {
+        name: "acme-subpath-plugin",
+        version: "1.0.0",
+        type: "module",
+      },
+      null,
+      2
+    ),
+    "utf8"
+  );
+  await writeFile(
+    path.join(packageDir, "factory", "index.js"),
+    `
+import * as gateway from "./gateway.js";
+
+export function subpathPlugin(options) {
+  return {
+    id: "subpath",
+    definition: subpathPlugin.definition,
+    options,
+  };
+}
+
+subpathPlugin.definition = {
+  id: "subpath",
+  gateway,
+};
+`,
+    "utf8"
+  );
+  await writeFile(
+    path.join(packageDir, "factory", "gateway.js"),
+    `
+const PLUGIN_FUNCTION_METADATA_KEY = "__convexZenPluginFunction";
+
+export const getMessage = {
+  [PLUGIN_FUNCTION_METADATA_KEY]: {
+    kind: "query",
+    auth: "public",
+    args: {},
+  },
+};
+`,
+    "utf8"
+  );
+  await writeFile(
+    path.join(packageDir, "factory", "convex.config.js"),
     `
 export default {};
 `,
@@ -642,5 +799,87 @@ export default zenConfig;
       'import * as pluginGateway from "acme-installed-plugin/gateway";'
     );
     expect(pluginSource).toContain("return ctx.runQuery(components.zenComponent.installed.gateway.getMessage, args);");
+  });
+
+  it("falls back to main when exports only declares types for the package root", async () => {
+    const cwd = await createTempWorkspace();
+    await writeInstalledPluginPackageWithTypesExportOnly(cwd);
+    await writeZenConfigFile(
+      cwd,
+      `
+import { defineConvexZen } from ${JSON.stringify(convexZenEntry)};
+import { typesExportPlugin } from "acme-types-export-plugin";
+
+const zenConfig = defineConvexZen({
+  plugins: [typesExportPlugin()],
+});
+
+export default zenConfig;
+`
+    );
+
+    const result = await generateAuthFunctions({
+      cwd,
+      check: false,
+      verbose: false,
+    });
+
+    expect(result.created).toContain(path.join("convex", "zen", "plugin", "typesExport.ts"));
+
+    const pluginSource = await readFile(
+      path.join(cwd, "convex", "zen", "plugin", "typesExport.ts"),
+      "utf8"
+    );
+    expect(pluginSource).toContain(
+      'import * as pluginGateway from "acme-types-export-plugin/gateway";'
+    );
+    expect(pluginSource).toContain(
+      "return ctx.runQuery(components.zenComponent.typesExport.gateway.getMessage, args);"
+    );
+  });
+
+  it("skips bare subpath directories and resolves subpath index files", async () => {
+    const cwd = await createTempWorkspace();
+    await writeInstalledPluginPackageWithSubpathDirectory(cwd);
+    await writeZenConfigFile(
+      cwd,
+      `
+import { defineConvexZen } from ${JSON.stringify(convexZenEntry)};
+import { subpathPlugin } from "acme-subpath-plugin/factory";
+
+const zenConfig = defineConvexZen({
+  plugins: [subpathPlugin()],
+});
+
+export default zenConfig;
+`
+    );
+
+    const result = await generateAuthFunctions({
+      cwd,
+      check: false,
+      verbose: false,
+    });
+
+    expect(result.created).toContain(path.join("convex", "zen", "plugin", "subpath.ts"));
+
+    const componentSource = await readFile(
+      path.join(cwd, "convex", "zen", "component", "convex.config.ts"),
+      "utf8"
+    );
+    expect(componentSource).toContain(
+      'import subpathComponent from "acme-subpath-plugin/factory/convex.config";'
+    );
+
+    const pluginSource = await readFile(
+      path.join(cwd, "convex", "zen", "plugin", "subpath.ts"),
+      "utf8"
+    );
+    expect(pluginSource).toContain(
+      'import * as pluginGateway from "acme-subpath-plugin/factory/gateway";'
+    );
+    expect(pluginSource).toContain(
+      "return ctx.runQuery(components.zenComponent.subpath.gateway.getMessage, args);"
+    );
   });
 });
