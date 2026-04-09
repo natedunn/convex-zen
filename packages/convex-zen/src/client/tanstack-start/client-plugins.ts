@@ -1,4 +1,4 @@
-import type { TanStackStartAuthApiClientPlugin } from "./client";
+import type { TanStackStartAuthApiClientPlugin } from "./client.js";
 
 function normalizeRoutePrefix(prefix: string): string {
   const trimmed = prefix.trim().replace(/^\/+|\/+$/g, "");

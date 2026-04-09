@@ -9,7 +9,7 @@ import type {
   OAuthProviderRuntime,
   OAuthProviderConfig,
   OAuthTokenResponse,
-} from "../types";
+} from "../types.js";
 
 const GITHUB_API_USER_AGENT = "convex-zen";
 

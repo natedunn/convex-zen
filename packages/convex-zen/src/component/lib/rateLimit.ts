@@ -1,6 +1,6 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery } from "../_generated/server";
-import type { DatabaseReader, DatabaseWriter } from "../_generated/server";
+import { internalMutation, internalQuery } from "../_generated/server.js";
+import type { DatabaseReader, DatabaseWriter } from "../_generated/server.js";
 
 /** Window duration: 10 minutes in milliseconds. */
 const WINDOW_MS = 10 * 60 * 1000;

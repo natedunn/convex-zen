@@ -11,12 +11,12 @@ import type {
 	OAuthProviderConfig,
 	OAuthStartOptions,
 	OAuthStartResult,
-} from "../types";
-import { definePlugin } from "../types";
+} from "../types.js";
+import { definePlugin } from "../types.js";
 import type { HttpRouter } from "convex/server";
 import { httpActionGeneric } from "convex/server";
-import { resolveComponentFn } from "./helpers";
-import { collectPluginGatewayMetadata } from "../component/plugin";
+import { resolveComponentFn } from "./helpers.js";
+import { collectPluginGatewayMetadata } from "../component/plugin.js";
 
 /**
  * Main client entrypoint.
@@ -1002,15 +1002,15 @@ export {
 	githubProvider,
 	googleProvider,
 	requireOAuthVerifiedEmail,
-} from "./providers";
-export { SessionPrimitives, createSessionPrimitives } from "./primitives";
+} from "./providers.js";
+export { SessionPrimitives, createSessionPrimitives } from "./primitives.js";
 export {
 	createExpoAuthClient,
 	createKeyValueStorageAuthStorage,
 	createMemoryAuthStorage,
 	DEFAULT_EXPO_CORE_META,
-} from "./expo";
-export { createRouteAuthRuntimeAdapter } from "./framework-adapter";
+} from "./expo.js";
+export { createRouteAuthRuntimeAdapter } from "./framework-adapter.js";
 export {
 	createNextAuthClient,
 	createNextReactAuthClient,
@@ -1025,7 +1025,7 @@ export {
 	createNextConvexFetchers,
 	createRequestFromHeaders,
 	resolveNextTrustedOriginsFromEnv,
-} from "./next";
+} from "./next/index.js";
 export type {
 	AuthPluginFactory,
 	AuthPluginFunctionAuth,
@@ -1084,7 +1084,7 @@ export type {
 	OrganizationRoleName,
 	OrganizationRoleRecord,
 	OrganizationSlugCheckResult,
-} from "../types";
+} from "../types.js";
 export type {
 	RouteAuthClientTokenSyncOptions,
 	RouteAuthResolveRequestUrlContext,
@@ -1092,7 +1092,7 @@ export type {
 	RouteAuthRuntimeAdapterClient,
 	RouteAuthRuntimeAdapterOptions,
 	RouteAuthRuntimeClientOptions,
-} from "./framework-adapter";
+} from "./framework-adapter.js";
 export type {
 	AuthKeyValueStorage,
 	ExpoAuthClientBase,
@@ -1113,7 +1113,7 @@ export type {
 	ExpoOAuthResult,
 	ExpoOAuthSignInOptions,
 	KeyValueAuthStorageOptions,
-} from "./expo";
+} from "./expo.js";
 export type {
 	AuthenticatedSession,
 	NextAuthApiHandlerOptions,
@@ -1153,11 +1153,11 @@ export type {
 	NextTrustedOriginsConfig,
 	NextTrustedOriginsFromEnvOptions,
 	NextTrustedProxyConfig,
-} from "./next";
+} from "./next/index.js";
 export type {
 	SessionInfo,
 	SignInInput,
 	SignInOutput,
 	SessionTransport,
 	EstablishedSession,
-} from "./primitives";
+} from "./primitives.js";

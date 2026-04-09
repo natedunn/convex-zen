@@ -1,7 +1,7 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery } from "../_generated/server";
-import type { DatabaseReader, DatabaseWriter } from "../_generated/server";
-import { generateCode, hashToken, timingSafeEqual } from "../lib/crypto";
+import { internalMutation, internalQuery } from "../_generated/server.js";
+import type { DatabaseReader, DatabaseWriter } from "../_generated/server.js";
+import { generateCode, hashToken, timingSafeEqual } from "../lib/crypto.js";
 
 /** Max attempts before a verification code is locked. */
 const MAX_ATTEMPTS = 10;

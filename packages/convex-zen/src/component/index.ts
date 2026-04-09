@@ -1,4 +1,4 @@
-import auth from "./convex.config";
+import auth from "./convex.config.js";
 export {
   collectPluginGatewayMetadata,
   getPluginFunctionMetadata,
@@ -7,7 +7,7 @@ export {
   pluginMutation,
   pluginQuery,
   PLUGIN_FUNCTION_METADATA_KEY,
-} from "./plugin";
+} from "./plugin.js";
 
 export function defineConvexZenComponent(_definition: unknown) {
   return auth;

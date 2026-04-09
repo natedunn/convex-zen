@@ -6,4 +6,4 @@ export {
   githubProvider,
   googleProvider,
   requireOAuthVerifiedEmail,
-} from "../oauth/providers";
+} from "../oauth/providers.js";

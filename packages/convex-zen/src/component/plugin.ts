@@ -24,13 +24,13 @@ import {
   type PluginFunctionCarrier,
   type PluginFunctionMetadata,
   type PluginGatewayFieldConfig,
-} from "../types";
+} from "../types.js";
 import type {
   AuthPluginFunctionAuth,
   AuthPluginFunctionKind,
   PluginGatewayModule,
   PluginGatewayRuntimeMethods,
-} from "../types";
+} from "../types.js";
 
 type PluginHandlerArgs<
   TArgs extends PropertyValidators,

@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { SessionInfo } from "./primitives";
+import type { SessionInfo } from "./primitives.js";
 
 export type AuthStatus = "loading" | "authenticated" | "unauthenticated";
 

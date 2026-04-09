@@ -1,7 +1,7 @@
 import {
   createAuthTokenManager,
   type AuthTokenPayload,
-} from "./auth-token-manager";
+} from "./auth-token-manager.js";
 
 type MaybePromise<T> = T | Promise<T>;
 

@@ -15,7 +15,7 @@ import {
   type DirectConvexPluginExtensionsFromMeta,
   type DirectConvexPluginMeta,
   type DirectConvexRootAliasExtensionsFromMeta,
-} from "./convex-direct-client-methods";
+} from "./convex-direct-client-methods.js";
 import {
   createAuthRuntime,
   createKeyValueStorageAuthStorage,
@@ -23,24 +23,24 @@ import {
   type AuthRuntimeStorage,
   type AuthRuntimeSync,
   type ConvexAuthClientLike,
-} from "./auth-runtime";
-import type { AuthTokenPayload } from "./auth-token-manager";
+} from "./auth-runtime.js";
+import type { AuthTokenPayload } from "./auth-token-manager.js";
 export {
   type AuthKeyValueStorage,
   type AuthRuntimeStorage,
   type AuthRuntimeSync,
   type ConvexAuthClientLike,
   type KeyValueAuthStorageOptions,
-} from "./auth-runtime";
+} from "./auth-runtime.js";
 export { createKeyValueStorageAuthStorage, createMemoryAuthStorage };
 import {
   createSessionPrimitives,
   type SessionInfo,
   type SignInInput,
   type SignInOutput,
-} from "./primitives";
-import type { ReactAuthClient } from "./react";
-import type { OAuthProviderId, OAuthStartResult } from "../types";
+} from "./primitives.js";
+import type { ReactAuthClient } from "./react.js";
+import type { OAuthProviderId, OAuthStartResult } from "../types.js";
 
 type PublicMutationRef = FunctionReference<"mutation", "public">;
 type PublicActionRef = FunctionReference<"action", "public">;

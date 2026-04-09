@@ -1,6 +1,6 @@
 import type { FunctionArgs, FunctionReference } from "convex/server";
-import type { TanStackStartAuthApiPluginFactory } from "./index";
-import { readFunctionRef, isRecord, readMember } from "../helpers";
+import type { TanStackStartAuthApiPluginFactory } from "./index.js";
+import { readFunctionRef, isRecord, readMember } from "../helpers.js";
 
 type MutationRef = FunctionReference<"mutation", "public">;
 type QueryRef = FunctionReference<"query", "public">;

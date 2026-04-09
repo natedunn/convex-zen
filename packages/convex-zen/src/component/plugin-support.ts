@@ -5,15 +5,15 @@ export {
   type DatabaseWriter,
   type MutationCtx,
   type QueryCtx,
-} from "./_generated/server";
-export type { Id } from "./_generated/dataModel";
-export { invalidateAllUserSessions } from "./core/sessions";
+} from "./_generated/server.js";
+export type { Id } from "./_generated/dataModel.js";
+export { invalidateAllUserSessions } from "./core/sessions.js";
 export {
   deleteUserWithRelations,
   getAdminStateForUser,
   getAdminUserRecord,
   isAdminStateCurrentlyBanned,
   upsertAdminStateForUser,
-} from "./core/users";
-export { generateToken, hashToken } from "./lib/crypto";
-export { omitUndefined } from "./lib/object";
+} from "./core/users.js";
+export { generateToken, hashToken } from "./lib/crypto.js";
+export { omitUndefined } from "./lib/object.js";

@@ -1,8 +1,8 @@
 import { argon2id, argon2Verify } from "hash-wasm";
 import { v } from "convex/values";
-import { internalMutation, type MutationCtx } from "../_generated/server";
-import { internal } from "../lib/internalApi";
-import { omitUndefined } from "../lib/object";
+import { internalMutation, type MutationCtx } from "../_generated/server.js";
+import { internal } from "../lib/internalApi.js";
+import { omitUndefined } from "../lib/object.js";
 import {
   findAccount,
   getAdminStateForUser,
@@ -14,20 +14,20 @@ import {
   insertUser,
   patchUser,
   upsertAdminStateForUser,
-} from "../core/users";
+} from "../core/users.js";
 import {
   checkRateLimit,
   incrementRateLimit,
   resetRateLimit,
-} from "../lib/rateLimit";
+} from "../lib/rateLimit.js";
 import {
   createVerification,
   verifyVerification,
-} from "../core/verifications";
+} from "../core/verifications.js";
 import {
   createSession,
   invalidateAllUserSessions,
-} from "../core/sessions";
+} from "../core/sessions.js";
 
 const MIN_PASSWORD_LENGTH = 12;
 const MAX_PASSWORD_LENGTH = 128;

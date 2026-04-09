@@ -5,27 +5,27 @@ import {
   type ActionCtx,
   type MutationCtx,
   type DatabaseWriter,
-} from "../_generated/server";
+} from "../_generated/server.js";
 import {
   encryptString,
   generateCodeChallenge,
   generateCodeVerifier,
   generateState,
   hashToken,
-} from "../lib/crypto";
-import { oauthProviderConfigValidator } from "../lib/validators";
-import { internal } from "../lib/internalApi";
-import { omitUndefined } from "../lib/object";
+} from "../lib/crypto.js";
+import { oauthProviderConfigValidator } from "../lib/validators.js";
+import { internal } from "../lib/internalApi.js";
+import { omitUndefined } from "../lib/object.js";
 import {
   requireOAuthVerifiedEmail,
   resolveOAuthProviderRuntime,
-} from "../../oauth/providers";
+} from "../../oauth/providers.js";
 import type {
   OAuthCallbackResult,
   OAuthProviderConfig,
   OAuthStartOptions,
   OAuthStartResult,
-} from "../../types";
+} from "../../types.js";
 import {
   findAccount,
   findUserByEmail,
@@ -37,8 +37,8 @@ import {
   patchAccount,
   patchUser,
   upsertAdminStateForUser,
-} from "../core/users";
-import { createSession } from "../core/sessions";
+} from "../core/users.js";
+import { createSession } from "../core/sessions.js";
 
 /** OAuth state TTL: 10 minutes. */
 const STATE_TTL_MS = 10 * 60 * 1000;

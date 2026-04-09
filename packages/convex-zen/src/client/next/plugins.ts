@@ -4,22 +4,22 @@ import type {
   AuthMeta,
   AuthPluginFunctionKind,
   AuthPluginMeta,
-} from "../plugin-meta";
-import { toKebabCase } from "../plugin-meta";
+} from "../plugin-meta.js";
+import { toKebabCase } from "../plugin-meta.js";
 import type {
   NextServerAuth,
   NextConvexFetchers,
   NextConvexActionRefs,
   NextConvexActions,
   NextConvexAuthServerOptions,
-} from "./index";
+} from "./index.js";
 import {
   type ConvexRouteFunctionRef,
   hasFunctionRefCandidate,
   readFunctionRef,
   readMember,
   isRecord,
-} from "../helpers";
+} from "../helpers.js";
 
 export interface NextAuthApiPluginContext {
   request: Request;

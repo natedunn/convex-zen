@@ -1,8 +1,8 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery } from "../_generated/server";
-import type { DatabaseReader, DatabaseWriter } from "../_generated/server";
-import type { Doc, Id } from "../_generated/dataModel";
-import { omitUndefined } from "../lib/object";
+import { internalMutation, internalQuery } from "../_generated/server.js";
+import type { DatabaseReader, DatabaseWriter } from "../_generated/server.js";
+import type { Doc, Id } from "../_generated/dataModel.js";
+import { omitUndefined } from "../lib/object.js";
 
 type UserPatchFields = {
   email?: string;
