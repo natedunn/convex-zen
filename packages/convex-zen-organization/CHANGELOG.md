@@ -1,3 +1,10 @@
+## [1.14.1](https://github.com/natedunn/convex-zen/compare/convex-zen-organization-v1.14.0...convex-zen-organization-v1.14.1) (2026-04-09)
+
+
+### Bug Fixes
+
+* **generate:** support installed ESM plugins ([4d9d7ba](https://github.com/natedunn/convex-zen/commit/4d9d7baf67b27a70d44eace0508bfb115c05336e))
+
 # [1.14.0](https://github.com/natedunn/convex-zen/compare/convex-zen-organization-v1.13.0...convex-zen-organization-v1.14.0) (2026-04-09)
 
 
