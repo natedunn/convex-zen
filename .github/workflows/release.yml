@@ -28,12 +28,14 @@ jobs:
   release-convex-zen:
     name: Release convex-zen
     runs-on: ubuntu-latest
+    outputs:
+      downstream_ref: ${{ steps.resolve-downstream-ref.outputs.ref }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.sha }}
           fetch-depth: 0
 
       - name: Setup pnpm
@@ -53,9 +55,19 @@ jobs:
         run: pnpm --filter convex-zen build
 
       - name: Release
+        id: release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/release/run-package-release.mjs convex-zen
+
+      - name: Resolve downstream ref
+        id: resolve-downstream-ref
+        run: |
+          if [ "${{ steps.release.outputs.released }}" = "true" ]; then
+            echo "ref=${{ steps.release.outputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
 
   release-convex-zen-organization:
     name: Release convex-zen-organization
@@ -66,7 +78,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ needs.release-convex-zen.outputs.downstream_ref }}
           fetch-depth: 0
 
       - name: Setup pnpm
@@ -99,7 +111,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ needs.release-convex-zen.outputs.downstream_ref }}
           fetch-depth: 0
 
       - name: Setup pnpm

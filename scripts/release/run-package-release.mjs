@@ -34,6 +34,19 @@ const notesPluginPath = path.join(
   "path-scoped-generate-notes.cjs"
 );
 
+function writeGitHubOutput(key, value) {
+  if (!process.env.GITHUB_OUTPUT) {
+    return;
+  }
+
+  const serializedValue = value == null ? "" : String(value);
+  process.stdout.write(`GitHub output ${key}=${serializedValue}\n`);
+  require("node:fs").appendFileSync(
+    process.env.GITHUB_OUTPUT,
+    `${key}=${serializedValue}\n`
+  );
+}
+
 const releaseOptions = {
   branches: ["main"],
   dryRun,
@@ -86,8 +99,19 @@ const result = await semanticRelease(releaseOptions, {
 });
 
 if (!result) {
+  writeGitHubOutput("released", "false");
+  writeGitHubOutput("version", "");
+  writeGitHubOutput("tag", "");
   process.stdout.write(`No release published for ${packageConfig.packageName}.\n`);
 } else {
+  const tag = packageConfig.tagFormat.replace(
+    "${version}",
+    result.nextRelease.version
+  );
+
+  writeGitHubOutput("released", "true");
+  writeGitHubOutput("version", result.nextRelease.version);
+  writeGitHubOutput("tag", tag);
   process.stdout.write(
     `Released ${packageConfig.packageName}@${result.nextRelease.version}.\n`
   );
