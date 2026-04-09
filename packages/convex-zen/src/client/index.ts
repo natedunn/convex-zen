@@ -296,7 +296,7 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 		if (this.runtimeKind === "app") {
 			const appFn = resolveComponentFn(
 				this.component,
-				`${childName}/gateway:${functionName}`,
+				`${pluginId}/gateway:${functionName}`,
 			);
 			if (metadata.auth === "public") {
 				return await this.runPluginFunction(ctx, metadata.kind, appFn, args);

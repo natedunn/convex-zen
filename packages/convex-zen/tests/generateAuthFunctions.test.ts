@@ -194,10 +194,7 @@ export default zenConfig;
       path.join(cwd, "convex", "zen", "_generated", "auth.ts"),
       "utf8"
     );
-    expect(runtimeSource).toContain('import { components } from "../../_generated/api";');
-    expect(runtimeSource).toContain("components.zenComponent as Record<string, unknown>");
-    expect(runtimeSource).toContain("export const auth = createConvexZenClient(");
-    expect(runtimeSource).not.toContain("export const componentAuth = createConvexZenClient(");
+    expect(runtimeSource).toContain('export { auth } from "../component/_runtime";');
 
     const coreSource = await readFile(
       path.join(cwd, "convex", "zen", "core.ts"),

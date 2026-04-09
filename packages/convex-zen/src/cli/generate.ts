@@ -1310,15 +1310,7 @@ function assertNoReservedCoreFunctionNames(source: string): void {
 
 function renderAuthHelperFile(): string {
   return normalizeContent(`${GENERATED_MARKER}
-import { components } from "../../_generated/api";
-import { createConvexZenClient } from "convex-zen";
-import zenConfig from "../../zen.config";
-
-export const auth = createConvexZenClient(
-  components.zenComponent as Record<string, unknown>,
-  zenConfig,
-  { runtimeKind: "app" }
-);
+export { auth } from "../component/_runtime";
 `);
 }
 
