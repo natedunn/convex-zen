@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 const require = createRequire(import.meta.url);
 const { getPackages } = require("./packages.cjs");
 const { getPackageReleaseDecision } = require("./lib/package-release-decision.cjs");
+const { rewriteDependencyMap } = require("./lib/workspace-dependencies.cjs");
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..");
@@ -112,6 +113,21 @@ function packageVersionsFromRepo(repoDir) {
       return [packageConfig.packageName, packageJson.version];
     })
   );
+}
+
+function updatePackageVersion(repoDir, packageName, version) {
+  const packageConfig = getPackages().find(
+    (candidate) => candidate.packageName === packageName
+  );
+
+  if (!packageConfig) {
+    throw new Error(`Unknown package ${packageName}`);
+  }
+
+  const packageJsonPath = path.join(repoDir, packageConfig.packageJsonPath);
+  const packageJson = readJson(packageJsonPath);
+  packageJson.version = version;
+  writeFileSync(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`);
 }
 
 function incrementVersion(version, releaseType) {
@@ -284,6 +300,33 @@ try {
     },
     expectedReleaseTypes: {},
   });
+
+  {
+    const scenarioDir = cloneScenarioRepo(
+      templateDir,
+      "organization-stage-follows-bumped-core-version"
+    );
+    const baselineVersions = packageVersionsFromRepo(scenarioDir);
+    const bumpedCoreVersion = incrementVersion(baselineVersions["convex-zen"], "minor");
+
+    updatePackageVersion(scenarioDir, "convex-zen", bumpedCoreVersion);
+
+    const organizationPackageJson = readJson(
+      path.join(scenarioDir, "packages/convex-zen-organization/package.json")
+    );
+    const rewrittenDependencies = rewriteDependencyMap(
+      organizationPackageJson.dependencies,
+      scenarioDir
+    );
+
+    assert.equal(
+      rewrittenDependencies["convex-zen"],
+      `^${bumpedCoreVersion}`,
+      "organization-stage-follows-bumped-core-version: expected staged plugin dependency to follow bumped core version"
+    );
+
+    process.stdout.write("PASS organization-stage-follows-bumped-core-version\n");
+  }
 
   process.stdout.write("All release scenarios passed.\n");
 } finally {

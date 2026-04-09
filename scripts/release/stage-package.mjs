@@ -4,7 +4,8 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
 const require = createRequire(import.meta.url);
-const { getPackageConfig, resolvePackageConfig } = require("./packages.cjs");
+const { resolvePackageConfig } = require("./packages.cjs");
+const { rewriteDependencyMap } = require("./lib/workspace-dependencies.cjs");
 
 function replaceImportPath(value) {
   if (typeof value !== "string") {
@@ -45,58 +46,6 @@ function transformExports(exportsField) {
       }
       return [key, transformExports(value)];
     })
-  );
-}
-
-function rewriteWorkspaceVersionSpec(versionSpec, workspaceVersion) {
-  if (!versionSpec.startsWith("workspace:")) {
-    return versionSpec;
-  }
-
-  const range = versionSpec.slice("workspace:".length);
-
-  if (range === "" || range === "*") {
-    return workspaceVersion;
-  }
-
-  if (range === "^") {
-    return `^${workspaceVersion}`;
-  }
-
-  if (range === "~") {
-    return `~${workspaceVersion}`;
-  }
-
-  return range;
-}
-
-async function rewriteDependencyMap(dependencyMap, repoRoot) {
-  if (!dependencyMap) {
-    return dependencyMap;
-  }
-
-  return Object.fromEntries(
-    await Promise.all(
-      Object.entries(dependencyMap).map(async ([dependencyName, versionSpec]) => {
-        if (typeof versionSpec !== "string" || !versionSpec.startsWith("workspace:")) {
-          return [dependencyName, versionSpec];
-        }
-
-        const dependencyPackage = getPackageConfig(dependencyName);
-        const dependencyPackageJsonPath = path.join(
-          repoRoot,
-          dependencyPackage.packageJsonPath
-        );
-        const dependencyPackageJson = JSON.parse(
-          await readFile(dependencyPackageJsonPath, "utf8")
-        );
-
-        return [
-          dependencyName,
-          rewriteWorkspaceVersionSpec(versionSpec, dependencyPackageJson.version),
-        ];
-      })
-    )
   );
 }
 
@@ -155,12 +104,12 @@ const publishedPackageJson = {
   main: replaceImportPath(packageJson.main),
   types: replaceTypesPath(packageJson.types),
   exports: transformExports(packageJson.exports),
-  dependencies: await rewriteDependencyMap(packageJson.dependencies, repoRoot),
-  optionalDependencies: await rewriteDependencyMap(
+  dependencies: rewriteDependencyMap(packageJson.dependencies, repoRoot),
+  optionalDependencies: rewriteDependencyMap(
     packageJson.optionalDependencies,
     repoRoot
   ),
-  peerDependencies: await rewriteDependencyMap(
+  peerDependencies: rewriteDependencyMap(
     packageJson.peerDependencies,
     repoRoot
   ),
