@@ -1,6 +1,10 @@
 import { access, cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
+
+const require = createRequire(import.meta.url);
+const { getPackageConfig, resolvePackageConfig } = require("./packages.cjs");
 
 function replaceImportPath(value) {
   if (typeof value !== "string") {
@@ -44,16 +48,69 @@ function transformExports(exportsField) {
   );
 }
 
-const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(scriptDir, "..", "..");
-const packageDirArg = process.argv[2];
-const version = process.argv[3];
+function rewriteWorkspaceVersionSpec(versionSpec, workspaceVersion) {
+  if (!versionSpec.startsWith("workspace:")) {
+    return versionSpec;
+  }
 
-if (!packageDirArg || !version) {
-  throw new Error("Expected package directory and version arguments.");
+  const range = versionSpec.slice("workspace:".length);
+
+  if (range === "" || range === "*") {
+    return workspaceVersion;
+  }
+
+  if (range === "^") {
+    return `^${workspaceVersion}`;
+  }
+
+  if (range === "~") {
+    return `~${workspaceVersion}`;
+  }
+
+  return range;
 }
 
-const packageDir = path.resolve(repoRoot, packageDirArg);
+async function rewriteDependencyMap(dependencyMap, repoRoot) {
+  if (!dependencyMap) {
+    return dependencyMap;
+  }
+
+  return Object.fromEntries(
+    await Promise.all(
+      Object.entries(dependencyMap).map(async ([dependencyName, versionSpec]) => {
+        if (typeof versionSpec !== "string" || !versionSpec.startsWith("workspace:")) {
+          return [dependencyName, versionSpec];
+        }
+
+        const dependencyPackage = getPackageConfig(dependencyName);
+        const dependencyPackageJsonPath = path.join(
+          repoRoot,
+          dependencyPackage.packageJsonPath
+        );
+        const dependencyPackageJson = JSON.parse(
+          await readFile(dependencyPackageJsonPath, "utf8")
+        );
+
+        return [
+          dependencyName,
+          rewriteWorkspaceVersionSpec(versionSpec, dependencyPackageJson.version),
+        ];
+      })
+    )
+  );
+}
+
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(scriptDir, "..", "..");
+const packageSpecifier = process.argv[2];
+const version = process.argv[3];
+
+if (!packageSpecifier || !version) {
+  throw new Error("Expected package name and version arguments.");
+}
+
+const packageConfig = resolvePackageConfig(packageSpecifier, repoRoot);
+const packageDir = path.join(repoRoot, packageConfig.pkgRoot);
 const packageJsonPath = path.join(packageDir, "package.json");
 const packageJson = JSON.parse(await readFile(packageJsonPath, "utf8"));
 const stageRoot = path.join(repoRoot, ".release-tmp");
@@ -98,12 +155,17 @@ const publishedPackageJson = {
   main: replaceImportPath(packageJson.main),
   types: replaceTypesPath(packageJson.types),
   exports: transformExports(packageJson.exports),
+  dependencies: await rewriteDependencyMap(packageJson.dependencies, repoRoot),
+  optionalDependencies: await rewriteDependencyMap(
+    packageJson.optionalDependencies,
+    repoRoot
+  ),
+  peerDependencies: await rewriteDependencyMap(
+    packageJson.peerDependencies,
+    repoRoot
+  ),
   files: ["dist", "README.md", "LICENSE"],
 };
-
-if (publishedPackageJson.dependencies?.["convex-zen"] === "workspace:*") {
-  publishedPackageJson.dependencies["convex-zen"] = version;
-}
 
 delete publishedPackageJson.publishConfig;
 delete publishedPackageJson.devDependencies;

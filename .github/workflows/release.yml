@@ -12,7 +12,6 @@ on:
       - scripts/release/**
       - package.json
       - pnpm-lock.yaml
-      - .releaserc.cjs
       - .github/workflows/release.yml
 
 permissions:
@@ -26,14 +25,17 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  release:
-    name: Release
+  release-convex-zen:
+    name: Release convex-zen
     runs-on: ubuntu-latest
+    outputs:
+      downstream_ref: ${{ steps.resolve-downstream-ref.outputs.ref }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.sha }}
           fetch-depth: 0
 
       - name: Setup pnpm
@@ -49,10 +51,86 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Verify publishable packages
-        run: pnpm --filter convex-zen --filter convex-zen-organization --filter convex-zen-system-admin build
+      - name: Build package
+        run: pnpm --filter convex-zen build
+
+      - name: Release
+        id: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/release/run-package-release.mjs convex-zen
+
+      - name: Resolve downstream ref
+        id: resolve-downstream-ref
+        run: |
+          if [ "${{ steps.release.outputs.released }}" = "true" ]; then
+            echo "ref=${{ steps.release.outputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
+  release-convex-zen-organization:
+    name: Release convex-zen-organization
+    runs-on: ubuntu-latest
+    needs: release-convex-zen
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release-convex-zen.outputs.downstream_ref }}
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build package
+        run: pnpm --filter convex-zen-organization build
 
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: pnpm release
+        run: node scripts/release/run-package-release.mjs convex-zen-organization
+
+  release-convex-zen-system-admin:
+    name: Release convex-zen-system-admin
+    runs-on: ubuntu-latest
+    needs: release-convex-zen
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release-convex-zen.outputs.downstream_ref }}
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build package
+        run: pnpm --filter convex-zen-system-admin build
+
+      - name: Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/release/run-package-release.mjs convex-zen-system-admin
