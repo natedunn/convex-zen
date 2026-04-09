@@ -1040,8 +1040,9 @@ function renderPluginFacadeFile(options: {
   gatewayFunctions: PluginGatewayRuntimeMethods;
   gatewayImportPath: string;
   serverImportPath: string;
-  runtimeImportPath: string;
+  runtimeImportPath?: string;
   runtimeImportName?: string;
+  appProxy?: boolean;
 }): string {
   const pluginName = options.pluginDefinition.id;
   const kinds = new Set(
@@ -1050,21 +1051,26 @@ function renderPluginFacadeFile(options: {
   const serverImports = [...kinds].sort().join(", ");
   const functionSource = Object.entries(options.gatewayFunctions)
     .map(([functionName, fn]) => {
-      const runtimeAccess = `auth.plugins.${pluginName}.${functionName}`;
+      const runtimeAccess = options.appProxy
+        ? `ctx.run${fn.kind[0]!.toUpperCase()}${fn.kind.slice(1)}(components.zenComponent.${pluginName}.gateway.${functionName}, args)`
+        : `auth.plugins.${pluginName}.${functionName}(ctx, args)`;
       return `export const ${functionName} = ${fn.kind}({
   args: getPublicPluginFunctionArgs(pluginGateway.${functionName}, ${JSON.stringify(functionName)}),
   handler: async (ctx, args) => {
-    return ${runtimeAccess}(ctx, args);
+    return ${runtimeAccess};
   },
 });`;
     })
     .join("\n\n");
 
-  const runtimeImportName = options.runtimeImportName ?? "auth";
-  const runtimeImport =
-    runtimeImportName === "auth"
-      ? `import { auth } from ${JSON.stringify(options.runtimeImportPath)};`
-      : `import { ${runtimeImportName} as auth } from ${JSON.stringify(options.runtimeImportPath)};`;
+  const runtimeImport = options.appProxy
+    ? 'import { components } from "../../_generated/api";'
+    : (() => {
+        const runtimeImportName = options.runtimeImportName ?? "auth";
+        return runtimeImportName === "auth"
+          ? `import { auth } from ${JSON.stringify(options.runtimeImportPath)};`
+          : `import { ${runtimeImportName} as auth } from ${JSON.stringify(options.runtimeImportPath)};`;
+      })();
 
   return normalizeContent(`${GENERATED_MARKER}
 import { ${serverImports} } from ${JSON.stringify(options.serverImportPath)};
@@ -1310,7 +1316,15 @@ function assertNoReservedCoreFunctionNames(source: string): void {
 
 function renderAuthHelperFile(): string {
   return normalizeContent(`${GENERATED_MARKER}
-export { auth } from "../component/_runtime";
+import { components } from "../../_generated/api";
+import { createConvexZenClient } from "convex-zen";
+import zenConfig from "../../zen.config";
+
+export const auth = createConvexZenClient(
+  components.zenComponent as Record<string, unknown>,
+  zenConfig,
+  { runtimeKind: "app" }
+);
 `);
 }
 
@@ -1578,7 +1592,7 @@ export async function generateAuthFunctions(
         pluginDefinition.gatewaySourcePath
       ),
       serverImportPath: "../../_generated/server",
-      runtimeImportPath: "../_generated/auth",
+      appProxy: true,
     });
     filesToGenerate.push({
       absolutePath: pluginAbsolutePath,

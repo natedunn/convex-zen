@@ -2,18 +2,18 @@
 import { mutation, query } from "../../_generated/server";
 import { getPublicPluginFunctionArgs } from "convex-zen/component";
 import * as pluginGateway from "convex-zen-example/gateway";
-import { auth } from "../_generated/auth";
+import { components } from "../../_generated/api";
 
 export const listLogs = query({
   args: getPublicPluginFunctionArgs(pluginGateway.listLogs, "listLogs"),
   handler: async (ctx, args) => {
-    return auth.plugins.example.listLogs(ctx, args);
+    return ctx.runQuery(components.zenComponent.example.gateway.listLogs, args);
   },
 });
 
 export const log = mutation({
   args: getPublicPluginFunctionArgs(pluginGateway.log, "log"),
   handler: async (ctx, args) => {
-    return auth.plugins.example.log(ctx, args);
+    return ctx.runMutation(components.zenComponent.example.gateway.log, args);
   },
 });

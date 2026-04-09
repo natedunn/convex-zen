@@ -194,7 +194,9 @@ export default zenConfig;
       path.join(cwd, "convex", "zen", "_generated", "auth.ts"),
       "utf8"
     );
-    expect(runtimeSource).toContain('export { auth } from "../component/_runtime";');
+    expect(runtimeSource).toContain('import { components } from "../../_generated/api";');
+    expect(runtimeSource).toContain("components.zenComponent as Record<string, unknown>");
+    expect(runtimeSource).toContain("export const auth = createConvexZenClient(");
 
     const coreSource = await readFile(
       path.join(cwd, "convex", "zen", "core.ts"),
@@ -222,9 +224,9 @@ export default zenConfig;
       path.join(cwd, "convex", "zen", "plugin", "systemAdmin.ts"),
       "utf8"
     );
-    expect(adminSource).toContain('import { auth } from "../_generated/auth";');
+    expect(adminSource).toContain('import { components } from "../../_generated/api";');
     expect(adminSource).toContain("export const listUsers = query({");
-    expect(adminSource).toContain("return auth.plugins.systemAdmin.listUsers(ctx, args);");
+    expect(adminSource).toContain("return ctx.runQuery(components.zenComponent.systemAdmin.gateway.listUsers, args);");
   });
 
   it("removes disabled plugin files and unmounts them from the generated component", async () => {
@@ -345,10 +347,10 @@ export default zenConfig;
       path.join(cwd, "convex", "zen", "plugin", "custom.ts"),
       "utf8"
     );
-    expect(pluginSource).toContain('import { auth } from "../_generated/auth";');
+    expect(pluginSource).toContain('import { components } from "../../_generated/api";');
     expect(pluginSource).toContain('import * as pluginGateway from "../../plugins/custom/gateway";');
     expect(pluginSource).toContain("export const getMessage = query({");
-    expect(pluginSource).toContain("return auth.plugins.custom.getMessage(ctx, args);");
+    expect(pluginSource).toContain("return ctx.runQuery(components.zenComponent.custom.gateway.getMessage, args);");
 
     const generatedSource = await readFile(
       path.join(cwd, "convex", "zen", "_generated", "meta.ts"),
@@ -595,8 +597,8 @@ export default zenConfig;
     expect(pluginSource).toContain(
       'import * as pluginGateway from "convex-zen-example/gateway";'
     );
-    expect(pluginSource).toContain("return auth.plugins.example.log(ctx, args);");
-    expect(pluginSource).toContain("return auth.plugins.example.listLogs(ctx, args);");
+    expect(pluginSource).toContain("return ctx.runMutation(components.zenComponent.example.gateway.log, args);");
+    expect(pluginSource).toContain("return ctx.runQuery(components.zenComponent.example.gateway.listLogs, args);");
   });
 
   it("resolves an installed ESM plugin package with import-only exports", async () => {
@@ -639,6 +641,6 @@ export default zenConfig;
     expect(pluginSource).toContain(
       'import * as pluginGateway from "acme-installed-plugin/gateway";'
     );
-    expect(pluginSource).toContain("return auth.plugins.installed.getMessage(ctx, args);");
+    expect(pluginSource).toContain("return ctx.runQuery(components.zenComponent.installed.gateway.getMessage, args);");
   });
 });

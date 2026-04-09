@@ -15,14 +15,6 @@ export const authMeta = {
     "verifyEmail": "mutation"
   },
   "plugin": {
-    "systemAdmin": {
-      "banUser": "mutation",
-      "deleteUser": "mutation",
-      "isAdmin": "query",
-      "listUsers": "query",
-      "setRole": "mutation",
-      "unbanUser": "mutation"
-    },
     "example": {
       "listLogs": "query",
       "log": "mutation"
@@ -62,6 +54,14 @@ export const authMeta = {
       "transferOwnership": "mutation",
       "updateOrganization": "mutation",
       "updateRole": "mutation"
+    },
+    "systemAdmin": {
+      "banUser": "mutation",
+      "deleteUser": "mutation",
+      "isAdmin": "query",
+      "listUsers": "query",
+      "setRole": "mutation",
+      "unbanUser": "mutation"
     }
   }
 } as const;
