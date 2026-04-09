@@ -1,3 +1,14 @@
+## [1.13.2](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.13.1...convex-zen-v1.13.2) (2026-04-09)
+
+
+### Bug Fixes
+
+* **client:** route plugin runtime through child gateway ([3ef50ec](https://github.com/natedunn/convex-zen/commit/3ef50ec5258cc212fc0da25379f758a8411336fc))
+* **cli:** harden package import fallback resolution ([8c32fd2](https://github.com/natedunn/convex-zen/commit/8c32fd2aa3b6626280115bd7cf0657174ecb8665))
+* **generate:** route app wrappers through mounted gateways ([1559fd9](https://github.com/natedunn/convex-zen/commit/1559fd9d4508b86d0347d6db98585e1185a04ff3))
+* **generate:** support installed ESM plugins ([4d9d7ba](https://github.com/natedunn/convex-zen/commit/4d9d7baf67b27a70d44eace0508bfb115c05336e))
+* **generate:** use component runtime for app auth ([5c9d9fb](https://github.com/natedunn/convex-zen/commit/5c9d9fb06a5aadd5ad091c29f304ecf1e9995b0d))
+
 ## [1.13.1](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.13.0...convex-zen-v1.13.1) (2026-04-09)
 
 
