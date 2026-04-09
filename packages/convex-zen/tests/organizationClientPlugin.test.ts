@@ -313,10 +313,10 @@ describe("ConvexZen organization plugins", () => {
   it("exposes configured organization runtime under auth.plugins", async () => {
     const auth = createConvexZenClient(
       {
-        organization: {
+        organizationComponent: {
           gateway: {
-            listOrganizations: "organization/gateway:listOrganizations",
-            hasPermission: "organization/gateway:hasPermission",
+            listOrganizations: "organizationComponent/gateway:listOrganizations",
+            hasPermission: "organizationComponent/gateway:hasPermission",
           },
         },
       },
@@ -352,12 +352,12 @@ describe("ConvexZen organization plugins", () => {
       }
     );
 
-    expect(runQuery).toHaveBeenNthCalledWith(1, "organization/gateway:listOrganizations", {
+    expect(runQuery).toHaveBeenNthCalledWith(1, "organizationComponent/gateway:listOrganizations", {
       actorUserId: "resolved_user",
     });
     expect(runQuery).toHaveBeenNthCalledWith(
       2,
-      "organization/gateway:hasPermission",
+      "organizationComponent/gateway:hasPermission",
       {
         actorUserId: "resolved_user",
         organizationId: "org_1",
