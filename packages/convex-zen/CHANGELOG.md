@@ -1,3 +1,10 @@
+## [1.13.1](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.13.0...convex-zen-v1.13.1) (2026-04-09)
+
+
+### Bug Fixes
+
+* **cli:** add explicit ESM import extensions ([1815803](https://github.com/natedunn/convex-zen/commit/18158030433adc96220cd6882e8deee3d87ac975))
+
 # [1.13.0](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.12.0...convex-zen-v1.13.0) (2026-04-08)
 
 
