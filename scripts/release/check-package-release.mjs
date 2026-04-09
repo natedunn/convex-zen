@@ -19,14 +19,27 @@ for (let index = 0; index < args.length; index += 1) {
   }
 
   if (arg === "--cwd") {
-    cwdArg = args[index + 1];
+    const nextArg = args[index + 1];
+
+    if (!nextArg || nextArg.startsWith("--")) {
+      throw new Error("Expected a path value after --cwd.");
+    }
+
+    cwdArg = nextArg;
     index += 1;
     continue;
   }
 
   if (!arg.startsWith("--") && !packageName) {
     packageName = arg;
+    continue;
   }
+
+  if (arg.startsWith("--")) {
+    throw new Error(`Unknown option: ${arg}`);
+  }
+
+  throw new Error(`Unexpected argument: ${arg}`);
 }
 
 if (!packageName) {

@@ -23,14 +23,6 @@ function run(command, args, cwd) {
   }).trim();
 }
 
-function runInherit(command, args, cwd) {
-  execFileSync(command, args, {
-    cwd,
-    stdio: "inherit",
-    env: process.env,
-  });
-}
-
 function readJson(filePath) {
   return JSON.parse(readFileSync(filePath, "utf8"));
 }
