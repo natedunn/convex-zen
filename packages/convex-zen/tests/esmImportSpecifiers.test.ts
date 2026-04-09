@@ -7,9 +7,7 @@ const packageRoot = path.resolve(import.meta.dirname, "..");
 const srcRoot = path.join(packageRoot, "src");
 
 function collectSourceFiles(dir: string): string[] {
-  return ts.sys
-    .readDirectory(dir, [".ts", ".tsx"], undefined, undefined)
-    .filter((filePath) => !filePath.includes(`${path.sep}_generated${path.sep}`));
+  return ts.sys.readDirectory(dir, [".ts", ".tsx"], undefined, undefined);
 }
 
 function collectRelativeSpecifiers(sourceFile: ts.SourceFile): string[] {
