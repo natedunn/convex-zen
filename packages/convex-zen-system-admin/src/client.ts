@@ -4,7 +4,7 @@ import {
   type SystemAdminPluginOptions,
   type PluginGatewayRuntimeMap,
 } from "convex-zen";
-import * as gatewayModule from "./gateway";
+import * as gatewayModule from "./gateway.js";
 
 type RunsQueries = {
   runQuery(fn: unknown, args: Record<string, unknown>): Promise<unknown>;

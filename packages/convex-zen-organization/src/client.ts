@@ -24,7 +24,7 @@ import {
   OrganizationSlugCheckResult,
   type PluginGatewayRuntimeMap,
 } from "convex-zen";
-import * as gatewayModule from "./gateway";
+import * as gatewayModule from "./gateway.js";
 
 /**
  * Organization plugin client module.

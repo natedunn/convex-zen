@@ -43,7 +43,7 @@ type GeneratedFile = {
   content: string;
 };
 
-type WorkspacePackageDescriptor = {
+type PackageDescriptor = {
   dir: string;
   name: string;
   packageJson: Record<string, unknown>;
@@ -120,18 +120,23 @@ function readExportTarget(
     if (typeof defaultTarget === "string") {
       return defaultTarget;
     }
-    const typesTarget = (entry as Record<string, unknown>).types;
-    if (typeof typesTarget === "string") {
-      return typesTarget;
-    }
   }
   return null;
+}
+
+async function fileExistsAndIsFile(filePath: string): Promise<boolean> {
+  try {
+    const fileStats = await stat(filePath);
+    return fileStats.isFile();
+  } catch {
+    return false;
+  }
 }
 
 async function findWorkspacePackage(
   authSource: ResolvedAuthSource,
   packageName: string
-): Promise<WorkspacePackageDescriptor | null> {
+): Promise<PackageDescriptor | null> {
   const workspaceRoot =
     (await findWorkspaceRoot(path.dirname(authSource.absolutePath))) ??
     (await findWorkspaceRoot(path.dirname(fileURLToPath(import.meta.url))));
@@ -162,25 +167,112 @@ async function findWorkspacePackage(
   return null;
 }
 
-async function resolveWorkspacePackageImport(
-  authSource: ResolvedAuthSource,
+async function resolvePackageImportFromDescriptor(
+  packageDescriptor: PackageDescriptor,
   moduleSpecifier: string
 ): Promise<string | null> {
   const { packageName, subpath } = splitPackageSpecifier(moduleSpecifier);
-  const workspacePackage = await findWorkspacePackage(authSource, packageName);
-  if (!workspacePackage) {
+  if (packageDescriptor.name !== packageName) {
     return null;
   }
   const exportKey = subpath.length > 0 ? (`./${subpath}` as const) : ".";
   const exportTarget =
-    readExportTarget(workspacePackage.packageJson.exports, exportKey) ??
-    (subpath.length === 0 && typeof workspacePackage.packageJson.main === "string"
-      ? workspacePackage.packageJson.main
+    readExportTarget(packageDescriptor.packageJson.exports, exportKey) ??
+    (subpath.length === 0 && typeof packageDescriptor.packageJson.main === "string"
+      ? packageDescriptor.packageJson.main
       : null);
-  if (!exportTarget) {
+  if (exportTarget) {
+    return pathToFileURL(
+      path.resolve(packageDescriptor.dir, exportTarget)
+    ).href;
+  }
+
+  const fallbackCandidates =
+    subpath.length > 0
+      ? [
+          subpath,
+          `${subpath}.js`,
+          `${subpath}.mjs`,
+          `${subpath}.cjs`,
+          `${subpath}.ts`,
+          path.join(subpath, "index.js"),
+          path.join(subpath, "index.mjs"),
+          path.join(subpath, "index.cjs"),
+          path.join(subpath, "index.ts"),
+        ]
+      : ["index.js", "index.mjs", "index.cjs", "index.ts"];
+
+  for (const candidate of fallbackCandidates) {
+    const candidatePath = path.resolve(packageDescriptor.dir, candidate);
+    if (await fileExistsAndIsFile(candidatePath)) {
+      return pathToFileURL(candidatePath).href;
+    }
+  }
+
+  return null;
+}
+
+async function resolveWorkspacePackageImport(
+  authSource: ResolvedAuthSource,
+  moduleSpecifier: string
+): Promise<string | null> {
+  const { packageName } = splitPackageSpecifier(moduleSpecifier);
+  const workspacePackage = await findWorkspacePackage(authSource, packageName);
+  if (!workspacePackage) {
     return null;
   }
-  return pathToFileURL(path.resolve(workspacePackage.dir, exportTarget)).href;
+  return await resolvePackageImportFromDescriptor(
+    workspacePackage,
+    moduleSpecifier
+  );
+}
+
+async function findInstalledPackage(
+  authSource: ResolvedAuthSource,
+  packageName: string
+): Promise<PackageDescriptor | null> {
+  let currentDir = path.dirname(authSource.absolutePath);
+  const packagePathSegments = packageName.split("/");
+
+  while (true) {
+    const packageDir = path.join(
+      currentDir,
+      "node_modules",
+      ...packagePathSegments
+    );
+    const packageJsonPath = path.join(packageDir, "package.json");
+    if (await fileExists(packageJsonPath)) {
+      const packageJson = JSON.parse(
+        await readFile(packageJsonPath, "utf8")
+      ) as Record<string, unknown>;
+      return {
+        dir: packageDir,
+        name: packageName,
+        packageJson,
+      };
+    }
+
+    const parentDir = path.dirname(currentDir);
+    if (parentDir === currentDir) {
+      return null;
+    }
+    currentDir = parentDir;
+  }
+}
+
+async function resolveInstalledPackageImport(
+  authSource: ResolvedAuthSource,
+  moduleSpecifier: string
+): Promise<string | null> {
+  const { packageName } = splitPackageSpecifier(moduleSpecifier);
+  const installedPackage = await findInstalledPackage(authSource, packageName);
+  if (!installedPackage) {
+    return null;
+  }
+  return await resolvePackageImportFromDescriptor(
+    installedPackage,
+    moduleSpecifier
+  );
 }
 
 function isGeneratedFile(content: string): boolean {
@@ -462,6 +554,13 @@ async function resolveImportSpecifier(
     );
     if (workspaceImport) {
       return workspaceImport;
+    }
+    const installedImport = await resolveInstalledPackageImport(
+      authSource,
+      moduleSpecifier
+    );
+    if (installedImport) {
+      return installedImport;
     }
     const resolved = nodeRequire.resolve(moduleSpecifier, {
       paths: [path.dirname(authSource.absolutePath)],
@@ -946,8 +1045,9 @@ function renderPluginFacadeFile(options: {
   gatewayFunctions: PluginGatewayRuntimeMethods;
   gatewayImportPath: string;
   serverImportPath: string;
-  runtimeImportPath: string;
+  runtimeImportPath?: string;
   runtimeImportName?: string;
+  appProxy?: boolean;
 }): string {
   const pluginName = options.pluginDefinition.id;
   const kinds = new Set(
@@ -956,21 +1056,26 @@ function renderPluginFacadeFile(options: {
   const serverImports = [...kinds].sort().join(", ");
   const functionSource = Object.entries(options.gatewayFunctions)
     .map(([functionName, fn]) => {
-      const runtimeAccess = `auth.plugins.${pluginName}.${functionName}`;
+      const runtimeAccess = options.appProxy
+        ? `ctx.run${fn.kind[0]!.toUpperCase()}${fn.kind.slice(1)}(components.zenComponent.${pluginName}.gateway.${functionName}, args)`
+        : `auth.plugins.${pluginName}.${functionName}(ctx, args)`;
       return `export const ${functionName} = ${fn.kind}({
   args: getPublicPluginFunctionArgs(pluginGateway.${functionName}, ${JSON.stringify(functionName)}),
   handler: async (ctx, args) => {
-    return ${runtimeAccess}(ctx, args);
+    return ${runtimeAccess};
   },
 });`;
     })
     .join("\n\n");
 
-  const runtimeImportName = options.runtimeImportName ?? "auth";
-  const runtimeImport =
-    runtimeImportName === "auth"
-      ? `import { auth } from ${JSON.stringify(options.runtimeImportPath)};`
-      : `import { ${runtimeImportName} as auth } from ${JSON.stringify(options.runtimeImportPath)};`;
+  const runtimeImport = options.appProxy
+    ? 'import { components } from "../../_generated/api";'
+    : (() => {
+        const runtimeImportName = options.runtimeImportName ?? "auth";
+        return runtimeImportName === "auth"
+          ? `import { auth } from ${JSON.stringify(options.runtimeImportPath)};`
+          : `import { ${runtimeImportName} as auth } from ${JSON.stringify(options.runtimeImportPath)};`;
+      })();
 
   return normalizeContent(`${GENERATED_MARKER}
 import { ${serverImports} } from ${JSON.stringify(options.serverImportPath)};
@@ -1492,7 +1597,7 @@ export async function generateAuthFunctions(
         pluginDefinition.gatewaySourcePath
       ),
       serverImportPath: "../../_generated/server",
-      runtimeImportPath: "../_generated/auth",
+      appProxy: true,
     });
     filesToGenerate.push({
       absolutePath: pluginAbsolutePath,

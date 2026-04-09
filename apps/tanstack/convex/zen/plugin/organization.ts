@@ -2,242 +2,242 @@
 import { mutation, query } from "../../_generated/server";
 import { getPublicPluginFunctionArgs } from "convex-zen/component";
 import * as pluginGateway from "convex-zen-organization/gateway";
-import { auth } from "../_generated/auth";
+import { components } from "../../_generated/api";
 
 export const acceptIncomingInvitation = mutation({
   args: getPublicPluginFunctionArgs(pluginGateway.acceptIncomingInvitation, "acceptIncomingInvitation"),
   handler: async (ctx, args) => {
-    return auth.plugins.organization.acceptIncomingInvitation(ctx, args);
+    return ctx.runMutation(components.zenComponent.organization.gateway.acceptIncomingInvitation, args);
   },
 });
 
 export const acceptInvitation = mutation({
   args: getPublicPluginFunctionArgs(pluginGateway.acceptInvitation, "acceptInvitation"),
   handler: async (ctx, args) => {
-    return auth.plugins.organization.acceptInvitation(ctx, args);
+    return ctx.runMutation(components.zenComponent.organization.gateway.acceptInvitation, args);
   },
 });
 
 export const addDomain = mutation({
   args: getPublicPluginFunctionArgs(pluginGateway.addDomain, "addDomain"),
   handler: async (ctx, args) => {
-    return auth.plugins.organization.addDomain(ctx, args);
+    return ctx.runMutation(components.zenComponent.organization.gateway.addDomain, args);
   },
 });
 
 export const cancelInvitation = mutation({
   args: getPublicPluginFunctionArgs(pluginGateway.cancelInvitation, "cancelInvitation"),
   handler: async (ctx, args) => {
-    return auth.plugins.organization.cancelInvitation(ctx, args);
+    return ctx.runMutation(components.zenComponent.organization.gateway.cancelInvitation, args);
   },
 });
 
 export const checkSlug = query({
   args: getPublicPluginFunctionArgs(pluginGateway.checkSlug, "checkSlug"),
   handler: async (ctx, args) => {
-    return auth.plugins.organization.checkSlug(ctx, args);
+    return ctx.runQuery(components.zenComponent.organization.gateway.checkSlug, args);
   },
 });
 
 export const createOrganization = mutation({
   args: getPublicPluginFunctionArgs(pluginGateway.createOrganization, "createOrganization"),
   handler: async (ctx, args) => {
-    return auth.plugins.organization.createOrganization(ctx, args);
+    return ctx.runMutation(components.zenComponent.organization.gateway.createOrganization, args);
   },
 });
 
 export const createRole = mutation({
   args: getPublicPluginFunctionArgs(pluginGateway.createRole, "createRole"),
   handler: async (ctx, args) => {
-    return auth.plugins.organization.createRole(ctx, args);
+    return ctx.runMutation(components.zenComponent.organization.gateway.createRole, args);
   },
 });
 
 export const declineIncomingInvitation = mutation({
   args: getPublicPluginFunctionArgs(pluginGateway.declineIncomingInvitation, "declineIncomingInvitation"),
   handler: async (ctx, args) => {
-    return auth.plugins.organization.declineIncomingInvitation(ctx, args);
+    return ctx.runMutation(components.zenComponent.organization.gateway.declineIncomingInvitation, args);
   },
 });
 
 export const deleteOrganization = mutation({
   args: getPublicPluginFunctionArgs(pluginGateway.deleteOrganization, "deleteOrganization"),
   handler: async (ctx, args) => {
-    return auth.plugins.organization.deleteOrganization(ctx, args);
+    return ctx.runMutation(components.zenComponent.organization.gateway.deleteOrganization, args);
   },
 });
 
 export const deleteRole = mutation({
   args: getPublicPluginFunctionArgs(pluginGateway.deleteRole, "deleteRole"),
   handler: async (ctx, args) => {
-    return auth.plugins.organization.deleteRole(ctx, args);
+    return ctx.runMutation(components.zenComponent.organization.gateway.deleteRole, args);
   },
 });
 
 export const getDomainVerificationChallenge = query({
   args: getPublicPluginFunctionArgs(pluginGateway.getDomainVerificationChallenge, "getDomainVerificationChallenge"),
   handler: async (ctx, args) => {
-    return auth.plugins.organization.getDomainVerificationChallenge(ctx, args);
+    return ctx.runQuery(components.zenComponent.organization.gateway.getDomainVerificationChallenge, args);
   },
 });
 
 export const getMembership = query({
   args: getPublicPluginFunctionArgs(pluginGateway.getMembership, "getMembership"),
   handler: async (ctx, args) => {
-    return auth.plugins.organization.getMembership(ctx, args);
+    return ctx.runQuery(components.zenComponent.organization.gateway.getMembership, args);
   },
 });
 
 export const getOrganization = query({
   args: getPublicPluginFunctionArgs(pluginGateway.getOrganization, "getOrganization"),
   handler: async (ctx, args) => {
-    return auth.plugins.organization.getOrganization(ctx, args);
+    return ctx.runQuery(components.zenComponent.organization.gateway.getOrganization, args);
   },
 });
 
 export const getRole = query({
   args: getPublicPluginFunctionArgs(pluginGateway.getRole, "getRole"),
   handler: async (ctx, args) => {
-    return auth.plugins.organization.getRole(ctx, args);
+    return ctx.runQuery(components.zenComponent.organization.gateway.getRole, args);
   },
 });
 
 export const hasPermission = query({
   args: getPublicPluginFunctionArgs(pluginGateway.hasPermission, "hasPermission"),
   handler: async (ctx, args) => {
-    return auth.plugins.organization.hasPermission(ctx, args);
+    return ctx.runQuery(components.zenComponent.organization.gateway.hasPermission, args);
   },
 });
 
 export const hasRole = query({
   args: getPublicPluginFunctionArgs(pluginGateway.hasRole, "hasRole"),
   handler: async (ctx, args) => {
-    return auth.plugins.organization.hasRole(ctx, args);
+    return ctx.runQuery(components.zenComponent.organization.gateway.hasRole, args);
   },
 });
 
 export const inviteMember = mutation({
   args: getPublicPluginFunctionArgs(pluginGateway.inviteMember, "inviteMember"),
   handler: async (ctx, args) => {
-    return auth.plugins.organization.inviteMember(ctx, args);
+    return ctx.runMutation(components.zenComponent.organization.gateway.inviteMember, args);
   },
 });
 
 export const listAvailablePermissions = query({
   args: getPublicPluginFunctionArgs(pluginGateway.listAvailablePermissions, "listAvailablePermissions"),
   handler: async (ctx, args) => {
-    return auth.plugins.organization.listAvailablePermissions(ctx, args);
+    return ctx.runQuery(components.zenComponent.organization.gateway.listAvailablePermissions, args);
   },
 });
 
 export const listDomains = query({
   args: getPublicPluginFunctionArgs(pluginGateway.listDomains, "listDomains"),
   handler: async (ctx, args) => {
-    return auth.plugins.organization.listDomains(ctx, args);
+    return ctx.runQuery(components.zenComponent.organization.gateway.listDomains, args);
   },
 });
 
 export const listIncomingInvitations = query({
   args: getPublicPluginFunctionArgs(pluginGateway.listIncomingInvitations, "listIncomingInvitations"),
   handler: async (ctx, args) => {
-    return auth.plugins.organization.listIncomingInvitations(ctx, args);
+    return ctx.runQuery(components.zenComponent.organization.gateway.listIncomingInvitations, args);
   },
 });
 
 export const listInvitations = query({
   args: getPublicPluginFunctionArgs(pluginGateway.listInvitations, "listInvitations"),
   handler: async (ctx, args) => {
-    return auth.plugins.organization.listInvitations(ctx, args);
+    return ctx.runQuery(components.zenComponent.organization.gateway.listInvitations, args);
   },
 });
 
 export const listMembers = query({
   args: getPublicPluginFunctionArgs(pluginGateway.listMembers, "listMembers"),
   handler: async (ctx, args) => {
-    return auth.plugins.organization.listMembers(ctx, args);
+    return ctx.runQuery(components.zenComponent.organization.gateway.listMembers, args);
   },
 });
 
 export const listOrganizations = query({
   args: getPublicPluginFunctionArgs(pluginGateway.listOrganizations, "listOrganizations"),
   handler: async (ctx, args) => {
-    return auth.plugins.organization.listOrganizations(ctx, args);
+    return ctx.runQuery(components.zenComponent.organization.gateway.listOrganizations, args);
   },
 });
 
 export const listRoles = query({
   args: getPublicPluginFunctionArgs(pluginGateway.listRoles, "listRoles"),
   handler: async (ctx, args) => {
-    return auth.plugins.organization.listRoles(ctx, args);
+    return ctx.runQuery(components.zenComponent.organization.gateway.listRoles, args);
   },
 });
 
 export const markDomainVerified = mutation({
   args: getPublicPluginFunctionArgs(pluginGateway.markDomainVerified, "markDomainVerified"),
   handler: async (ctx, args) => {
-    return auth.plugins.organization.markDomainVerified(ctx, args);
+    return ctx.runMutation(components.zenComponent.organization.gateway.markDomainVerified, args);
   },
 });
 
 export const removeDomain = mutation({
   args: getPublicPluginFunctionArgs(pluginGateway.removeDomain, "removeDomain"),
   handler: async (ctx, args) => {
-    return auth.plugins.organization.removeDomain(ctx, args);
+    return ctx.runMutation(components.zenComponent.organization.gateway.removeDomain, args);
   },
 });
 
 export const removeMember = mutation({
   args: getPublicPluginFunctionArgs(pluginGateway.removeMember, "removeMember"),
   handler: async (ctx, args) => {
-    return auth.plugins.organization.removeMember(ctx, args);
+    return ctx.runMutation(components.zenComponent.organization.gateway.removeMember, args);
   },
 });
 
 export const requirePermission = query({
   args: getPublicPluginFunctionArgs(pluginGateway.requirePermission, "requirePermission"),
   handler: async (ctx, args) => {
-    return auth.plugins.organization.requirePermission(ctx, args);
+    return ctx.runQuery(components.zenComponent.organization.gateway.requirePermission, args);
   },
 });
 
 export const requireRole = query({
   args: getPublicPluginFunctionArgs(pluginGateway.requireRole, "requireRole"),
   handler: async (ctx, args) => {
-    return auth.plugins.organization.requireRole(ctx, args);
+    return ctx.runQuery(components.zenComponent.organization.gateway.requireRole, args);
   },
 });
 
 export const resolveOrganizationByHost = query({
   args: getPublicPluginFunctionArgs(pluginGateway.resolveOrganizationByHost, "resolveOrganizationByHost"),
   handler: async (ctx, args) => {
-    return auth.plugins.organization.resolveOrganizationByHost(ctx, args);
+    return ctx.runQuery(components.zenComponent.organization.gateway.resolveOrganizationByHost, args);
   },
 });
 
 export const setMemberRole = mutation({
   args: getPublicPluginFunctionArgs(pluginGateway.setMemberRole, "setMemberRole"),
   handler: async (ctx, args) => {
-    return auth.plugins.organization.setMemberRole(ctx, args);
+    return ctx.runMutation(components.zenComponent.organization.gateway.setMemberRole, args);
   },
 });
 
 export const transferOwnership = mutation({
   args: getPublicPluginFunctionArgs(pluginGateway.transferOwnership, "transferOwnership"),
   handler: async (ctx, args) => {
-    return auth.plugins.organization.transferOwnership(ctx, args);
+    return ctx.runMutation(components.zenComponent.organization.gateway.transferOwnership, args);
   },
 });
 
 export const updateOrganization = mutation({
   args: getPublicPluginFunctionArgs(pluginGateway.updateOrganization, "updateOrganization"),
   handler: async (ctx, args) => {
-    return auth.plugins.organization.updateOrganization(ctx, args);
+    return ctx.runMutation(components.zenComponent.organization.gateway.updateOrganization, args);
   },
 });
 
 export const updateRole = mutation({
   args: getPublicPluginFunctionArgs(pluginGateway.updateRole, "updateRole"),
   handler: async (ctx, args) => {
-    return auth.plugins.organization.updateRole(ctx, args);
+    return ctx.runMutation(components.zenComponent.organization.gateway.updateRole, args);
   },
 });

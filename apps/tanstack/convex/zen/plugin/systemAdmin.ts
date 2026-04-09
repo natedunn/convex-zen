@@ -2,46 +2,46 @@
 import { mutation, query } from "../../_generated/server";
 import { getPublicPluginFunctionArgs } from "convex-zen/component";
 import * as pluginGateway from "convex-zen-system-admin/gateway";
-import { auth } from "../_generated/auth";
+import { components } from "../../_generated/api";
 
 export const banUser = mutation({
   args: getPublicPluginFunctionArgs(pluginGateway.banUser, "banUser"),
   handler: async (ctx, args) => {
-    return auth.plugins.systemAdmin.banUser(ctx, args);
+    return ctx.runMutation(components.zenComponent.systemAdmin.gateway.banUser, args);
   },
 });
 
 export const deleteUser = mutation({
   args: getPublicPluginFunctionArgs(pluginGateway.deleteUser, "deleteUser"),
   handler: async (ctx, args) => {
-    return auth.plugins.systemAdmin.deleteUser(ctx, args);
+    return ctx.runMutation(components.zenComponent.systemAdmin.gateway.deleteUser, args);
   },
 });
 
 export const isAdmin = query({
   args: getPublicPluginFunctionArgs(pluginGateway.isAdmin, "isAdmin"),
   handler: async (ctx, args) => {
-    return auth.plugins.systemAdmin.isAdmin(ctx, args);
+    return ctx.runQuery(components.zenComponent.systemAdmin.gateway.isAdmin, args);
   },
 });
 
 export const listUsers = query({
   args: getPublicPluginFunctionArgs(pluginGateway.listUsers, "listUsers"),
   handler: async (ctx, args) => {
-    return auth.plugins.systemAdmin.listUsers(ctx, args);
+    return ctx.runQuery(components.zenComponent.systemAdmin.gateway.listUsers, args);
   },
 });
 
 export const setRole = mutation({
   args: getPublicPluginFunctionArgs(pluginGateway.setRole, "setRole"),
   handler: async (ctx, args) => {
-    return auth.plugins.systemAdmin.setRole(ctx, args);
+    return ctx.runMutation(components.zenComponent.systemAdmin.gateway.setRole, args);
   },
 });
 
 export const unbanUser = mutation({
   args: getPublicPluginFunctionArgs(pluginGateway.unbanUser, "unbanUser"),
   handler: async (ctx, args) => {
-    return auth.plugins.systemAdmin.unbanUser(ctx, args);
+    return ctx.runMutation(components.zenComponent.systemAdmin.gateway.unbanUser, args);
   },
 });

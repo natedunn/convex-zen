@@ -28,6 +28,24 @@
     "build:dist": "rm -rf dist tsconfig.build.tsbuildinfo && tsc -p tsconfig.build.json",
     "test": "echo 'no tests'"
   },
+  "publishConfig": {
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      },
+      "./gateway": {
+        "types": "./dist/gateway.d.ts",
+        "import": "./dist/gateway.js"
+      },
+      "./convex.config": {
+        "types": "./dist/convex.config.d.ts",
+        "import": "./dist/convex.config.js"
+      }
+    }
+  },
   "dependencies": {
     "convex": "^1.17.0",
     "convex-zen": "workspace:^"
@@ -36,6 +54,7 @@
     "typescript": "^5.5.0"
   },
   "files": [
+    "dist",
     "src",
     "README.md"
   ],
