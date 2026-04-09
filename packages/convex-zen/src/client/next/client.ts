@@ -8,28 +8,28 @@ import {
   createRouteAuthRuntimeAdapter,
   type RouteAuthRuntimeAdapterClient,
   type RouteAuthRuntimeAdapterOptions,
-} from "../framework-adapter";
-import type { ReactAuthClient } from "../react";
-import type { SessionInfo } from "../primitives";
+} from "../framework-adapter.js";
+import type { ReactAuthClient } from "../react.js";
+import type { SessionInfo } from "../primitives.js";
 import {
   type AuthCoreMeta,
   type AuthMeta,
   type AuthPluginFunctionKind,
   type AuthPluginMeta,
   toKebabCase,
-} from "../plugin-meta";
+} from "../plugin-meta.js";
 import {
   type TanStackQueryAuthClient,
   type TanStackQueryAuthClientOptions,
   type TanStackStartAuthApiClientPlugin,
   type TanStackStartAuthApiClientPluginContext,
-} from "../tanstack-start/client";
+} from "../tanstack-start/client.js";
 import {
   type ConvexRouteFunctionRef,
   readMember,
   readFunctionRef,
   hasPluginFunctionRefs,
-} from "../helpers";
+} from "../helpers.js";
 
 export interface NextAuthClientOptions extends RouteAuthRuntimeAdapterOptions {}
 

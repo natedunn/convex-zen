@@ -1,22 +1,22 @@
 import type { FunctionArgs, FunctionReference } from "convex/server";
-import type { TanStackStartAuthApiPluginFactory } from "./index";
+import type { TanStackStartAuthApiPluginFactory } from "./index.js";
 import type {
   AuthCoreMeta,
   AuthPluginFunctionKind,
   AuthPluginMeta,
-} from "../plugin-meta";
-import { toKebabCase } from "../plugin-meta";
-import { readFunctionRef, isRecord, readMember } from "../helpers";
+} from "../plugin-meta.js";
+import { toKebabCase } from "../plugin-meta.js";
+import { readFunctionRef, isRecord, readMember } from "../helpers.js";
 
-export { systemAdminApiPlugin } from "./system-admin-plugin";
+export { systemAdminApiPlugin } from "./system-admin-plugin.js";
 export type {
   TanStackStartSystemAdminApiPluginConvexFunctions,
   TanStackStartSystemAdminApiPluginOptions,
-} from "./system-admin-plugin";
+} from "./system-admin-plugin.js";
 export {
   SYSTEM_ADMIN_API_PLUGIN_ID,
   REQUIRED_SYSTEM_ADMIN_CONVEX_FUNCTIONS,
-} from "./system-admin-plugin";
+} from "./system-admin-plugin.js";
 
 export const CORE_API_PLUGIN_ID = "core" as const;
 

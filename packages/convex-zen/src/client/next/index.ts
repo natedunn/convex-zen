@@ -4,19 +4,19 @@ import type {
   FunctionReference,
   FunctionReturnType,
 } from "convex/server";
-import { createConvexFetchers } from "../convex-fetchers";
+import { createConvexFetchers } from "../convex-fetchers.js";
 import {
   createSessionPrimitives,
   type SessionInfo,
   type SessionPrimitives,
   type SignInInput,
   type SignInOutput,
-} from "../primitives";
-import type { OAuthProviderId } from "../../types";
+} from "../primitives.js";
+import type { OAuthProviderId } from "../../types.js";
 import {
   createConvexZenIdentityJwt,
   type SessionTokenCodec,
-} from "../identity-jwt";
+} from "../identity-jwt.js";
 import {
   coreApiPlugin,
   pluginApiPlugin,
@@ -35,8 +35,8 @@ import {
   type NextAuthCoreMeta,
   type NextAuthPluginMeta,
   type NextAuthMeta,
-} from "./plugins";
-import { isRecord, hasFunctionRefCandidate, hasPluginFunctionRefs } from "../helpers";
+} from "./plugins.js";
+import { isRecord, hasFunctionRefCandidate, hasPluginFunctionRefs } from "../helpers.js";
 
 type MaybePromise<T> = T | Promise<T>;
 const DEFAULT_COOKIE_MAX_AGE_SECONDS = 14 * 24 * 60 * 60;
@@ -2038,5 +2038,5 @@ export function createNextAuthServer(
   };
 }
 
-export * from "./plugins";
-export * from "./client";
+export * from "./plugins.js";
+export * from "./client.js";

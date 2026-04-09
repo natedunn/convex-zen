@@ -1,4 +1,4 @@
-import type { AuthTokenPayload } from "./auth-token-manager";
+import type { AuthTokenPayload } from "./auth-token-manager.js";
 import {
   createAuthRuntime,
   createBroadcastAuthSync,
@@ -6,10 +6,10 @@ import {
   type AuthRuntimeStorage,
   type AuthRuntimeSync,
   type ConvexAuthClientLike,
-} from "./auth-runtime";
-import type { SessionInfo, SignInInput } from "./primitives";
-import type { ReactAuthClient } from "./react";
-import type { OAuthProviderId, OAuthStartResult } from "../types";
+} from "./auth-runtime.js";
+import type { SessionInfo, SignInInput } from "./primitives.js";
+import type { ReactAuthClient } from "./react.js";
+import type { OAuthProviderId, OAuthStartResult } from "../types.js";
 
 type MaybePromise<T> = T | Promise<T>;
 

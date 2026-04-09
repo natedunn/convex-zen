@@ -8,7 +8,7 @@ import type {
   AuthMeta,
   AuthPluginFunctionKind,
   AuthPluginMeta,
-} from "./plugin-meta";
+} from "./plugin-meta.js";
 
 export type DirectConvexFunctionKind = AuthPluginFunctionKind;
 export type DirectConvexCoreMeta = AuthCoreMeta;

@@ -1,9 +1,9 @@
-import type { SessionInfo, SignInInput } from "../primitives";
-import type { ReactAuthClient } from "../react";
+import type { SessionInfo, SignInInput } from "../primitives.js";
+import type { ReactAuthClient } from "../react.js";
 import type {
   OAuthProviderId,
   OAuthStartResult,
-} from "../../types";
+} from "../../types.js";
 import type {
   FunctionArgs,
   FunctionReference,
@@ -14,9 +14,9 @@ import type {
   AuthCoreMeta,
   AuthMeta,
   AuthPluginMeta,
-} from "../plugin-meta";
-import { toKebabCase } from "../plugin-meta";
-import type { AuthTokenPayload } from "../auth-token-manager";
+} from "../plugin-meta.js";
+import { toKebabCase } from "../plugin-meta.js";
+import type { AuthTokenPayload } from "../auth-token-manager.js";
 import {
   createAuthRuntime,
   createBroadcastAuthSync,
@@ -24,8 +24,8 @@ import {
   type AuthRuntimeStorage,
   type AuthRuntimeSync,
   type ConvexAuthClientLike,
-} from "../auth-runtime";
-import { hasFunctionRefCandidate, hasPluginFunctionRefs, readMember } from "../helpers";
+} from "../auth-runtime.js";
+import { hasFunctionRefCandidate, hasPluginFunctionRefs, readMember } from "../helpers.js";
 export {
   createAuthTokenManager,
   type AuthTokenManager,
@@ -33,7 +33,7 @@ export {
   type AuthTokenManagerListener,
   type AuthTokenManagerOptions,
   type AuthTokenPayload,
-} from "../auth-token-manager";
+} from "../auth-token-manager.js";
 export {
   createAuthRuntime,
   createMemoryAuthStorage,
@@ -51,7 +51,7 @@ export {
   type BroadcastAuthSyncOptions,
   type ConvexAuthClientLike,
   type LocalStorageAuthStorageOptions,
-} from "../auth-runtime";
+} from "../auth-runtime.js";
 
 interface AuthApiErrorPayload {
   error?: string;

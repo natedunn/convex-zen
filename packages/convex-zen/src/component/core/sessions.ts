@@ -4,14 +4,14 @@ import {
   internalQuery,
   type DatabaseReader,
   type DatabaseWriter,
-} from "../_generated/server";
-import type { Id } from "../_generated/dataModel";
-import { generateToken, hashToken } from "../lib/crypto";
+} from "../_generated/server.js";
+import type { Id } from "../_generated/dataModel.js";
+import { generateToken, hashToken } from "../lib/crypto.js";
 import {
   clearExpiredAdminBan,
   getAdminStateForUser,
   isAdminStateCurrentlyBanned,
-} from "./users";
+} from "./users.js";
 
 /** Session duration: 24 hours. */
 const SESSION_DURATION_MS = 24 * 60 * 60 * 1000;

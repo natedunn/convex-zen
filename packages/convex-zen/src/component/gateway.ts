@@ -4,32 +4,32 @@
  * Built-in plugins expose their own public gateways under child components.
  */
 import { v } from "convex/values";
-import { action, mutation, query, type DatabaseReader } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
-import { oauthProviderConfigValidator } from "./lib/validators";
-import { omitUndefined } from "./lib/object";
+import { action, mutation, query, type DatabaseReader } from "./_generated/server.js";
+import type { Id } from "./_generated/dataModel.js";
+import { oauthProviderConfigValidator } from "./lib/validators.js";
+import { omitUndefined } from "./lib/object.js";
 import {
   requestPasswordResetCode,
   resetPasswordWithCode,
   signInWithEmailPassword,
   signUpWithEmailPassword,
   verifyEmailCode,
-} from "./providers/emailPassword";
+} from "./providers/emailPassword.js";
 import {
   invalidateAllUserSessions,
   invalidateSessionByRawToken,
   validateSessionToken,
   validateSessionTokenReadOnly,
-} from "./core/sessions";
+} from "./core/sessions.js";
 import {
   findUserById,
   getAdminStateForUser,
   isAdminStateCurrentlyBanned,
-} from "./core/users";
+} from "./core/users.js";
 import {
   getAuthorizationUrlForProvider,
   handleOAuthCallbackForProvider,
-} from "./providers/oauth";
+} from "./providers/oauth.js";
 
 async function normalizeUserForAuthRead<T extends { _id: Id<"users"> }>(
   db: { query: DatabaseReader["query"] },
