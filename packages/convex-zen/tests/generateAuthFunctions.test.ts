@@ -74,6 +74,71 @@ export const customPlugin = definePlugin({
   );
 }
 
+async function writeInstalledPluginPackage(cwd: string): Promise<void> {
+  const packageDir = path.join(cwd, "node_modules", "acme-installed-plugin");
+  await mkdir(path.join(packageDir, "dist"), { recursive: true });
+  await writeFile(
+    path.join(packageDir, "package.json"),
+    JSON.stringify(
+      {
+        name: "acme-installed-plugin",
+        version: "1.0.0",
+        type: "module",
+        exports: {
+          ".": {
+            import: "./dist/index.js",
+          },
+          "./gateway": {
+            import: "./dist/gateway.js",
+          },
+          "./convex.config": {
+            import: "./dist/convex.config.js",
+          },
+        },
+      },
+      null,
+      2
+    ),
+    "utf8"
+  );
+  await writeFile(
+    path.join(packageDir, "dist", "index.js"),
+    `
+import * as gateway from "./gateway.js";
+
+export const installedPlugin = {
+  definition: {
+    id: "installed",
+    gateway,
+  },
+};
+`,
+    "utf8"
+  );
+  await writeFile(
+    path.join(packageDir, "dist", "gateway.js"),
+    `
+const PLUGIN_FUNCTION_METADATA_KEY = "__convexZenPluginFunction";
+
+export const getMessage = {
+  [PLUGIN_FUNCTION_METADATA_KEY]: {
+    kind: "query",
+    auth: "public",
+    args: {},
+  },
+};
+`,
+    "utf8"
+  );
+  await writeFile(
+    path.join(packageDir, "dist", "convex.config.js"),
+    `
+export default {};
+`,
+    "utf8"
+  );
+}
+
 afterEach(async () => {
   await Promise.all(
     tempDirs.splice(0).map(async (dir) => {
@@ -535,5 +600,48 @@ export default zenConfig;
     );
     expect(pluginSource).toContain("return auth.plugins.example.log(ctx, args);");
     expect(pluginSource).toContain("return auth.plugins.example.listLogs(ctx, args);");
+  });
+
+  it("resolves an installed ESM plugin package with import-only exports", async () => {
+    const cwd = await createTempWorkspace();
+    await writeInstalledPluginPackage(cwd);
+    await writeZenConfigFile(
+      cwd,
+      `
+import { defineConvexZen } from ${JSON.stringify(convexZenEntry)};
+import { installedPlugin } from "acme-installed-plugin";
+
+const zenConfig = defineConvexZen({
+  plugins: [installedPlugin()],
+});
+
+export default zenConfig;
+`
+    );
+
+    const result = await generateAuthFunctions({
+      cwd,
+      check: false,
+      verbose: false,
+    });
+
+    expect(result.created).toContain(path.join("convex", "zen", "plugin", "installed.ts"));
+
+    const componentSource = await readFile(
+      path.join(cwd, "convex", "zen", "component", "convex.config.ts"),
+      "utf8"
+    );
+    expect(componentSource).toContain(
+      'import installedComponent from "acme-installed-plugin/convex.config";'
+    );
+
+    const pluginSource = await readFile(
+      path.join(cwd, "convex", "zen", "plugin", "installed.ts"),
+      "utf8"
+    );
+    expect(pluginSource).toContain(
+      'import * as pluginGateway from "acme-installed-plugin/gateway";'
+    );
+    expect(pluginSource).toContain("return auth.plugins.installed.getMessage(ctx, args);");
   });
 });

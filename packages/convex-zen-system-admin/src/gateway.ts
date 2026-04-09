@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internalMutation } from "./_generated/server";
+import { internalMutation } from "./_generated/server.js";
 import type {
   MutationCtx,
   QueryCtx,
@@ -15,7 +15,7 @@ import {
   normalizeAdminRole,
   setUserRoleByAdmin,
   unbanUserByAdmin,
-} from "./component";
+} from "./component.js";
 
 export const isAdmin = pluginQuery({
   auth: "optionalActor",
