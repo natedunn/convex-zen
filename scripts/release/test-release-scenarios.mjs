@@ -8,7 +8,10 @@ import { fileURLToPath } from "node:url";
 
 const require = createRequire(import.meta.url);
 const { getPackages } = require("./packages.cjs");
-const { getPackageReleaseDecision } = require("./lib/package-release-decision.cjs");
+const {
+  getPackageReleaseDecision,
+  incrementVersion,
+} = require("./lib/package-release-decision.cjs");
 const { rewriteDependencyMap } = require("./lib/workspace-dependencies.cjs");
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -122,32 +125,6 @@ function updatePackageVersion(repoDir, packageName, version) {
   writeFileSync(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`);
 }
 
-function incrementVersion(version, releaseType) {
-  const [majorText, minorText, patchText] = version.split(".");
-  let major = Number(majorText);
-  let minor = Number(minorText);
-  let patch = Number(patchText);
-
-  switch (releaseType) {
-    case "major":
-      major += 1;
-      minor = 0;
-      patch = 0;
-      break;
-    case "minor":
-      minor += 1;
-      patch = 0;
-      break;
-    case "patch":
-      patch += 1;
-      break;
-    default:
-      throw new Error(`Unsupported release type: ${releaseType}`);
-  }
-
-  return `${major}.${minor}.${patch}`;
-}
-
 async function assertScenario({
   templateDir,
   name,
@@ -190,11 +167,11 @@ async function assertScenario({
   process.stdout.write(`PASS ${name}\n`);
 }
 
-const templateDir = path.join(tempRoot, "template");
-mkdirSync(templateDir, { recursive: true });
-seedPackageRepo(templateDir);
-
 try {
+  const templateDir = path.join(tempRoot, "template");
+  mkdirSync(templateDir, { recursive: true });
+  seedPackageRepo(templateDir);
+
   await assertScenario({
     templateDir,
     name: "core-only-patch",
