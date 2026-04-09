@@ -284,7 +284,7 @@ importers:
         specifier: ^1.17.0
         version: 1.32.0(react@19.2.4)
       convex-zen:
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../convex-zen
     devDependencies:
       typescript:
@@ -297,7 +297,7 @@ importers:
         specifier: ^1.17.0
         version: 1.32.0(react@19.2.4)
       convex-zen:
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../convex-zen
     devDependencies:
       typescript:

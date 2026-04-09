@@ -7,8 +7,8 @@
   "scripts": {
     "test": "pnpm -r test",
     "build": "pnpm -r build",
-    "release": "semantic-release",
-    "release:dry-run": "semantic-release --dry-run"
+    "release:package": "node scripts/release/run-package-release.mjs",
+    "release:package:dry-run": "node scripts/release/run-package-release.mjs --dry-run --no-ci"
   },
   "devDependencies": {
     "@semantic-release/changelog": "^6.0.3",

@@ -30,7 +30,7 @@
   },
   "dependencies": {
     "convex": "^1.17.0",
-    "convex-zen": "workspace:*"
+    "convex-zen": "workspace:^"
   },
   "devDependencies": {
     "typescript": "^5.5.0"
