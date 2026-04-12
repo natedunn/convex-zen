@@ -1,5 +1,18 @@
 const path = require("node:path");
 
+const SHARED_RELEASE_PATHS = [
+  "scripts/release/lib/**",
+  "scripts/release/plugins/**",
+  "scripts/release/packages.cjs",
+  "scripts/release/prepare-package.mjs",
+  "scripts/release/publish-package.mjs",
+  "scripts/release/run-package-release.mjs",
+  "scripts/release/stage-package.mjs",
+  "package.json",
+  "pnpm-lock.yaml",
+  ".github/workflows/release.yml",
+];
+
 const PACKAGES = [
   {
     packageName: "convex-zen",
@@ -7,7 +20,7 @@ const PACKAGES = [
     tagFormat: "convex-zen-v${version}",
     changelogFile: "packages/convex-zen/CHANGELOG.md",
     buildCommand: "pnpm --filter convex-zen build",
-    releasePaths: ["packages/convex-zen/**"],
+    releasePaths: ["packages/convex-zen/**", ...SHARED_RELEASE_PATHS],
     releaseCommitMessage:
       "chore(release): convex-zen ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}",
   },
@@ -17,7 +30,10 @@ const PACKAGES = [
     tagFormat: "convex-zen-organization-v${version}",
     changelogFile: "packages/convex-zen-organization/CHANGELOG.md",
     buildCommand: "pnpm --filter convex-zen-organization build",
-    releasePaths: ["packages/convex-zen-organization/**"],
+    releasePaths: [
+      "packages/convex-zen-organization/**",
+      ...SHARED_RELEASE_PATHS,
+    ],
     releaseCommitMessage:
       "chore(release): convex-zen-organization ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}",
   },
@@ -27,7 +43,10 @@ const PACKAGES = [
     tagFormat: "convex-zen-system-admin-v${version}",
     changelogFile: "packages/convex-zen-system-admin/CHANGELOG.md",
     buildCommand: "pnpm --filter convex-zen-system-admin build",
-    releasePaths: ["packages/convex-zen-system-admin/**"],
+    releasePaths: [
+      "packages/convex-zen-system-admin/**",
+      ...SHARED_RELEASE_PATHS,
+    ],
     releaseCommitMessage:
       "chore(release): convex-zen-system-admin ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}",
   },

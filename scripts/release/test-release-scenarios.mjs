@@ -54,6 +54,8 @@ function seedPackageRepo(templateDir) {
 
   writeRepoFile(templateDir, "LICENSE", "Apache-2.0\n");
   writeRepoFile(templateDir, "README.md", "# Release harness\n");
+  writeRepoFile(templateDir, "package.json", '{\n  "name": "release-harness"\n}\n');
+  writeRepoFile(templateDir, "pnpm-lock.yaml", "lockfileVersion: '9.0'\n");
   writeRepoFile(templateDir, "scripts/release/README.md", "release docs\n");
 
   for (const packageConfig of getPackages()) {
@@ -254,6 +256,42 @@ try {
       commitAll(repoDir, "fix(ci): tweak release docs");
     },
     expectedReleaseTypes: {},
+  });
+
+  await assertScenario({
+    templateDir,
+    name: "shared-release-script-patch",
+    async arrange(repoDir) {
+      writeRepoFile(
+        repoDir,
+        "scripts/release/stage-package.mjs",
+        "export const stagePackage = true;\n"
+      );
+      commitAll(repoDir, "fix(release): adjust staged package publishing");
+    },
+    expectedReleaseTypes: {
+      "convex-zen": "patch",
+      "convex-zen-organization": "patch",
+      "convex-zen-system-admin": "patch",
+    },
+  });
+
+  await assertScenario({
+    templateDir,
+    name: "workspace-config-patch",
+    async arrange(repoDir) {
+      writeRepoFile(
+        repoDir,
+        "package.json",
+        '{\n  "name": "release-harness",\n  "private": true\n}\n'
+      );
+      commitAll(repoDir, "fix(repo): update workspace release config");
+    },
+    expectedReleaseTypes: {
+      "convex-zen": "patch",
+      "convex-zen-organization": "patch",
+      "convex-zen-system-admin": "patch",
+    },
   });
 
   await assertScenario({
