@@ -8,28 +8,35 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..");
 const testVersion = "0.0.0-stage-test";
 
-const stageDir = execFileSync(
-  "node",
-  [path.join(scriptDir, "stage-package.mjs"), "convex-zen", testVersion],
-  {
-    cwd: repoRoot,
-    encoding: "utf8",
-    env: process.env,
+function stagePackage(packageName) {
+  const stageDir = execFileSync(
+    "node",
+    [path.join(scriptDir, "stage-package.mjs"), packageName, testVersion],
+    {
+      cwd: repoRoot,
+      encoding: "utf8",
+      env: process.env,
+    }
+  )
+    .trim()
+    .split("\n")
+    .at(-1);
+
+  if (!stageDir) {
+    throw new Error(`Expected stage-package to print the staged directory for ${packageName}.`);
   }
-)
-  .trim()
-  .split("\n")
-  .at(-1);
 
-if (!stageDir) {
-  throw new Error("Expected stage-package to print the staged directory.");
-}
-
-try {
   const stagedPackageJson = JSON.parse(
     readFileSync(path.join(stageDir, "package.json"), "utf8")
   );
 
+  return {
+    stageDir,
+    stagedPackageJson,
+  };
+}
+
+function assertCommonStageContents(stageDir, stagedPackageJson) {
   assert.equal(stagedPackageJson.version, testVersion);
   assert.deepEqual(stagedPackageJson.files, [
     "dist",
@@ -45,8 +52,45 @@ try {
     existsSync(path.join(stageDir, "src")),
     "Expected staged package to include src/"
   );
+}
+
+const stagedPackages = [
+  stagePackage("convex-zen"),
+  stagePackage("convex-zen-system-admin"),
+  stagePackage("convex-zen-organization"),
+];
+
+try {
+  const convexZen = stagedPackages[0];
+  const systemAdmin = stagedPackages[1];
+  const organization = stagedPackages[2];
+
+  assertCommonStageContents(convexZen.stageDir, convexZen.stagedPackageJson);
+  assert.deepEqual(convexZen.stagedPackageJson.exports["./_generated/*.js"], {
+    types: "./dist/component/_generated/*.d.ts",
+    import: "./dist/component/_generated/*.js",
+  });
+  assert.deepEqual(convexZen.stagedPackageJson.exports["./core/_generated/*.js"], {
+    types: "./dist/component/core/_generated/*.d.ts",
+    import: "./dist/component/core/_generated/*.js",
+  });
+
+  assertCommonStageContents(systemAdmin.stageDir, systemAdmin.stagedPackageJson);
+  assert.deepEqual(systemAdmin.stagedPackageJson.exports["./_generated/*.js"], {
+    types: "./dist/_generated/*.d.ts",
+    import: "./dist/_generated/*.js",
+  });
+
+  assertCommonStageContents(organization.stageDir, organization.stagedPackageJson);
+  assert.deepEqual(organization.stagedPackageJson.exports["./_generated/*.js"], {
+    types: "./dist/_generated/*.d.ts",
+    import: "./dist/_generated/*.js",
+  });
 
   process.stdout.write("PASS stage-package-includes-configured-files\n");
+  process.stdout.write("PASS stage-package-exports-generated-subpaths\n");
 } finally {
-  rmSync(stageDir, { recursive: true, force: true });
+  for (const { stageDir } of stagedPackages) {
+    rmSync(stageDir, { recursive: true, force: true });
+  }
 }

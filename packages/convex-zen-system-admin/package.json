@@ -18,6 +18,10 @@
       "types": "./src/gateway.ts",
       "import": "./src/gateway.ts"
     },
+    "./_generated/*.js": {
+      "types": "./src/_generated/*.ts",
+      "import": "./src/_generated/*.ts"
+    },
     "./convex.config": {
       "types": "./src/convex.config.ts",
       "import": "./src/convex.config.ts"
@@ -39,6 +43,10 @@
       "./gateway": {
         "types": "./dist/gateway.d.ts",
         "import": "./dist/gateway.js"
+      },
+      "./_generated/*.js": {
+        "types": "./dist/_generated/*.d.ts",
+        "import": "./dist/_generated/*.js"
       },
       "./convex.config": {
         "types": "./dist/convex.config.d.ts",
