@@ -1,3 +1,11 @@
+## [1.13.3](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.13.2...convex-zen-v1.13.3) (2026-04-12)
+
+
+### Bug Fixes
+
+* **packages:** export generated subpaths and harden release triggers ([da2c01f](https://github.com/natedunn/convex-zen/commit/da2c01fe3a67b40588dd8496669aa27a781cc85b))
+* **release:** include source files in staged packages ([63b3f34](https://github.com/natedunn/convex-zen/commit/63b3f34e21871a85b8dc83401dcc3413aa3d7da4))
+
 ## [1.13.2](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.13.1...convex-zen-v1.13.2) (2026-04-09)
 
 
