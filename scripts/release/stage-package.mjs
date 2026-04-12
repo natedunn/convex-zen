@@ -49,6 +49,35 @@ function transformExports(exportsField) {
   );
 }
 
+async function copyConfiguredPackageFiles(packageDir, stageDir, filesField) {
+  if (!Array.isArray(filesField)) {
+    return [];
+  }
+
+  const copiedFiles = [];
+
+  for (const entry of filesField) {
+    if (typeof entry !== "string" || entry === "README.md" || entry === "LICENSE") {
+      continue;
+    }
+
+    const sourcePath = path.join(packageDir, entry);
+
+    try {
+      await access(sourcePath);
+    } catch {
+      continue;
+    }
+
+    await cp(sourcePath, path.join(stageDir, entry), {
+      recursive: true,
+    });
+    copiedFiles.push(entry);
+  }
+
+  return copiedFiles;
+}
+
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..");
 const packageSpecifier = process.argv[2];
@@ -82,9 +111,11 @@ execFileSync("pnpm", ["run", buildScript], {
   env: process.env,
 });
 
-await cp(path.join(packageDir, "dist"), path.join(stageDir, "dist"), {
-  recursive: true,
-});
+const copiedFiles = await copyConfiguredPackageFiles(
+  packageDir,
+  stageDir,
+  packageJson.files
+);
 
 const readmePath = path.join(packageDir, "README.md");
 let resolvedReadmePath = readmePath;
@@ -97,6 +128,10 @@ await cp(resolvedReadmePath, path.join(stageDir, "README.md"));
 
 const licensePath = path.join(repoRoot, "LICENSE");
 await cp(licensePath, path.join(stageDir, "LICENSE"));
+
+const publishedFiles = Array.from(
+  new Set([...copiedFiles, "README.md", "LICENSE"])
+);
 
 const publishedPackageJson = {
   ...packageJson,
@@ -113,7 +148,7 @@ const publishedPackageJson = {
     packageJson.peerDependencies,
     repoRoot
   ),
-  files: ["dist", "README.md", "LICENSE"],
+  files: publishedFiles,
 };
 
 delete publishedPackageJson.publishConfig;
