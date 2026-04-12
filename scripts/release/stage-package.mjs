@@ -65,8 +65,11 @@ async function copyConfiguredPackageFiles(packageDir, stageDir, filesField) {
 
     try {
       await access(sourcePath);
-    } catch {
-      continue;
+    } catch (error) {
+      throw new Error(
+        `Configured package file "${entry}" does not exist in ${packageDir}. Refusing to stage a package with missing package.json "files" entries.`,
+        { cause: error }
+      );
     }
 
     await cp(sourcePath, path.join(stageDir, entry), {
