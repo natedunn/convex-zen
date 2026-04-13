@@ -1,3 +1,10 @@
+## [1.13.4](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.13.3...convex-zen-v1.13.4) (2026-04-13)
+
+
+### Bug Fixes
+
+* **client:** isolate next runtime exports ([78c1440](https://github.com/natedunn/convex-zen/commit/78c1440ac8acf712c4853216e2c2a504523ac0fe))
+
 ## [1.13.3](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.13.2...convex-zen-v1.13.3) (2026-04-12)
 
 
