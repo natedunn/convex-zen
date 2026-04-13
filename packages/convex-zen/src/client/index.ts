@@ -1011,21 +1011,8 @@ export {
 	DEFAULT_EXPO_CORE_META,
 } from "./expo.js";
 export { createRouteAuthRuntimeAdapter } from "./framework-adapter.js";
-export {
-	createNextAuthClient,
-	createNextReactAuthClient,
-	createNextServerAuth,
-	createNextServerAuthWithHandler,
-	createNextAuthApiHandler,
-	coreApiPlugin,
-	pluginApiPlugin,
-	createNextAuthServer,
-	createNextAuthServerFactory,
-	createNextConvexAuth,
-	createNextConvexFetchers,
-	createRequestFromHeaders,
-	resolveNextTrustedOriginsFromEnv,
-} from "./next/index.js";
+// Next.js runtime helpers stay on the dedicated "convex-zen/next" entrypoint
+// so non-Next consumers do not pull Next-only modules into their bundles.
 export type {
 	AuthPluginFactory,
 	AuthPluginFunctionAuth,
