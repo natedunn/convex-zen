@@ -1,3 +1,10 @@
+## [1.14.3](https://github.com/natedunn/convex-zen/compare/convex-zen-organization-v1.14.2...convex-zen-organization-v1.14.3) (2026-04-15)
+
+
+### Bug Fixes
+
+* **deps:** update convex to ^1.35.1 across all packages ([6f2054d](https://github.com/natedunn/convex-zen/commit/6f2054ddf16af3cd9a5559a0b38bc1e4f880ecc0))
+
 ## [1.14.2](https://github.com/natedunn/convex-zen/compare/convex-zen-organization-v1.14.1...convex-zen-organization-v1.14.2) (2026-04-12)
 
 
