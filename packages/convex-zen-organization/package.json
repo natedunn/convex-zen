@@ -55,7 +55,7 @@
     }
   },
   "dependencies": {
-    "convex": "^1.17.0",
+    "convex": "^1.35.1",
     "convex-zen": "workspace:^"
   },
   "devDependencies": {
