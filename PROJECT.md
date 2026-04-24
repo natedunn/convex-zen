@@ -16,7 +16,7 @@ It should be understood as an alternative to:
 The project direction is straightforward:
 
 - keep auth logic inside Convex components
-- expose framework-specific surfaces from `convex-zen/<framework>`
+- provide framework-specific entrypoints from `convex-zen/<framework>`
 - provide a package-first model that fits how Convex apps are built
 
 ---

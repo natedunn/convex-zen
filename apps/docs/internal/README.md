@@ -9,7 +9,7 @@ This folder documents the package-first integration model for `convex-zen`.
 - the Better Auth Convex component: https://github.com/get-convex/better-auth
 - Convex Auth: https://labs.convex.dev/auth
 
-It exposes framework entrypoints from `convex-zen/<framework>` while keeping auth logic inside Convex components.
+The core auth implementation lives in the package, and apps integrate through `convex-zen/<framework>` entrypoints.
 
 Goals:
 

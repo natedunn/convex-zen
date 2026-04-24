@@ -9,7 +9,7 @@ Positioning:
 - Better Auth Convex component: https://github.com/get-convex/better-auth
 - Convex Auth: https://labs.convex.dev/auth
 
-This demo uses `convex-zen` as a native Convex auth component, with framework-specific package exports for the app integration.
+This demo uses `convex-zen` as a native Convex auth component, and integrates through the package's Next.js entrypoint.
 
 Write your Convex functions here.
 See https://docs.convex.dev/functions for more.
