@@ -82,6 +82,10 @@ function parseArgs(argv: string[]): {
     throw new Error(`Unknown argument: ${arg}`);
   }
 
+  if (doctorOptions.json && command !== null && command !== "doctor") {
+    throw new Error("--json is only supported by the doctor command");
+  }
+
   return { command, options, doctorOptions };
 }
 

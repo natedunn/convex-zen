@@ -6,7 +6,7 @@ type MutationScheduler = {
   ): Promise<unknown>;
 };
 
-function isVitestRuntime(): boolean {
+function isTestRuntime(): boolean {
   return (
     typeof process !== "undefined" &&
     typeof process.env === "object" &&
@@ -19,7 +19,7 @@ export async function scheduleCleanupAt(
   when: number,
   functionRef: unknown
 ): Promise<void> {
-  if (isVitestRuntime()) {
+  if (isTestRuntime()) {
     return;
   }
   await scheduler.runAt(when, functionRef, {});
