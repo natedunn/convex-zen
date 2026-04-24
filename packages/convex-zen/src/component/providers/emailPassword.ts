@@ -506,9 +506,3 @@ export const resetPassword = internalMutation({
 	},
 	handler: async (ctx, args) => await resetPasswordWithCode(ctx, args),
 });
-
-/** Cleanup expired verification records for scheduled email/password flows. */
-export const cleanupExpiredVerifications = internalMutation({
-	args: {},
-	handler: async (ctx) => await cleanupExpiredVerificationRecords(ctx.db),
-});
