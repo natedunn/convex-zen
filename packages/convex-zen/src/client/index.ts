@@ -215,7 +215,7 @@ export function createConvexZenClient<TPlugins extends PluginList>(
  * ```ts
  * // convex/zen.runtime.ts
  * import { ConvexZen, googleProvider } from "convex-zen";
- * import { systemAdminPlugin } from "convex-zen/plugins/system-admin";
+ * import { systemAdminPlugin } from "convex-zen/plugins";
  * import { components } from "./_generated/api";
  *
  * export const auth = new ConvexZen(components.zenComponent, {

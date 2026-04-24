@@ -14,9 +14,10 @@ import { organizationPlugin } from "convex-zen-organization";
 With:
 
 ```ts
-import { systemAdminPlugin } from "convex-zen/plugins/system-admin";
-import { organizationPlugin } from "convex-zen/plugins/organization";
+import { organizationPlugin, systemAdminPlugin } from "convex-zen/plugins";
 ```
+
+Direct subpath imports like `convex-zen/plugins/system-admin` remain supported.
 
 ## Third-party plugins
 

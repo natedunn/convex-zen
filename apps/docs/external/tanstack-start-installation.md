@@ -25,7 +25,7 @@ pnpm add convex convex-zen @convex-dev/react-query @tanstack/react-query
 pnpm add -D concurrently
 ```
 
-Built-in plugins are imported from `convex-zen/plugins/*`, so no extra plugin package install is needed.
+Built-in plugins are exported from `convex-zen/plugins`, and direct subpath imports like `convex-zen/plugins/system-admin` also work when you want them.
 
 ## 3. Add Convex app wiring
 
@@ -61,8 +61,7 @@ import {
 	githubProvider,
 	googleProvider,
 } from "convex-zen";
-import { systemAdminPlugin } from "convex-zen/plugins/system-admin";
-import { organizationPlugin } from "convex-zen/plugins/organization";
+import { organizationPlugin, systemAdminPlugin } from "convex-zen/plugins";
 
 export default defineConvexZen({
 	emailProvider: {

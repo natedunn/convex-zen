@@ -14,7 +14,7 @@ Enable the plugin in `convex/zen.config.ts`:
 
 ```ts
 import { defineConvexZen } from "convex-zen";
-import { organizationPlugin } from "convex-zen/plugins/organization";
+import { organizationPlugin } from "convex-zen/plugins";
 
 export default defineConvexZen({
   plugins: [

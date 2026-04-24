@@ -81,6 +81,10 @@
       "types": "./src/component/convex.config.ts",
       "import": "./src/component/convex.config.ts"
     },
+    "./plugins": {
+      "types": "./src/plugins/index.ts",
+      "import": "./src/plugins/index.ts"
+    },
     "./plugins/system-admin": {
       "types": "./src/plugins/system-admin/index.ts",
       "import": "./src/plugins/system-admin/index.ts"
@@ -161,6 +165,10 @@
       "./convex.config": {
         "types": "./dist/component/convex.config.d.ts",
         "import": "./dist/component/convex.config.js"
+      },
+      "./plugins": {
+        "types": "./dist/plugins/index.d.ts",
+        "import": "./dist/plugins/index.js"
       },
       "./plugins/system-admin": {
         "types": "./dist/plugins/system-admin/index.d.ts",

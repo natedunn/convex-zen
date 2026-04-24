@@ -68,6 +68,10 @@ try {
     types: "./dist/component/core/_generated/*.d.ts",
     import: "./dist/component/core/_generated/*.js",
   });
+  assert.deepEqual(convexZen.stagedPackageJson.exports["./plugins"], {
+    types: "./dist/plugins/index.d.ts",
+    import: "./dist/plugins/index.js",
+  });
   assert.deepEqual(convexZen.stagedPackageJson.exports["./plugins/system-admin"], {
     types: "./dist/plugins/system-admin/index.d.ts",
     import: "./dist/plugins/system-admin/index.js",

@@ -13,6 +13,7 @@
 		"allowSyntheticDefaultImports": true,
 		"paths": {
 			"convex-zen": ["../../../packages/convex-zen/src/client/index.ts"],
+			"convex-zen/plugins": ["../../../packages/convex-zen/src/plugins/index.ts"],
 			"convex-zen/plugins/system-admin": [
 				"../../../packages/convex-zen/src/plugins/system-admin/index.ts"
 			],
