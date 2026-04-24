@@ -1,3 +1,10 @@
+## [1.13.6](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.13.5...convex-zen-v1.13.6) (2026-04-24)
+
+
+### Bug Fixes
+
+* **generate:** align plugin wrappers with component boundaries ([5f3e898](https://github.com/natedunn/convex-zen/commit/5f3e898ee688487029f8d857f88e1f8b91445fee))
+
 ## [1.13.5](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.13.4...convex-zen-v1.13.5) (2026-04-15)
 
 
