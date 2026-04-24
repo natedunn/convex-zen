@@ -20,7 +20,7 @@ npm install convex convex-zen
 
 Built-in plugins are subpath exports from the main package:
 
-```bash
+```ts
 import { systemAdminPlugin } from "convex-zen/plugins/system-admin";
 import { organizationPlugin } from "convex-zen/plugins/organization";
 ```
