@@ -7,15 +7,18 @@ const githubClientId = process.env.GITHUB_CLIENT_ID;
 const githubClientSecret = process.env.GITHUB_CLIENT_SECRET;
 
 export default defineConvexZen({
-	onSuppressedEmailPasswordEvent: async (ctx) => {
-		console.log(`Suppressed email/password event: `, ctx);
+	onSuppressedEmailPasswordEvent: async (event) => {
+		console.log("Suppressed email/password event", {
+			flow: event.flow,
+			reason: event.reason,
+		});
 	},
 	emailProvider: {
-		sendVerificationEmail: async (to: string, code: string) => {
-			console.log(`Verification email to ${to}: ${code}`);
+		sendVerificationEmail: async (to: string) => {
+			console.log(`Verification email requested for ${to}`);
 		},
-		sendPasswordResetEmail: async (to: string, code: string) => {
-			console.log(`Password reset email to ${to}: ${code}`);
+		sendPasswordResetEmail: async (to: string) => {
+			console.log(`Password reset email requested for ${to}`);
 		},
 	},
 	providers:
