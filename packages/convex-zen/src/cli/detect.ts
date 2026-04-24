@@ -495,33 +495,33 @@ function resolveNextSteps(
     case "existing-framework-no-convex":
       return [
         "Install Convex into the existing app first.",
-        `Then follow ${path.join(DOC_ROOT, framework, "from-scratch.md")} from the Convex step onward.`,
+        `Then follow ${path.posix.join(DOC_ROOT, framework, "from-scratch.md")} from the Convex step onward.`,
       ];
     case "existing-framework-with-convex-no-auth":
       return [
         "Create convex/zen.config.ts and convex/auth.config.ts.",
         "Run npx convex-zen generate.",
-        `Follow ${path.join(DOC_ROOT, framework, "add-to-existing-convex.md")}.`,
+        `Follow ${path.posix.join(DOC_ROOT, framework, "add-to-existing-convex.md")}.`,
       ];
     case "existing-framework-with-convex-auth":
       return [
         "Inventory existing Convex Auth routes, env vars, and session reads.",
-        `Follow ${path.join(DOC_ROOT, framework, "migrate-from-convex-auth.md")}.`,
+        `Follow ${path.posix.join(DOC_ROOT, framework, "migrate-from-convex-auth.md")}.`,
       ];
     case "existing-framework-with-better-auth":
       return [
         "Inventory existing Better Auth routes, env vars, and data model usage.",
-        `Follow ${path.join(DOC_ROOT, framework, "migrate-from-better-auth.md")}.`,
+        `Follow ${path.posix.join(DOC_ROOT, framework, "migrate-from-better-auth.md")}.`,
       ];
     case "existing-framework-with-other-auth":
       return [
-        `Follow ${path.join(DOC_ROOT, "shared", "migration-checklist.md")}.`,
-        `Then apply ${path.join(DOC_ROOT, framework, "add-to-existing-convex.md")} once the old auth surface is isolated.`,
+        `Follow ${path.posix.join(DOC_ROOT, "shared", "migration-checklist.md")}.`,
+        `Then apply ${path.posix.join(DOC_ROOT, framework, "add-to-existing-convex.md")} once the old auth surface is isolated.`,
       ];
     default:
       return [
         "Project state is ambiguous.",
-        `Start with ${path.join(DOC_ROOT, "README.md")} and inspect the example apps before editing.`,
+        `Start with ${path.posix.join(DOC_ROOT, "README.md")} and inspect the example apps before editing.`,
       ];
   }
 }
