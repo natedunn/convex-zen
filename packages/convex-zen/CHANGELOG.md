@@ -1,3 +1,16 @@
+# [1.15.0](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.14.0...convex-zen-v1.15.0) (2026-04-24)
+
+
+### Bug Fixes
+
+* **cli:** reject --json for non-doctor commands; rename isVitestRuntime to isTestRuntime ([336d3e6](https://github.com/natedunn/convex-zen/commit/336d3e6c98fde0375fa5250e8bcf421b15a67e2a))
+* **test:** avoid scheduled cleanup jobs in vitest ([a9a3594](https://github.com/natedunn/convex-zen/commit/a9a3594ca48f58ccad70a835aee725da074874ec))
+
+
+### Features
+
+* **cli:** add project doctor analyzer ([f82e434](https://github.com/natedunn/convex-zen/commit/f82e434ecc5fb1f5de968c18083f2ec30d3ad8e0))
+
 # [1.14.0](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.13.6...convex-zen-v1.14.0) (2026-04-24)
 
 
