@@ -7,19 +7,23 @@ import {
   type GenerateOptions,
   type GenerateResult,
 } from "./generate.js";
+import { formatDoctorReport, runDoctor, type DoctorOptions } from "./doctor.js";
 
 function printHelp(): void {
   console.log(`convex-zen CLI
 
 Usage:
   convex-zen generate [--cwd <path>] [--check]
+  convex-zen doctor [--cwd <path>] [--json]
 
 Commands:
   generate    Generate Convex auth function wrappers in convex/zen/
+  doctor      Detect project state and recommend the right install or migration guide
 
 Flags:
   --cwd       Workspace root (default: current working directory)
   --check     Check for drift without writing files
+  --json      Print machine-readable JSON (doctor only)
   -h, --help  Show this help message
 `);
 }
@@ -27,12 +31,17 @@ Flags:
 function parseArgs(argv: string[]): {
   command: string | null;
   options: GenerateOptions;
+  doctorOptions: DoctorOptions;
 } {
   let command: string | null = null;
   const options: GenerateOptions = {
     cwd: process.cwd(),
     check: false,
     verbose: false,
+  };
+  const doctorOptions: DoctorOptions = {
+    cwd: process.cwd(),
+    json: false,
   };
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -41,7 +50,7 @@ function parseArgs(argv: string[]): {
       continue;
     }
     if (arg === "-h" || arg === "--help") {
-      return { command: null, options };
+      return { command: null, options, doctorOptions };
     }
     if (!command && !arg.startsWith("-")) {
       command = arg;
@@ -49,6 +58,10 @@ function parseArgs(argv: string[]): {
     }
     if (arg === "--check") {
       options.check = true;
+      continue;
+    }
+    if (arg === "--json") {
+      doctorOptions.json = true;
       continue;
     }
     if (arg === "--verbose") {
@@ -60,14 +73,16 @@ function parseArgs(argv: string[]): {
       if (!next) {
         throw new Error("--cwd requires a path value");
       }
-      options.cwd = path.resolve(next);
+      const resolved = path.resolve(next);
+      options.cwd = resolved;
+      doctorOptions.cwd = resolved;
       i += 1;
       continue;
     }
     throw new Error(`Unknown argument: ${arg}`);
   }
 
-  return { command, options };
+  return { command, options, doctorOptions };
 }
 
 function printSummary(result: GenerateResult): void {
@@ -104,9 +119,19 @@ function printSummary(result: GenerateResult): void {
 }
 
 async function main(): Promise<void> {
-  const { command, options } = parseArgs(process.argv.slice(2));
+  const { command, options, doctorOptions } = parseArgs(process.argv.slice(2));
   if (!command) {
     printHelp();
+    return;
+  }
+
+  if (command === "doctor") {
+    const result = await runDoctor(doctorOptions);
+    if (doctorOptions.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      console.log(formatDoctorReport(result));
+    }
     return;
   }
 
