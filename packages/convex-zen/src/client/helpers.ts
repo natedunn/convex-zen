@@ -66,7 +66,7 @@ export function hasPluginFunctionRefs(convexFunctions: unknown): boolean {
 /**
  * Resolve a Convex component function reference from a dotted path string.
  *
- * Converts e.g. `"gateway:signUp"` or `"system-admin/gateway:listUsers"` into the
+ * Converts e.g. `"core/gateway:signUp"` or `"plugins/systemAdmin/gateway:listUsers"` into the
  * corresponding nested property on the component API object.
  *
  * Used by ConvexZen, SystemAdminPlugin, and OrganizationPlugin to avoid duplicating

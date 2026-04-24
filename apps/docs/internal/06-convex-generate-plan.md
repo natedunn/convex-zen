@@ -11,9 +11,10 @@
 - `convex/zen/core.ts`
 - `convex/zen/component/convex.config.ts`
 - `convex/zen/component/_runtime.ts`
-- `convex/zen/component/gateway.ts`
+- `convex/zen/component/core/gateway.ts`
+- `convex/zen/component/core/users.ts`
 - `convex/zen/plugin/<plugin>.ts`
-- `convex/zen/component/<plugin>/gateway.ts`
+- `convex/zen/component/plugins/<plugin>/gateway.ts`
 - `convex/zen/_generated/auth.ts`
 - `convex/zen/_generated/meta.ts`
 - `convex/zen/_generated/oauth.ts` _(only when OAuth is enabled)_

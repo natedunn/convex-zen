@@ -67,15 +67,6 @@ export const invalidateSession = mutation({
   },
 });
 
-export const invalidateAllSessions = mutation({
-  args: {
-    userId: v.string(),
-  },
-  handler: async (ctx, args) => {
-    await auth.signOutAll(ctx, args.userId);
-  },
-});
-
 export const validateSession = mutation({
   args: {
     token: v.string(),
@@ -91,15 +82,6 @@ export const currentUser = query({
   },
   handler: async (ctx, args) => {
     return auth.user.safeGet(ctx, args.token);
-  },
-});
-
-export const getUserById = query({
-  args: {
-    userId: v.string(),
-  },
-  handler: async (ctx, args) => {
-    return auth.getAuthUserById(ctx, args.userId);
   },
 });
 
