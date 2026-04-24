@@ -397,8 +397,20 @@ export interface PluginDefinition<
     | PluginSchemaDefinition<any>
     | undefined,
 > {
+  /**
+   * Stable plugin identifier used for generated module paths and schema prefixes.
+   * Plugin-owned tables must use this id as a `<pluginId>__` prefix.
+   */
   id: TId;
+  /**
+   * Optional plugin schema merged into the generated Zen component.
+   * Plugin schema files stay flat at `convex/plugins/<plugin>/schema.ts`.
+   */
   schema?: TSchema;
+  /**
+   * Public plugin functions defined in `convex/plugins/<plugin>/gateway.ts`.
+   * These exports are the source of truth for generated app and component wrappers.
+   */
   gateway: TGateway;
   normalizeOptions?: (options: TOptions | undefined) => TOptions;
   optionsSchema?: unknown;
@@ -476,6 +488,15 @@ export function definePlugin<
   TRuntimeExtension extends object,
   TSchema extends PluginSchemaDefinition<any> | undefined,
 >(
+  /**
+   * Declare a flat build-time plugin from `convex/plugins/<plugin>/index.ts`.
+   *
+   * Minimal layout:
+   * - `index.ts` exports `definePlugin({ id, gateway, schema? })`
+   * - `gateway.ts` exports `pluginQuery` / `pluginMutation` / `pluginAction`
+   * - `schema.ts` optionally exports `definePluginSchema({ tables })`
+   * - `runtime.ts` is optional and can be referenced from `extendRuntime`
+   */
   definition: PluginDefinition<
     TId,
     TOptions,

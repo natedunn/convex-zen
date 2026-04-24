@@ -174,6 +174,22 @@ try {
 
   await assertScenario({
     templateDir,
+    name: "core-feature-minor",
+    async arrange(repoDir) {
+      writeRepoFile(
+        repoDir,
+        "packages/convex-zen/src/index.ts",
+        "export const core = 'feature';\n"
+      );
+      commitAll(repoDir, "feat(plugins): add flat build-time plugin authoring");
+    },
+    expectedReleaseTypes: {
+      "convex-zen": "minor",
+    },
+  });
+
+  await assertScenario({
+    templateDir,
     name: "core-breaking-change",
     async arrange(repoDir) {
       writeRepoFile(
