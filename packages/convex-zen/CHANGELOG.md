@@ -1,3 +1,10 @@
+# [1.14.0](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.13.6...convex-zen-v1.14.0) (2026-04-24)
+
+
+### Features
+
+* **plugins:** document flat build-time plugin authoring ([b7e1921](https://github.com/natedunn/convex-zen/commit/b7e1921d639de3fbc51a458f913dadc3546d2941))
+
 ## [1.13.6](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.13.5...convex-zen-v1.13.6) (2026-04-24)
 
 
