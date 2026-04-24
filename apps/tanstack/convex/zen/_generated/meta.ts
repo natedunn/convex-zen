@@ -3,9 +3,7 @@ export const authMeta = {
   "core": {
     "currentUser": "query",
     "getOAuthUrl": "mutation",
-    "getUserById": "query",
     "handleOAuthCallback": "action",
-    "invalidateAllSessions": "mutation",
     "invalidateSession": "mutation",
     "requestPasswordReset": "mutation",
     "resetPassword": "mutation",
@@ -57,6 +55,8 @@ export const authMeta = {
     },
     "systemAdmin": {
       "banUser": "mutation",
+      "bootstrapAdmin": "mutation",
+      "canBootstrapAdmin": "query",
       "deleteUser": "mutation",
       "isAdmin": "query",
       "listUsers": "query",

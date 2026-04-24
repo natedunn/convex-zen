@@ -11,7 +11,6 @@
 import type * as gateway from "../gateway.js";
 import type * as index from "../index.js";
 import type * as lib_crypto from "../lib/crypto.js";
-import type * as lib_internalApi from "../lib/internalApi.js";
 import type * as lib_rateLimit from "../lib/rateLimit.js";
 import type * as lib_validators from "../lib/validators.js";
 import type * as providers_emailPassword from "../providers/emailPassword.js";
@@ -28,7 +27,6 @@ const fullApi: ApiFromModules<{
   gateway: typeof gateway;
   index: typeof index;
   "lib/crypto": typeof lib_crypto;
-  "lib/internalApi": typeof lib_internalApi;
   "lib/rateLimit": typeof lib_rateLimit;
   "lib/validators": typeof lib_validators;
   "providers/emailPassword": typeof providers_emailPassword;

@@ -212,7 +212,7 @@ describe("sessions", () => {
         createdAt: Date.now(),
         updatedAt: Date.now(),
       });
-      await ctx.db.insert("adminUsers", {
+      await ctx.db.insert("systemAdmin__users", {
         userId,
         role: "user",
         banned: true,
@@ -244,7 +244,7 @@ describe("sessions", () => {
         createdAt: now,
         updatedAt: now,
       });
-      await ctx.db.insert("adminUsers", {
+      await ctx.db.insert("systemAdmin__users", {
         userId,
         role: "user",
         banned: true,
@@ -270,7 +270,7 @@ describe("sessions", () => {
     // User should be unbanned
     const adminUser = await t.run((ctx) =>
       ctx.db
-        .query("adminUsers")
+        .query("systemAdmin__users")
         .withIndex("by_userId", (q) => q.eq("userId", userId))
         .unique()
     );

@@ -21,6 +21,22 @@ const RESERVED_CORE_FUNCTION_NAMES = new Set([
   "plugin",
   "core",
 ]);
+const RESERVED_PLUGIN_IDS = new Set([
+  "core",
+  "plugin",
+  "component",
+  "_generated",
+  "auth",
+]);
+const CORE_TABLE_NAMES = new Set([
+  "users",
+  "accounts",
+  "sessions",
+  "verifications",
+  "oauthStates",
+  "rateLimits",
+  "config",
+]);
 const nodeRequire = createRequire(import.meta.url);
 
 export interface GenerateOptions {
@@ -58,9 +74,9 @@ type ResolvedAuthSource = {
 };
 type LoadedPluginDefinition = {
   definition: PluginDefinition;
-  componentImportPath: string;
-  gatewaySourcePath: string;
-  childName: string;
+  entrySourcePath: string;
+  factoryExportName: string;
+  factoryImportName: string;
   gatewayFunctions: PluginGatewayRuntimeMethods;
 };
 
@@ -315,7 +331,7 @@ function hasOAuthProviders(authSource: string): boolean {
   }
 
   const callContent = stripped.slice(callMatch.index + callMatch[0].length, i - 1);
-  return /\bproviders\s*:/.test(callContent);
+  return /\bproviders\s*:|\bproviders\s*(?=,|\})/.test(callContent);
 }
 
 type ImportedBinding = {
@@ -389,6 +405,14 @@ async function importPluginDefinition(
   return pluginFactory.definition;
 }
 
+function toKebabCase(value: string): string {
+  return value
+    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+    .replace(/[_\s]+/g, "-")
+    .replace(/-+/g, "-")
+    .toLowerCase();
+}
+
 function toGeneratedImportPath(
   sourceFileAbsolutePath: string,
   targetFileAbsolutePath: string
@@ -401,16 +425,13 @@ function toGeneratedImportPath(
   return normalized.startsWith(".") ? normalized : `./${normalized}`;
 }
 
-async function resolveGeneratedComponentImportPath(
+async function resolvePluginEntrySourcePath(
   authSource: ResolvedAuthSource,
   pluginModuleSpecifier: string,
   pluginDefinition: PluginDefinition
 ): Promise<string> {
   if (!pluginModuleSpecifier.startsWith(".") && !path.isAbsolute(pluginModuleSpecifier)) {
-    return `${pluginModuleSpecifier}/convex.config`;
-  }
-  if (pluginModuleSpecifier.startsWith("convex-zen/plugins/")) {
-    return `${pluginModuleSpecifier}/convex.config`;
+    return pluginModuleSpecifier;
   }
   const pluginModulePath = await resolvePluginModulePath(authSource, pluginModuleSpecifier);
   if (!pluginModulePath) {
@@ -418,46 +439,7 @@ async function resolveGeneratedComponentImportPath(
       `Could not resolve plugin module path for "${pluginDefinition.id}" from "${pluginModuleSpecifier}".`
     );
   }
-  if (
-    pluginModulePath.includes(`${path.sep}src${path.sep}client${path.sep}plugins${path.sep}`) ||
-    pluginModulePath.includes(`${path.sep}src${path.sep}plugins${path.sep}`)
-  ) {
-    return `convex-zen/plugins/${pluginDefinition.id}/convex.config`;
-  }
-  const componentAbsolutePath = path.resolve(
-    path.dirname(pluginModulePath),
-    "convex.config.ts"
-  );
-  return toGeneratedImportPath(
-    path.join(path.dirname(authSource.absolutePath), "zen", "component", "convex.config.ts"),
-    componentAbsolutePath
-  );
-}
-
-async function resolveGatewaySourcePath(
-  authSource: ResolvedAuthSource,
-  pluginModuleSpecifier: string,
-  pluginDefinition: PluginDefinition
-): Promise<string> {
-  if (!pluginModuleSpecifier.startsWith(".") && !path.isAbsolute(pluginModuleSpecifier)) {
-    return `${pluginModuleSpecifier}/gateway`;
-  }
-  if (pluginModuleSpecifier.startsWith("convex-zen/plugins/")) {
-    return `${pluginModuleSpecifier}/gateway`;
-  }
-  const pluginModulePath = await resolvePluginModulePath(authSource, pluginModuleSpecifier);
-  if (!pluginModulePath) {
-    throw new Error(
-      `Could not resolve plugin module path for "${pluginDefinition.id}" from "${pluginModuleSpecifier}".`
-    );
-  }
-  if (
-    pluginModulePath.includes(`${path.sep}src${path.sep}client${path.sep}plugins${path.sep}`) ||
-    pluginModulePath.includes(`${path.sep}src${path.sep}plugins${path.sep}`)
-  ) {
-    return `convex-zen/plugins/${pluginDefinition.id}/gateway`;
-  }
-  return path.resolve(path.dirname(pluginModulePath), "gateway.ts");
+  return pluginModulePath;
 }
 
 async function resolvePluginModulePath(
@@ -521,25 +503,25 @@ async function resolveImportSpecifier(
           ? path.join(workspaceRoot, "packages", "convex-zen", "src", "component", "convex.config.ts")
             : subpath === "core/convex.config"
               ? path.join(workspaceRoot, "packages", "convex-zen", "src", "component", "core", "convex.config.ts")
-            : subpath.startsWith("plugins/") && subpath.endsWith("/convex.config")
+              : subpath === "component/core-schema-definition"
+                ? path.join(
+                    workspaceRoot,
+                    "packages",
+                    "convex-zen",
+                    "src",
+                    "component",
+                    "core",
+                    "schemaDefinition.ts"
+                  )
+            : subpath.startsWith("plugins/")
               ? path.join(
                   workspaceRoot,
                   "packages",
                   "convex-zen",
                   "src",
                   "plugins",
-                  subpath.replace(/^plugins\//, "").replace(/\/convex\.config$/, ""),
-                  "convex.config.ts"
-                )
-              : subpath.startsWith("plugins/") && subpath.endsWith("/gateway")
-                ? path.join(
-                    workspaceRoot,
-                    "packages",
-                    "convex-zen",
-                    "src",
-                    "plugins",
-                    subpath.replace(/^plugins\//, "").replace(/\/gateway$/, ""),
-                    "gateway.ts"
+                  subpath.replace(/^plugins\//, ""),
+                  "index.ts"
                   )
               : path.join(workspaceRoot, "packages", "convex-zen", "src", "client", `${subpath}.ts`);
       if (await fileExists(mapped)) {
@@ -603,17 +585,13 @@ async function loadPluginDefinitions(
     const gatewayFunctions = collectPluginGatewayMetadata(definition.gateway);
     definitions.push({
       definition,
-      componentImportPath: await resolveGeneratedComponentImportPath(
+      entrySourcePath: await resolvePluginEntrySourcePath(
         authSource,
         binding.moduleSpecifier,
         definition
       ),
-      gatewaySourcePath: await resolveGatewaySourcePath(
-        authSource,
-        binding.moduleSpecifier,
-        definition
-      ),
-      childName: `${definition.id}Component`,
+      factoryExportName: binding.importedName,
+      factoryImportName: sanitizeIdentifier(`${definition.id}PluginFactory`),
       gatewayFunctions,
     });
   }
@@ -626,64 +604,104 @@ function sanitizeIdentifier(value: string): string {
 }
 
 function renderAuthComponentConfigFile(
-  pluginDefinitions: LoadedPluginDefinition[]
+  _pluginDefinitions: LoadedPluginDefinition[]
 ): string {
-  const imports = [
-    'import { defineComponent } from "convex/server";',
-    'import core from "convex-zen/core/convex.config";',
-    ...pluginDefinitions.map(
-      (plugin) =>
-        `import ${sanitizeIdentifier(plugin.childName)} from ${JSON.stringify(
-          plugin.componentImportPath
-        )};`
-    ),
-  ];
-  const uses = [
-    'zenComponent.use(core, { name: "core" });',
-    ...pluginDefinitions.map(
-      (plugin) =>
-        `zenComponent.use(${sanitizeIdentifier(plugin.childName)}, { name: ${JSON.stringify(
-          plugin.childName
-        )} });`
-    ),
-  ];
-
   return normalizeContent(`${GENERATED_MARKER}
-${imports.join("\n")}
+import { defineComponent } from "convex/server";
 
 const zenComponent = defineComponent("zenComponent");
-
-${uses.join("\n")}
 
 export default zenComponent;
 `);
 }
 
-function renderComponentRuntimeFile(
-  pluginDefinitions: LoadedPluginDefinition[],
-  zenConfigImportPath: string
+function resolveGeneratedImportPathForFile(
+  generatedFileAbsolutePath: string,
+  sourcePath: string
 ): string {
-  const componentChildren = [
-    "  core: components.core,",
-    ...pluginDefinitions.map(
-      (plugin) =>
-        `  ${JSON.stringify(plugin.childName)}: components[${JSON.stringify(plugin.childName)}],`
-    ),
+  return sourcePath.startsWith("/")
+    ? toGeneratedImportPath(generatedFileAbsolutePath, sourcePath)
+    : sourcePath;
+}
+
+function renderComponentSchemaFile(
+  pluginDefinitions: LoadedPluginDefinition[],
+  componentSchemaAbsolutePath: string
+): string {
+  const schemaPlugins = pluginDefinitions.filter(
+    (plugin) => plugin.definition.schema !== undefined
+  );
+  const pluginImports = schemaPlugins.map(
+    (plugin) =>
+      `import { ${plugin.factoryExportName} as ${plugin.factoryImportName} } from ${JSON.stringify(
+        resolveGeneratedImportPathForFile(
+          componentSchemaAbsolutePath,
+          plugin.entrySourcePath
+        )
+      )};`
+  );
+  const pluginSpreads = schemaPlugins.map(
+    (plugin) => `  ...(${plugin.factoryImportName}.definition.schema?.tables ?? {}),`
+  );
+
+  return normalizeContent(`${GENERATED_MARKER}
+import { defineSchema } from "convex/server";
+import { coreSchemaTables } from "convex-zen/component/core-schema-definition";
+${pluginImports.join("\n")}
+
+export default defineSchema({
+  ...coreSchemaTables,
+${pluginSpreads.join("\n")}
+});
+`);
+}
+
+function renderComponentRuntimeFile(
+  zenConfigImportPath: string,
+  includeOAuth: boolean
+): string {
+  const coreGatewayRefs = [
+    `    signUp: componentFn<"mutation">("core/gateway:signUp"),`,
+    `    signIn: componentFn<"mutation">("core/gateway:signIn"),`,
+    `    verifyEmail: componentFn<"mutation">("core/gateway:verifyEmail"),`,
+    `    requestPasswordReset: componentFn<"mutation">("core/gateway:requestPasswordReset"),`,
+    `    resetPassword: componentFn<"mutation">("core/gateway:resetPassword"),`,
+    `    validateSession: componentFn<"mutation">("core/gateway:validateSession"),`,
+    `    getCurrentUser: componentFn<"query">("core/gateway:getCurrentUser"),`,
+    `    getUserById: componentFn<"query">("core/gateway:getUserById"),`,
+    `    invalidateSession: componentFn<"mutation">("core/gateway:invalidateSession"),`,
+    `    invalidateAllSessions: componentFn<"mutation">("core/gateway:invalidateAllSessions"),`,
+    ...(includeOAuth
+      ? [
+          `    getAuthorizationUrl: componentFn<"mutation">("core/gateway:getAuthorizationUrl"),`,
+          `    handleCallback: componentFn<"action">("core/gateway:handleCallback"),`,
+        ]
+      : []),
   ].join("\n");
 
   return normalizeContent(`${GENERATED_MARKER}
-import { components } from "./_generated/api";
 import { createConvexZenClient } from "convex-zen";
+import { makeFunctionReference, type FunctionReference } from "convex/server";
 import zenConfig from ${JSON.stringify(zenConfigImportPath)};
 
-const runtimeComponent = {
-${componentChildren}
-} as const;
+function componentFn<TKind extends "query" | "mutation" | "action">(
+  path: string
+): FunctionReference<TKind, "public" | "internal"> {
+  return makeFunctionReference(path);
+}
 
 export const auth = createConvexZenClient(
-  runtimeComponent as Record<string, unknown>,
+  {},
   zenConfig,
-  { runtimeKind: "component" }
+  {
+    runtimeKind: "component",
+    coreRefs: {
+      gateway: {
+${coreGatewayRefs}
+      } as Record<string, unknown>,
+      removeUser: componentFn<"mutation">("core/users:remove"),
+    },
+  }
 );
 `);
 }
@@ -702,178 +720,15 @@ export const auth = createConvexZenClient(
 `);
 }
 
-function renderZenGatewayFile(options: {
-  includeOAuth: boolean;
-}): string {
-  const serverImports = options.includeOAuth
-    ? "action, mutation, query"
-    : "mutation, query";
-  const oauthExports = options.includeOAuth
-    ? `
-export const getAuthorizationUrl = mutation({
-  args: {
-    provider: v.object({
-      id: v.string(),
-      clientId: v.string(),
-      clientSecret: v.string(),
-      authorizationUrl: v.string(),
-      tokenUrl: v.string(),
-      userInfoUrl: v.string(),
-      scopes: v.array(v.string()),
-      trustVerifiedEmail: v.optional(v.boolean()),
-      tokenEncryptionSecret: v.optional(v.string()),
-    }),
-    callbackUrl: v.optional(v.string()),
-    redirectTo: v.optional(v.string()),
-    errorRedirectTo: v.optional(v.string()),
-    redirectUrl: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    return ctx.runMutation(components.core.gateway.getAuthorizationUrl, args);
-  },
-});
-
-export const handleCallback = action({
-  args: {
-    provider: v.object({
-      id: v.string(),
-      clientId: v.string(),
-      clientSecret: v.string(),
-      authorizationUrl: v.string(),
-      tokenUrl: v.string(),
-      userInfoUrl: v.string(),
-      scopes: v.array(v.string()),
-      trustVerifiedEmail: v.optional(v.boolean()),
-      tokenEncryptionSecret: v.optional(v.string()),
-    }),
-    code: v.string(),
-    state: v.string(),
-    callbackUrl: v.optional(v.string()),
-    redirectTo: v.optional(v.string()),
-    errorRedirectTo: v.optional(v.string()),
-    redirectUrl: v.optional(v.string()),
-    ipAddress: v.optional(v.string()),
-    userAgent: v.optional(v.string()),
-    defaultRole: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    return ctx.runAction(components.core.gateway.handleCallback, args);
-  },
-});
-`
-    : "";
-
+function renderComponentCoreGatewayProxyFile(): string {
   return normalizeContent(`${GENERATED_MARKER}
-import { v } from "convex/values";
-import { ${serverImports} } from "./_generated/server";
-import { components } from "./_generated/api";
+export * from "convex-zen/component/core/gateway";
+`);
+}
 
-export const signUp = mutation({
-  args: {
-    email: v.string(),
-    password: v.string(),
-    name: v.optional(v.string()),
-    ipAddress: v.optional(v.string()),
-    defaultRole: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    return ctx.runMutation(components.core.gateway.signUp, args);
-  },
-});
-
-export const signIn = mutation({
-  args: {
-    email: v.string(),
-    password: v.string(),
-    ipAddress: v.optional(v.string()),
-    userAgent: v.optional(v.string()),
-    requireEmailVerified: v.optional(v.boolean()),
-  },
-  handler: async (ctx, args) => {
-    return ctx.runMutation(components.core.gateway.signIn, args);
-  },
-});
-
-export const verifyEmail = mutation({
-  args: {
-    email: v.string(),
-    code: v.string(),
-  },
-  handler: async (ctx, args) => {
-    return ctx.runMutation(components.core.gateway.verifyEmail, args);
-  },
-});
-
-export const requestPasswordReset = mutation({
-  args: {
-    email: v.string(),
-    ipAddress: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    return ctx.runMutation(components.core.gateway.requestPasswordReset, args);
-  },
-});
-
-export const resetPassword = mutation({
-  args: {
-    email: v.string(),
-    code: v.string(),
-    newPassword: v.string(),
-  },
-  handler: async (ctx, args) => {
-    return ctx.runMutation(components.core.gateway.resetPassword, args);
-  },
-});
-
-export const validateSession = mutation({
-  args: {
-    token: v.string(),
-    checkBanned: v.optional(v.boolean()),
-  },
-  handler: async (ctx, args) => {
-    return ctx.runMutation(components.core.gateway.validateSession, args);
-  },
-});
-
-export const getCurrentUser = query({
-  args: {
-    token: v.string(),
-    checkBanned: v.optional(v.boolean()),
-  },
-  handler: async (ctx, args) => {
-    return ctx.runQuery(components.core.gateway.getCurrentUser, args);
-  },
-});
-
-export const getUserById = query({
-  args: {
-    userId: v.string(),
-    checkBanned: v.optional(v.boolean()),
-  },
-  handler: async (ctx, args) => {
-    return ctx.runQuery(components.core.gateway.getUserById, args);
-  },
-});
-
-export const invalidateSession = mutation({
-  args: {
-    token: v.string(),
-  },
-  handler: async (ctx, args) => {
-    return ctx.runMutation(components.core.gateway.invalidateSession, args);
-  },
-});
-
-export const invalidateAllSessions = mutation({
-  args: {
-    userId: v.string(),
-  },
-  handler: async (ctx, args) => {
-    return ctx.runMutation(components.core.gateway.invalidateAllSessions, args);
-  },
-});
-
-${oauthExports}
+function renderComponentCoreUsersProxyFile(): string {
+  return normalizeContent(`${GENERATED_MARKER}
+export { remove } from "convex-zen/component/core/users";
 `);
 }
 
@@ -991,15 +846,6 @@ export const invalidateSession = mutation({
   },
 });
 
-export const invalidateAllSessions = mutation({
-  args: {
-    userId: v.string(),
-  },
-  handler: async (ctx, args) => {
-    await auth.signOutAll(ctx, args.userId);
-  },
-});
-
 export const validateSession = mutation({
   args: {
     token: v.string(),
@@ -1018,70 +864,111 @@ export const currentUser = query({
   },
 });
 
-export const getUserById = query({
-  args: {
-    userId: v.string(),
-  },
-  handler: async (ctx, args) => {
-    return auth.getAuthUserById(ctx, args.userId);
-  },
-});
-
 ${oauthExports}
 `);
 }
 
-function resolveGatewayImportPathForGeneratedFile(
-  generatedFileAbsolutePath: string,
-  gatewaySourcePath: string
-): string {
-  return gatewaySourcePath.startsWith("/")
-    ? toGeneratedImportPath(generatedFileAbsolutePath, gatewaySourcePath)
-    : gatewaySourcePath;
-}
-
 function renderPluginFacadeFile(options: {
-  pluginDefinition: PluginDefinition;
+  plugin: LoadedPluginDefinition;
   gatewayFunctions: PluginGatewayRuntimeMethods;
-  gatewayImportPath: string;
+  generatedFileAbsolutePath: string;
   serverImportPath: string;
+  mode: "app" | "component";
   runtimeImportPath?: string;
   runtimeImportName?: string;
-  appProxy?: boolean;
 }): string {
-  const pluginName = options.pluginDefinition.id;
+  const pluginName = options.plugin.definition.id;
   const kinds = new Set(
     Object.values(options.gatewayFunctions).map((fn) => fn.kind)
   );
   const serverImports = [...kinds].sort().join(", ");
+  const runtimeImport = (() => {
+    if (options.mode !== "component") {
+      return "";
+    }
+    const runtimeImportName = options.runtimeImportName ?? "auth";
+    return runtimeImportName === "auth"
+      ? `import { auth } from ${JSON.stringify(options.runtimeImportPath!)};`
+      : `import { ${runtimeImportName} as auth } from ${JSON.stringify(options.runtimeImportPath!)};`;
+  })();
+  const runtimeHelper =
+    options.mode === "component"
+      ? `
+type PluginRuntime = (typeof auth.plugins)[${JSON.stringify(pluginName)}];
+type PluginRuntimeReturn<TFunctionName extends keyof PluginRuntime & string> =
+  PluginRuntime[TFunctionName] extends (...args: never[]) => infer TReturn
+    ? TReturn
+    : never;
+
+function runPluginRuntimeFunction<TFunctionName extends keyof PluginRuntime & string>(
+  ctx: unknown,
+  functionName: TFunctionName,
+  args: Record<string, unknown>
+): PluginRuntimeReturn<TFunctionName> {
+  const pluginRuntime = auth.plugins[${JSON.stringify(pluginName)}];
+  if (!pluginRuntime || typeof pluginRuntime !== "object") {
+    throw new Error(${JSON.stringify(
+      `Missing generated plugin runtime for "${pluginName}".`
+    )});
+  }
+  const fn = pluginRuntime[functionName];
+  if (typeof fn !== "function") {
+    throw new Error(
+      \`Missing generated plugin runtime function for "${pluginName}.\${functionName}".\`
+    );
+  }
+  return (
+    fn as (
+      this: PluginRuntime,
+      ctx: unknown,
+      args: Record<string, unknown>
+    ) => PluginRuntimeReturn<TFunctionName>
+  ).call(pluginRuntime, ctx, args);
+}
+`
+      : "";
   const functionSource = Object.entries(options.gatewayFunctions)
     .map(([functionName, fn]) => {
-      const runtimeAccess = options.appProxy
-        ? `ctx.run${fn.kind[0]!.toUpperCase()}${fn.kind.slice(1)}(components.zenComponent.${pluginName}.gateway.${functionName}, args)`
-        : `auth.plugins.${pluginName}.${functionName}(ctx, args)`;
+      if (options.mode === "app") {
+        const runtimeMethod =
+          fn.kind === "query"
+            ? "runQuery"
+            : fn.kind === "mutation"
+              ? "runMutation"
+              : "runAction";
+        return `export const ${functionName} = ${fn.kind}({
+  args: getPublicPluginFunctionArgs(pluginGateway.${functionName}, ${JSON.stringify(functionName)}),
+  handler: async (ctx, args) => {
+    return ctx.${runtimeMethod}(components.zenComponent.plugins.${pluginName}.gateway.${functionName}, args);
+  },
+});`;
+      }
       return `export const ${functionName} = ${fn.kind}({
   args: getPublicPluginFunctionArgs(pluginGateway.${functionName}, ${JSON.stringify(functionName)}),
   handler: async (ctx, args) => {
-    return ${runtimeAccess};
+    return runPluginRuntimeFunction(ctx, ${JSON.stringify(functionName)}, args);
   },
 });`;
     })
     .join("\n\n");
-
-  const runtimeImport = options.appProxy
-    ? 'import { components } from "../../_generated/api";'
-    : (() => {
-        const runtimeImportName = options.runtimeImportName ?? "auth";
-        return runtimeImportName === "auth"
-          ? `import { auth } from ${JSON.stringify(options.runtimeImportPath)};`
-          : `import { ${runtimeImportName} as auth } from ${JSON.stringify(options.runtimeImportPath)};`;
-      })();
+  const appApiImport =
+    options.mode === "app"
+      ? 'import { components } from "../../_generated/api";\n'
+      : "";
 
   return normalizeContent(`${GENERATED_MARKER}
 import { ${serverImports} } from ${JSON.stringify(options.serverImportPath)};
-import { getPublicPluginFunctionArgs } from "convex-zen/component";
-import * as pluginGateway from ${JSON.stringify(options.gatewayImportPath)};
+${appApiImport}import { getPublicPluginFunctionArgs } from "convex-zen/component";
+import { ${options.plugin.factoryExportName} as ${options.plugin.factoryImportName} } from ${JSON.stringify(
+  resolveGeneratedImportPathForFile(
+    options.generatedFileAbsolutePath,
+    options.plugin.entrySourcePath
+  )
+)};
 ${runtimeImport}
+
+const pluginGateway = ${options.plugin.factoryImportName}.definition.gateway;
+${runtimeHelper}
 
 ${functionSource}
 `);
@@ -1319,6 +1206,46 @@ function assertNoReservedCoreFunctionNames(source: string): void {
   );
 }
 
+function assertNoPluginConflicts(pluginDefinitions: LoadedPluginDefinition[]): void {
+  const pluginIds = new Set<string>();
+  const tableNames = new Set<string>(CORE_TABLE_NAMES);
+  const routeKeys = new Set<string>();
+
+  for (const plugin of pluginDefinitions) {
+    const pluginId = plugin.definition.id;
+    if (pluginIds.has(pluginId)) {
+      throw new Error(`Duplicate auth plugin id "${pluginId}".`);
+    }
+    if (RESERVED_PLUGIN_IDS.has(pluginId)) {
+      throw new Error(`Invalid auth plugin id "${pluginId}". This id is reserved.`);
+    }
+    pluginIds.add(pluginId);
+
+    for (const functionName of Object.keys(plugin.gatewayFunctions)) {
+      const routeKey = `${toKebabCase(pluginId)}/${toKebabCase(functionName)}`;
+      if (routeKeys.has(routeKey)) {
+        throw new Error(
+          `Duplicate generated plugin route "${routeKey}". Rename one of the conflicting plugin functions.`
+        );
+      }
+      routeKeys.add(routeKey);
+    }
+
+    const tables = plugin.definition.schema?.tables ?? {};
+    for (const tableName of Object.keys(tables)) {
+      if (!tableName.startsWith(`${pluginId}__`)) {
+        throw new Error(
+          `Invalid table "${tableName}" for plugin "${pluginId}". Plugin tables must be prefixed with "${pluginId}__".`
+        );
+      }
+      if (tableNames.has(tableName)) {
+        throw new Error(`Duplicate merged schema table "${tableName}".`);
+      }
+      tableNames.add(tableName);
+    }
+  }
+}
+
 function renderAuthHelperFile(): string {
   return normalizeContent(`${GENERATED_MARKER}
 import { components } from "../../_generated/api";
@@ -1550,11 +1477,9 @@ export async function generateAuthFunctions(
   }
   const authSourceContents = await readFile(authSource.absolutePath, "utf8");
   const pluginDefinitions = await loadPluginDefinitions(authSource, authSourceContents);
+  assertNoPluginConflicts(pluginDefinitions);
   const includeOAuth = hasOAuthProviders(authSourceContents);
   const coreContent = renderCoreWrapperFile({
-    includeOAuth,
-  });
-  const zenGatewayContent = renderZenGatewayFile({
     includeOAuth,
   });
   assertNoReservedCoreFunctionNames(coreContent);
@@ -1566,6 +1491,14 @@ export async function generateAuthFunctions(
       content: renderAuthComponentConfigFile(pluginDefinitions),
     },
     {
+      absolutePath: path.join(componentDir, "schema.ts"),
+      relativePath: path.join("convex", "zen", "component", "schema.ts"),
+      content: renderComponentSchemaFile(
+        pluginDefinitions,
+        path.join(componentDir, "schema.ts")
+      ),
+    },
+    {
       absolutePath: path.join(zenDir, "core.ts"),
       relativePath: path.join("convex", "zen", "core.ts"),
       content: coreContent,
@@ -1573,12 +1506,20 @@ export async function generateAuthFunctions(
     {
       absolutePath: path.join(componentDir, "_runtime.ts"),
       relativePath: path.join("convex", "zen", "component", "_runtime.ts"),
-      content: renderComponentRuntimeFile(pluginDefinitions, "../../zen.config"),
+      content: renderComponentRuntimeFile(
+        "../../zen.config",
+        includeOAuth
+      ),
     },
     {
-      absolutePath: path.join(componentDir, "gateway.ts"),
-      relativePath: path.join("convex", "zen", "component", "gateway.ts"),
-      content: zenGatewayContent,
+      absolutePath: path.join(componentDir, "core", "gateway.ts"),
+      relativePath: path.join("convex", "zen", "component", "core", "gateway.ts"),
+      content: renderComponentCoreGatewayProxyFile(),
+    },
+    {
+      absolutePath: path.join(componentDir, "core", "users.ts"),
+      relativePath: path.join("convex", "zen", "component", "core", "users.ts"),
+      content: renderComponentCoreUsersProxyFile(),
     },
   ];
   const generatedPluginSources = new Map<string, string>();
@@ -1590,14 +1531,11 @@ export async function generateAuthFunctions(
       `${pluginDefinition.definition.id}.ts`
     );
     const pluginContent = renderPluginFacadeFile({
-      pluginDefinition: pluginDefinition.definition,
+      plugin: pluginDefinition,
       gatewayFunctions: pluginDefinition.gatewayFunctions,
-      gatewayImportPath: resolveGatewayImportPathForGeneratedFile(
-        pluginAbsolutePath,
-        pluginDefinition.gatewaySourcePath
-      ),
+      generatedFileAbsolutePath: pluginAbsolutePath,
       serverImportPath: "../../_generated/server",
-      appProxy: true,
+      mode: "app",
     });
     filesToGenerate.push({
       absolutePath: pluginAbsolutePath,
@@ -1612,18 +1550,17 @@ export async function generateAuthFunctions(
     generatedPluginSources.set(pluginDefinition.definition.id, pluginContent);
     const componentGatewayAbsolutePath = path.join(
       componentDir,
+      "plugins",
       pluginDefinition.definition.id,
       "gateway.ts"
     );
     const zenPluginContent = renderPluginFacadeFile({
-      pluginDefinition: pluginDefinition.definition,
+      plugin: pluginDefinition,
       gatewayFunctions: pluginDefinition.gatewayFunctions,
-      gatewayImportPath: resolveGatewayImportPathForGeneratedFile(
-        componentGatewayAbsolutePath,
-        pluginDefinition.gatewaySourcePath
-      ),
-      serverImportPath: "../_generated/server",
-      runtimeImportPath: "../_runtime",
+      generatedFileAbsolutePath: componentGatewayAbsolutePath,
+      serverImportPath: "../../_generated/server",
+      mode: "component",
+      runtimeImportPath: "../../_runtime",
     });
     filesToGenerate.push({
       absolutePath: componentGatewayAbsolutePath,
@@ -1631,6 +1568,7 @@ export async function generateAuthFunctions(
         "convex",
         "zen",
         "component",
+        "plugins",
         pluginDefinition.definition.id,
         "gateway.ts"
       ),
@@ -1701,15 +1639,35 @@ export async function generateAuthFunctions(
       if (!entry.isDirectory()) {
         continue;
       }
-      if (entry.name === "_generated" || entry.name === "plugin") {
+      if (
+        entry.name === "_generated" ||
+        entry.name === "plugin" ||
+        entry.name === "core"
+      ) {
+        continue;
+      }
+      await deleteGeneratedFileIfExists(
+        path.join(componentDir, entry.name, "gateway.ts"),
+        path.join("convex", "zen", "component", entry.name, "gateway.ts"),
+        options,
+        result
+      );
+    }
+  }
+
+  const componentPluginsDir = path.join(componentDir, "plugins");
+  if (await fileExists(componentPluginsDir)) {
+    const entries = await readdir(componentPluginsDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isDirectory()) {
         continue;
       }
       if (generatedPluginSources.has(entry.name)) {
         continue;
       }
       await deleteGeneratedFileIfExists(
-        path.join(componentDir, entry.name, "gateway.ts"),
-        path.join("convex", "zen", "component", entry.name, "gateway.ts"),
+        path.join(componentPluginsDir, entry.name, "gateway.ts"),
+        path.join("convex", "zen", "component", "plugins", entry.name, "gateway.ts"),
         options,
         result
       );
@@ -1793,6 +1751,13 @@ export async function generateAuthFunctions(
   await deleteGeneratedFileIfExists(
     path.join(componentDir, "shared.ts"),
     path.join("convex", "zen", "component", "shared.ts"),
+    options,
+    result
+  );
+
+  await deleteGeneratedFileIfExists(
+    path.join(componentDir, "gateway.ts"),
+    path.join("convex", "zen", "component", "gateway.ts"),
     options,
     result
   );

@@ -1,0 +1,329 @@
+import { v } from "convex/values";
+import {
+  internalMutation,
+  internalQuery,
+  type DatabaseReader,
+  type DatabaseWriter,
+} from "../../component/_generated/server.js";
+import type { Id } from "../../component/_generated/dataModel.js";
+import {
+  deleteUserWithRelations,
+  getAdminStateForUser,
+  getAdminUserRecord,
+  isAdminStateCurrentlyBanned,
+  upsertAdminStateForUser,
+} from "../../component/core/users.js";
+import { invalidateAllUserSessions } from "../../component/core/sessions.js";
+import { omitUndefined } from "../../component/lib/object.js";
+
+export function normalizeAdminRole(adminRole?: string): string {
+  const normalizedRole = adminRole?.trim();
+  return normalizedRole && normalizedRole.length > 0
+    ? normalizedRole
+    : "admin";
+}
+
+function mergeAdminStateIntoUser<T extends {
+  _id: Id<"users">;
+  role?: string;
+  banned?: boolean;
+  banReason?: string;
+  banExpires?: number;
+}>(user: T, adminState: Awaited<ReturnType<typeof getAdminStateForUser>>): T {
+  if (!adminState) {
+    return user;
+  }
+  return {
+    ...user,
+    role: adminState.role ?? user.role,
+    banned: adminState.banned ?? user.banned,
+    banReason: adminState.banReason ?? user.banReason,
+    banExpires: adminState.banExpires ?? user.banExpires,
+  };
+}
+
+export async function assertAdminActor(
+  db: DatabaseReader,
+  actorUserId: Id<"users">,
+  adminRole?: string
+): Promise<void> {
+  const actor = await getAdminStateForUser(db, actorUserId);
+  const requiredRole = normalizeAdminRole(adminRole);
+  if (!actor) {
+    throw new Error("Unauthorized");
+  }
+  if (isAdminStateCurrentlyBanned(actor, Date.now())) {
+    throw new Error("Unauthorized");
+  }
+  if (actor.role !== requiredRole) {
+    throw new Error("Forbidden");
+  }
+}
+
+export async function canBootstrapAdminForRole(
+  db: DatabaseReader,
+  adminRole?: string
+): Promise<boolean> {
+  const requiredRole = normalizeAdminRole(adminRole);
+  const existing = await db
+    .query("systemAdmin__users")
+    .withIndex("by_role", (q) => q.eq("role", requiredRole))
+    .take(1);
+  return existing.length === 0;
+}
+
+export async function bootstrapAdminForUser(
+  db: DatabaseWriter,
+  actorUserId: Id<"users">,
+  adminRole?: string
+): Promise<boolean> {
+  const requiredRole = normalizeAdminRole(adminRole);
+  const canBootstrap = await canBootstrapAdminForRole(db, requiredRole);
+  if (!canBootstrap) {
+    const actor = await getAdminStateForUser(db, actorUserId);
+    return actor?.role === requiredRole;
+  }
+
+  await upsertAdminStateForUser(db, actorUserId, {
+    role: requiredRole,
+    banned: false,
+  });
+  return true;
+}
+
+export async function listUsersForAdmin(
+  db: DatabaseReader,
+  args: {
+    actorUserId: Id<"users">;
+    adminRole?: string;
+    limit?: number;
+    cursor?: string;
+  }
+): Promise<{ users: unknown[]; cursor: string | null; isDone: boolean }> {
+  await assertAdminActor(db, args.actorUserId, args.adminRole);
+
+  const limit = args.limit ?? 20;
+  let query = db.query("users").order("asc");
+
+  if (args.cursor) {
+    const cursorTime = parseFloat(args.cursor);
+    query = query.filter((q) => q.gt(q.field("_creationTime"), cursorTime));
+  }
+
+  const rows = await query.take(limit + 1);
+  const hasMore = rows.length > limit;
+  const page = hasMore ? rows.slice(0, limit) : rows;
+  const last = page.at(-1);
+  const nextCursor = hasMore && last ? String(last._creationTime) : null;
+  const users = await Promise.all(
+    page.map(async (user) =>
+      mergeAdminStateIntoUser(user, await getAdminStateForUser(db, user._id))
+    )
+  );
+
+  return {
+    users,
+    cursor: nextCursor,
+    isDone: !hasMore,
+  };
+}
+
+export async function banUserByAdmin(
+  db: DatabaseWriter,
+  args: {
+    actorUserId: Id<"users">;
+    adminRole?: string;
+    userId: Id<"users">;
+    reason?: string;
+    expiresAt?: number;
+  }
+): Promise<void> {
+  await assertAdminActor(db, args.actorUserId, args.adminRole);
+
+  const user = await db.get(args.userId);
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  await upsertAdminStateForUser(db, args.userId, {
+    banned: true,
+    ...omitUndefined({
+      banReason: args.reason,
+      banExpires: args.expiresAt,
+    }),
+  });
+
+  const sessions = await db
+    .query("sessions")
+    .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+    .collect();
+  for (const session of sessions) {
+    await db.delete(session._id);
+  }
+}
+
+export async function unbanUserByAdmin(
+  db: DatabaseWriter,
+  args: {
+    actorUserId: Id<"users">;
+    adminRole?: string;
+    userId: Id<"users">;
+  }
+): Promise<void> {
+  await assertAdminActor(db, args.actorUserId, args.adminRole);
+
+  const user = await db.get(args.userId);
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  await upsertAdminStateForUser(db, args.userId, {
+    banned: false,
+    banReason: undefined,
+    banExpires: undefined,
+  });
+}
+
+export async function setUserRoleByAdmin(
+  db: DatabaseWriter,
+  args: {
+    actorUserId: Id<"users">;
+    adminRole?: string;
+    userId: Id<"users">;
+    role: string;
+  }
+): Promise<void> {
+  await assertAdminActor(db, args.actorUserId, args.adminRole);
+
+  const user = await db.get(args.userId);
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  await upsertAdminStateForUser(db, args.userId, {
+    role: args.role,
+  });
+
+  // Invalidate all active sessions so that the new role takes effect
+  // immediately and downgraded users cannot continue acting with old privileges.
+  await invalidateAllUserSessions(db, args.userId);
+}
+
+export async function deleteUserByAdmin(
+  db: DatabaseWriter,
+  args: {
+    actorUserId: Id<"users">;
+    adminRole?: string;
+    userId: Id<"users">;
+  }
+): Promise<void> {
+  await assertAdminActor(db, args.actorUserId, args.adminRole);
+
+  const user = await db.get(args.userId);
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  const adminUser = await getAdminUserRecord(db, args.userId);
+  if (adminUser) {
+    await db.delete(adminUser._id);
+  }
+
+  await deleteUserWithRelations(db, args.userId);
+}
+
+export async function deleteAdminStateForUser(
+  db: DatabaseWriter,
+  userId: Id<"users">
+): Promise<void> {
+  const adminUser = await getAdminUserRecord(db, userId);
+  if (adminUser) {
+    await db.delete(adminUser._id);
+  }
+}
+
+/** List users with cursor-based pagination.
+ *
+ * paginate() is not available in components, so we use _creationTime as a
+ * cursor with .filter() + .take(). The cursor is a stringified _creationTime.
+ */
+export const listUsers = internalQuery({
+  args: {
+    actorUserId: v.id("users"),
+    adminRole: v.optional(v.string()),
+    limit: v.optional(v.number()),
+    cursor: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => await listUsersForAdmin(ctx.db, args),
+});
+
+/** Get a single user by ID (admin view). */
+export const getUser = internalQuery({
+  args: {
+    actorUserId: v.id("users"),
+    adminRole: v.optional(v.string()),
+    userId: v.id("users"),
+  },
+  handler: async (ctx, { actorUserId, adminRole, userId }) => {
+    await assertAdminActor(ctx.db, actorUserId, adminRole);
+    return await ctx.db.get(userId);
+  },
+});
+
+/**
+ * Ban a user. Sets banned=true, banReason, and optional banExpires.
+ * Also invalidates all active sessions.
+ */
+export const banUser = internalMutation({
+  args: {
+    actorUserId: v.id("users"),
+    adminRole: v.optional(v.string()),
+    userId: v.id("users"),
+    reason: v.optional(v.string()),
+    expiresAt: v.optional(v.number()), // timestamp; undefined = permanent
+  },
+  handler: async (ctx, args) => await banUserByAdmin(ctx.db, args),
+});
+
+/** Unban a user. Clears ban fields. */
+export const unbanUser = internalMutation({
+  args: {
+    actorUserId: v.id("users"),
+    adminRole: v.optional(v.string()),
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => await unbanUserByAdmin(ctx.db, args),
+});
+
+/** Set a user's role. */
+export const setRole = internalMutation({
+  args: {
+    actorUserId: v.id("users"),
+    adminRole: v.optional(v.string()),
+    userId: v.id("users"),
+    role: v.string(),
+  },
+  handler: async (ctx, args) => await setUserRoleByAdmin(ctx.db, args),
+});
+
+/** Delete a user and all associated data. */
+export const deleteUser = internalMutation({
+  args: {
+    actorUserId: v.id("users"),
+    adminRole: v.optional(v.string()),
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => await deleteUserByAdmin(ctx.db, args),
+});
+
+export const deleteUserAdminState = internalMutation({
+  args: {
+    actorUserId: v.id("users"),
+    adminRole: v.optional(v.string()),
+    userId: v.id("users"),
+  },
+  handler: async (ctx, { actorUserId, adminRole, userId }) => {
+    await assertAdminActor(ctx.db, actorUserId, adminRole);
+    await deleteAdminStateForUser(ctx.db, userId);
+  },
+});

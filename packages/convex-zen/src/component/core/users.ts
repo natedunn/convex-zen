@@ -89,8 +89,8 @@ export type AdminState = {
 };
 
 type AdminUserRecord = AdminState & {
-  _id: Id<"adminUsers">;
-  userId: string;
+  _id: Id<"systemAdmin__users">;
+  userId: Id<"users">;
   createdAt: number;
   updatedAt: number;
 };
@@ -100,7 +100,7 @@ export async function getAdminUserRecord(
   userId: Id<"users">
 ): Promise<AdminUserRecord | null> {
   return await db
-    .query("adminUsers")
+    .query("systemAdmin__users")
     .withIndex("by_userId", (q) => q.eq("userId", userId))
     .unique();
 }
@@ -135,7 +135,7 @@ export async function upsertAdminStateForUser(
   db: DatabaseWriter,
   userId: Id<"users">,
   patch: Partial<AdminState> & { role?: string }
-): Promise<Id<"adminUsers">> {
+): Promise<Id<"systemAdmin__users">> {
   const now = Date.now();
   const normalizedRole = patch.role !== undefined
     ? (patch.role.trim().length > 0 ? patch.role.trim() : "user")
@@ -149,12 +149,12 @@ export async function upsertAdminStateForUser(
     await db.patch(existing._id, {
       ...normalizedPatch,
       updatedAt: now,
-    } as Partial<Doc<"adminUsers">>);
+    } as Partial<Doc<"systemAdmin__users">>);
     return existing._id;
   }
 
   const role = normalizedPatch.role;
-  return db.insert("adminUsers", omitUndefined({
+  return db.insert("systemAdmin__users", omitUndefined({
     userId,
     role: role ?? "user",
     banned: patch.banned ?? false,
@@ -177,13 +177,13 @@ export async function clearExpiredAdminBan(
   // The intermediate `unknown` cast is required because TypeScript infers the
   // literal type `undefined` for explicitly-set properties (vs. spread optional
   // fields at the upsert site above), which isn't directly assignable to
-  // `Partial<Doc<"adminUsers">>`.
+  // `Partial<Doc<"systemAdmin__users">>`.
   await db.patch(existing._id, {
     banned: false,
     banReason: undefined,
     banExpires: undefined,
     updatedAt: Date.now(),
-  } as unknown as Partial<Doc<"adminUsers">>);
+  } as unknown as Partial<Doc<"systemAdmin__users">>);
 }
 
 export async function deleteUserWithRelations(

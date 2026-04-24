@@ -12,7 +12,6 @@ const {
   getPackageReleaseDecision,
   incrementVersion,
 } = require("./lib/package-release-decision.cjs");
-const { rewriteDependencyMap } = require("./lib/workspace-dependencies.cjs");
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..");
@@ -39,11 +38,9 @@ function writeRepoFile(repoDir, relativePath, content) {
 function commitAll(repoDir, subject, body) {
   run("git", ["add", "-A"], repoDir);
   const args = ["commit", "-m", subject];
-
   if (body) {
     args.push("-m", body);
   }
-
   run("git", args, repoDir);
 }
 
@@ -63,11 +60,10 @@ function seedPackageRepo(templateDir) {
     const packageJson = {
       name: sourcePackageJson.name,
       version: sourcePackageJson.version,
+      ...(sourcePackageJson.dependencies
+        ? { dependencies: sourcePackageJson.dependencies }
+        : {}),
     };
-
-    if (sourcePackageJson.dependencies) {
-      packageJson.dependencies = sourcePackageJson.dependencies;
-    }
 
     writeRepoFile(
       templateDir,
@@ -77,7 +73,7 @@ function seedPackageRepo(templateDir) {
     writeRepoFile(
       templateDir,
       path.posix.join(packageConfig.pkgRoot, "src/index.ts"),
-      `export const ${packageConfig.packageName.replace(/-/g, "_")} = true;\n`
+      "export const core = true;\n"
     );
     writeRepoFile(
       templateDir,
@@ -112,27 +108,11 @@ function packageVersionsFromRepo(repoDir) {
   );
 }
 
-function updatePackageVersion(repoDir, packageName, version) {
-  const packageConfig = getPackages().find(
-    (candidate) => candidate.packageName === packageName
-  );
-
-  if (!packageConfig) {
-    throw new Error(`Unknown package ${packageName}`);
-  }
-
-  const packageJsonPath = path.join(repoDir, packageConfig.packageJsonPath);
-  const packageJson = readJson(packageJsonPath);
-  packageJson.version = version;
-  writeFileSync(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`);
-}
-
 async function assertScenario({
   templateDir,
   name,
   arrange,
   expectedReleaseTypes,
-  expectedNextVersions = {},
 }) {
   const scenarioDir = cloneScenarioRepo(templateDir, name);
   const baselineVersions = packageVersionsFromRepo(scenarioDir);
@@ -156,8 +136,10 @@ async function assertScenario({
     const expectedNextVersion =
       expectedReleaseType == null
         ? null
-        : expectedNextVersions[packageConfig.packageName] ??
-          incrementVersion(baselineVersions[packageConfig.packageName], expectedReleaseType);
+        : incrementVersion(
+            baselineVersions[packageConfig.packageName],
+            expectedReleaseType
+          );
 
     assert.equal(
       decision.nextVersion,
@@ -192,70 +174,22 @@ try {
 
   await assertScenario({
     templateDir,
-    name: "organization-only-feature",
-    async arrange(repoDir) {
-      writeRepoFile(
-        repoDir,
-        "packages/convex-zen-organization/src/index.ts",
-        "export const organization = 'feature';\n"
-      );
-      commitAll(repoDir, "feat(organization): add organization feature");
-    },
-    expectedReleaseTypes: {
-      "convex-zen-organization": "minor",
-    },
-  });
-
-  await assertScenario({
-    templateDir,
-    name: "system-admin-breaking",
-    async arrange(repoDir) {
-      writeRepoFile(
-        repoDir,
-        "packages/convex-zen-system-admin/src/index.ts",
-        "export const systemAdmin = 'breaking';\n"
-      );
-      commitAll(
-        repoDir,
-        "feat(system-admin)!: remove legacy system admin path",
-        "BREAKING CHANGE: remove the legacy system admin path"
-      );
-    },
-    expectedReleaseTypes: {
-      "convex-zen-system-admin": "major",
-    },
-  });
-
-  await assertScenario({
-    templateDir,
-    name: "core-and-organization-feature",
+    name: "core-breaking-change",
     async arrange(repoDir) {
       writeRepoFile(
         repoDir,
         "packages/convex-zen/src/index.ts",
-        "export const core = 'minor';\n"
+        "export const core = 'breaking';\n"
       );
-      writeRepoFile(
+      commitAll(
         repoDir,
-        "packages/convex-zen-organization/src/index.ts",
-        "export const organization = 'minor';\n"
+        "feat(core)!: remove legacy child-component plugin model",
+        "BREAKING CHANGE: built-in plugins now ship from convex-zen/plugins/*"
       );
-      commitAll(repoDir, "feat(shared): update core and organization together");
     },
     expectedReleaseTypes: {
-      "convex-zen": "minor",
-      "convex-zen-organization": "minor",
+      "convex-zen": "major",
     },
-  });
-
-  await assertScenario({
-    templateDir,
-    name: "release-infra-only",
-    async arrange(repoDir) {
-      writeRepoFile(repoDir, "scripts/release/README.md", "release docs updated\n");
-      commitAll(repoDir, "fix(ci): tweak release docs");
-    },
-    expectedReleaseTypes: {},
   });
 
   await assertScenario({
@@ -271,8 +205,6 @@ try {
     },
     expectedReleaseTypes: {
       "convex-zen": "patch",
-      "convex-zen-organization": "patch",
-      "convex-zen-system-admin": "patch",
     },
   });
 
@@ -289,51 +221,18 @@ try {
     },
     expectedReleaseTypes: {
       "convex-zen": "patch",
-      "convex-zen-organization": "patch",
-      "convex-zen-system-admin": "patch",
     },
   });
 
   await assertScenario({
     templateDir,
-    name: "organization-docs-only",
+    name: "docs-only",
     async arrange(repoDir) {
-      writeRepoFile(
-        repoDir,
-        "packages/convex-zen-organization/README.md",
-        "# convex-zen-organization\n\nUpdated docs.\n"
-      );
-      commitAll(repoDir, "docs(organization): clarify organization docs");
+      writeRepoFile(repoDir, "README.md", "# Release harness\n\nUpdated docs.\n");
+      commitAll(repoDir, "docs(repo): clarify root docs");
     },
     expectedReleaseTypes: {},
   });
-
-  {
-    const scenarioDir = cloneScenarioRepo(
-      templateDir,
-      "organization-stage-follows-bumped-core-version"
-    );
-    const baselineVersions = packageVersionsFromRepo(scenarioDir);
-    const bumpedCoreVersion = incrementVersion(baselineVersions["convex-zen"], "minor");
-
-    updatePackageVersion(scenarioDir, "convex-zen", bumpedCoreVersion);
-
-    const organizationPackageJson = readJson(
-      path.join(scenarioDir, "packages/convex-zen-organization/package.json")
-    );
-    const rewrittenDependencies = rewriteDependencyMap(
-      organizationPackageJson.dependencies,
-      scenarioDir
-    );
-
-    assert.equal(
-      rewrittenDependencies["convex-zen"],
-      `^${bumpedCoreVersion}`,
-      "organization-stage-follows-bumped-core-version: expected staged plugin dependency to follow bumped core version"
-    );
-
-    process.stdout.write("PASS organization-stage-follows-bumped-core-version\n");
-  }
 
   process.stdout.write("All release scenarios passed.\n");
 } finally {

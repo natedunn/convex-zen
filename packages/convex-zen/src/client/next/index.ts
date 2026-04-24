@@ -730,7 +730,7 @@ function normalizeRedirectTarget(
 ): string {
   const resolvedTarget =
     typeof target === "string" && target.length > 0 ? target : fallback;
-  if (resolvedTarget.startsWith("/") && !resolvedTarget.startsWith("//")) {
+  if (isSafeRedirectTarget(resolvedTarget)) {
     return new URL(resolvedTarget, request.url).toString();
   }
   return new URL(fallback, request.url).toString();
@@ -740,7 +740,19 @@ function isSafeRedirectTarget(target: string | null | undefined): boolean {
   if (typeof target !== "string" || target.length === 0) {
     return true;
   }
-  return target.startsWith("/") && !target.startsWith("//");
+  if (!target.startsWith("/") || target.startsWith("//")) {
+    return false;
+  }
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(target);
+  } catch {
+    return false;
+  }
+  if (!decoded.startsWith("/") || decoded.startsWith("//")) {
+    return false;
+  }
+  return !decoded.substring(0, 3).includes("\\");
 }
 
 function createOAuthErrorRedirectResponse(args: {

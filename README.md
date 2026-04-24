@@ -18,11 +18,11 @@ In short: we do not import Better Auth runtime into app code. We keep auth logic
 npm install convex convex-zen
 ```
 
-Optional standalone plugins:
+Built-in plugins are subpath exports from the main package:
 
-```bash
-npm install convex convex-zen convex-zen-organization
-npm install convex convex-zen convex-zen-system-admin
+```ts
+import { systemAdminPlugin } from "convex-zen/plugins/system-admin";
+import { organizationPlugin } from "convex-zen/plugins/organization";
 ```
 
 ## Workspace

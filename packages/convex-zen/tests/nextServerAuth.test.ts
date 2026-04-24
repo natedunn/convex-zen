@@ -496,6 +496,18 @@ describe("next server auth helpers", () => {
     await expect(response.json()).resolves.toEqual({
       error: "OAuth redirect targets must be relative paths",
     });
+
+    const backslashResponse = await handler(
+      new Request(
+        "http://localhost/api/auth/sign-in/google?mode=json&redirectTo=%2F%5Cevil.example%2Fsteal",
+        { method: "GET" }
+      )
+    );
+
+    expect(backslashResponse.status).toBe(400);
+    await expect(backslashResponse.json()).resolves.toEqual({
+      error: "OAuth redirect targets must be relative paths",
+    });
   });
 
   it("completes OAuth callbacks and establishes the normal session cookie", async () => {

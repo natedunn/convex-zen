@@ -24,32 +24,6 @@ const PACKAGES = [
     releaseCommitMessage:
       "chore(release): convex-zen ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}",
   },
-  {
-    packageName: "convex-zen-organization",
-    pkgRoot: "packages/convex-zen-organization",
-    tagFormat: "convex-zen-organization-v${version}",
-    changelogFile: "packages/convex-zen-organization/CHANGELOG.md",
-    buildCommand: "pnpm --filter convex-zen-organization build",
-    releasePaths: [
-      "packages/convex-zen-organization/**",
-      ...SHARED_RELEASE_PATHS,
-    ],
-    releaseCommitMessage:
-      "chore(release): convex-zen-organization ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}",
-  },
-  {
-    packageName: "convex-zen-system-admin",
-    pkgRoot: "packages/convex-zen-system-admin",
-    tagFormat: "convex-zen-system-admin-v${version}",
-    changelogFile: "packages/convex-zen-system-admin/CHANGELOG.md",
-    buildCommand: "pnpm --filter convex-zen-system-admin build",
-    releasePaths: [
-      "packages/convex-zen-system-admin/**",
-      ...SHARED_RELEASE_PATHS,
-    ],
-    releaseCommitMessage:
-      "chore(release): convex-zen-system-admin ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}",
-  },
 ];
 
 function normalizeRepoPath(value) {

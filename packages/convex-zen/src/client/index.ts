@@ -6,17 +6,21 @@ import type {
 	PluginGatewayModule,
 	PluginGatewayRuntimeMethods,
 	PluginGatewayRuntimeMap,
+	PluginSchemaDefinition,
 	OAuthCallbackInput,
 	OAuthCallbackResult,
 	OAuthProviderConfig,
 	OAuthStartOptions,
 	OAuthStartResult,
 } from "../types.js";
-import { definePlugin } from "../types.js";
+import { definePlugin, definePluginSchema } from "../types.js";
 import type { HttpRouter } from "convex/server";
 import { httpActionGeneric } from "convex/server";
 import { resolveComponentFn } from "./helpers.js";
-import { collectPluginGatewayMetadata } from "../component/plugin.js";
+import {
+	collectPluginGatewayMetadata,
+	getPluginFunctionHandler,
+} from "../component/plugin.js";
 
 /**
  * Main client entrypoint.
@@ -86,6 +90,19 @@ export type StandardSchemaV1<Input = unknown, Output = Input> = {
 type PasswordValidationFn = (
 	input: PasswordValidationInput,
 ) => MaybePromise<string | null | void>;
+export type SuppressedEmailPasswordEvent =
+	| {
+			flow: "signUp";
+			reason: "email_already_registered";
+			email: string;
+			ipAddress?: string;
+	  }
+	| {
+			flow: "requestPasswordReset";
+			reason: "email_not_found" | "rate_limited";
+			email: string;
+			ipAddress?: string;
+	  };
 type PasswordSchema =
 	| StandardSchemaV1<string, unknown>
 	| StandardSchemaV1<PasswordValidationInput, unknown>;
@@ -132,10 +149,25 @@ export interface ConvexZenOptions<TPlugins extends PluginList = PluginList> {
 	 * Defaults to `ctx.auth.getUserIdentity()?.subject` when available.
 	 */
 	resolveUserId?: (ctx: unknown) => MaybePromise<string | null>;
+	/**
+	 * Optional backend-only hook for non-enumerating email/password outcomes.
+	 * Use this for logging or observability without changing the generic UI
+	 * response shown to end users.
+	 */
+	onSuppressedEmailPasswordEvent?: (
+		event: SuppressedEmailPasswordEvent,
+	) => MaybePromise<void>;
 }
 
 export type ConvexZenDefinition<TPlugins extends PluginList = PluginList> =
 	ConvexZenOptions<TPlugins>;
+
+type ComponentRuntimeRefs = {
+	coreRefs?: {
+		gateway?: Record<string, unknown>;
+		removeUser?: unknown;
+	};
+};
 
 function assertUniquePluginIds(plugins: PluginList): void {
 	const ids = new Set<string>();
@@ -159,12 +191,17 @@ export function defineConvexZen<TPlugins extends PluginList>(
 export function createConvexZenClient<TPlugins extends PluginList>(
 	component: Record<string, unknown>,
 	definition: ConvexZenDefinition<TPlugins>,
-	runtimeOptions?: { runtimeKind?: "app" | "component" },
+	runtimeOptions?: { runtimeKind?: "app" | "component" } & ComponentRuntimeRefs,
 ): ConvexZen<TPlugins> {
 	return new ConvexZen(
 		component,
 		definition,
 		runtimeOptions?.runtimeKind ?? "app",
+		{
+			...(runtimeOptions?.coreRefs !== undefined
+				? { coreRefs: runtimeOptions.coreRefs }
+				: {}),
+		},
 	);
 }
 
@@ -178,7 +215,7 @@ export function createConvexZenClient<TPlugins extends PluginList>(
  * ```ts
  * // convex/zen.runtime.ts
  * import { ConvexZen, googleProvider } from "convex-zen";
- * import { systemAdminPlugin } from "convex-zen-system-admin";
+ * import { systemAdminPlugin } from "convex-zen/plugins/system-admin";
  * import { components } from "./_generated/api";
  *
  * export const auth = new ConvexZen(components.zenComponent, {
@@ -197,15 +234,18 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 	private readonly pluginRuntimes: PluginRuntimeMap<TPlugins>;
 	private readonly providerMap: Map<string, OAuthProviderConfig>;
 	private readonly runtimeKind: "app" | "component";
+	private readonly componentRuntimeRefs: ComponentRuntimeRefs;
 
 	constructor(
 		component: Record<string, unknown>,
 		options: ConvexZenOptions<TPlugins> = {},
 		runtimeKind: "app" | "component" = "app",
+		componentRuntimeRefs: ComponentRuntimeRefs = {},
 	) {
 		this.component = component;
 		this.options = options;
 		this.runtimeKind = runtimeKind;
+		this.componentRuntimeRefs = componentRuntimeRefs;
 		assertUniquePluginIds(options.plugins ?? []);
 		const tokenEncryptionSecret = this.resolveTokenEncryptionSecret();
 		const normalizedProviders = (options.providers ?? []).map((provider) => {
@@ -233,26 +273,20 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 	private createPluginRuntime<TPlugin extends ConvexAuthPlugin>(
 		plugin: TPlugin,
 	): PluginRuntimeMap<readonly [TPlugin]>[TPlugin["id"]] {
-		const childName = `${plugin.id}Component`;
-		const gatewayMetadata = collectPluginGatewayMetadata(
-			plugin.definition.gateway,
-		);
+		const gateway = plugin.definition.gateway;
+		const gatewayMetadata = collectPluginGatewayMetadata(gateway);
 		const baseGateway = this.buildPluginGatewayRuntime<TPlugin["definition"]["gateway"]>(
 			plugin.id,
-			childName,
+			gateway,
 			gatewayMetadata,
 		);
 		const extension =
 			plugin.definition.extendRuntime?.({
-				component: this.component,
-				childName,
 				runtimeKind: this.runtimeKind,
 				options: plugin.options,
 				gateway: baseGateway,
 				requireActorUserId: (ctx) => this.requireActorUserId(ctx),
 				resolveUserId: (ctx) => this.resolveUserId(ctx),
-				callInternalMutation: (ctx, functionName, args) =>
-					this.callPluginInternalMutation(plugin.id, childName, functionName, ctx, args),
 				deleteAuthUser: (ctx, userId) => this.deleteAuthUser(ctx, userId),
 			}) ?? {};
 		for (const [key, value] of Object.entries(baseGateway)) {
@@ -265,41 +299,45 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 
 	private buildPluginGatewayRuntime<TGateway extends PluginGatewayModule>(
 		pluginId: string,
-		childName: string,
+		gateway: TGateway,
 		gatewayMetadata: PluginGatewayRuntimeMethods,
-		): PluginGatewayRuntimeMap<TGateway> {
-			const runtime: Partial<PluginGatewayRuntimeMap<TGateway>> = {};
-			for (const [rawFunctionName, metadata] of Object.entries(gatewayMetadata)) {
-				const functionName =
-					rawFunctionName as Extract<keyof PluginGatewayRuntimeMap<TGateway>, string>;
-				runtime[functionName] = (async (ctx: unknown, args: Record<string, unknown>) =>
-					await this.callPluginGatewayFunction(
-						pluginId,
-						childName,
-						rawFunctionName,
-						metadata,
-						ctx,
-						args,
-					)) as PluginGatewayRuntimeMap<TGateway>[typeof functionName];
-			}
-			return runtime as unknown as PluginGatewayRuntimeMap<TGateway>;
+	): PluginGatewayRuntimeMap<TGateway> {
+		const runtime: Partial<PluginGatewayRuntimeMap<TGateway>> = {};
+		for (const [rawFunctionName, metadata] of Object.entries(gatewayMetadata)) {
+			const functionName =
+				rawFunctionName as Extract<keyof PluginGatewayRuntimeMap<TGateway>, string>;
+			runtime[functionName] = (async (ctx: unknown, args: Record<string, unknown>) =>
+				await this.callPluginGatewayFunction(
+					pluginId,
+					gateway,
+					rawFunctionName,
+					metadata,
+					ctx,
+					args,
+				)) as PluginGatewayRuntimeMap<TGateway>[typeof functionName];
 		}
+		return runtime as unknown as PluginGatewayRuntimeMap<TGateway>;
+	}
 
 	private async callPluginGatewayFunction(
 		pluginId: string,
-		childName: string,
+		gateway: PluginGatewayModule,
 		functionName: string,
 		metadata: PluginGatewayFunctionMetadata,
 		ctx: unknown,
 		args: Record<string, unknown>,
 	): Promise<unknown> {
-		if (this.runtimeKind === "app") {
-			const appFn = resolveComponentFn(
-				this.component,
-				`${pluginId}/gateway:${functionName}`,
-			);
+		if (this.runtimeKind === "component") {
+			const invoke = (resolvedArgs: Record<string, unknown>) =>
+				this.runComponentPluginFunction(
+					pluginId,
+					gateway,
+					functionName,
+					ctx,
+					resolvedArgs,
+				);
 			if (metadata.auth === "public") {
-				return await this.runPluginFunction(ctx, metadata.kind, appFn, args);
+				return await invoke(args);
 			}
 			const actorUserId =
 				metadata.auth === "actor"
@@ -311,22 +349,20 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 			const actorEmail = metadata.actor?.actorEmail
 				? await this.resolveActorEmail(ctx)
 				: undefined;
-			return await this.runPluginFunction(ctx, metadata.kind, appFn, {
+			return await invoke({
 				...args,
 				actorUserId,
 				...(actorEmail ? { actorEmail } : {}),
 			});
 		}
 
+		const fn = resolveComponentFn(
+			this.component,
+			`plugins/${pluginId}/gateway:${functionName}`,
+		);
 		if (metadata.auth === "public") {
-			return await this.runPluginFunction(
-				ctx,
-				metadata.kind,
-				resolveComponentFn(this.component, `${childName}/gateway:${functionName}`),
-				args,
-			);
+			return await this.runPluginFunction(ctx, metadata.kind, fn, args);
 		}
-
 		const actorUserId =
 			metadata.auth === "actor"
 				? await this.requireActorUserId(ctx)
@@ -337,16 +373,11 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 		const actorEmail = metadata.actor?.actorEmail
 			? await this.resolveActorEmail(ctx)
 			: undefined;
-		return await this.runPluginFunction(
-			ctx,
-			metadata.kind,
-			resolveComponentFn(this.component, `${childName}/gateway:${functionName}`),
-			{
-				...args,
-				actorUserId,
-				...(actorEmail ? { actorEmail } : {}),
-			},
-		);
+		return await this.runPluginFunction(ctx, metadata.kind, fn, {
+			...args,
+			actorUserId,
+			...(actorEmail ? { actorEmail } : {}),
+		});
 	}
 
 	private async runPluginFunction(
@@ -364,21 +395,19 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 		return await (ctx as RunsActions).runAction(fn, args);
 	}
 
-	private async callPluginInternalMutation(
+	private async runComponentPluginFunction(
 		pluginId: string,
-		childName: string,
+		gateway: PluginGatewayModule,
 		functionName: string,
 		ctx: unknown,
 		args: Record<string, unknown>,
 	): Promise<unknown> {
-		const path =
-			this.runtimeKind === "app"
-				? `${pluginId}/gateway:${functionName}`
-				: `${childName}/gateway:${functionName}`;
-		return await (ctx as RunsMutations).runMutation(
-			resolveComponentFn(this.component, path),
-			args,
+		const exportValue = gateway[functionName];
+		const handler = getPluginFunctionHandler(
+			exportValue,
+			`${pluginId}.${functionName}`,
 		);
+		return await handler(ctx, args);
 	}
 
 	async deleteAuthUser(ctx: unknown, userId: string): Promise<void> {
@@ -395,12 +424,32 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 				userId,
 				options: plugin.options,
 				runtime,
+				callPluginMutation: async (functionName, args) => {
+					if (this.runtimeKind === "component") {
+						return await this.runComponentPluginFunction(
+							plugin.id,
+							plugin.definition.gateway,
+							functionName,
+							ctx,
+							args,
+						);
+					}
+					return await (ctx as RunsMutations).runMutation(
+						resolveComponentFn(
+							this.component,
+							`plugins/${plugin.id}/gateway:${functionName}`,
+						),
+						args,
+					);
+				},
 			});
 		}
-		await (ctx as RunsMutations).runMutation(
-			resolveComponentFn(this.component, "core/users:remove"),
-			{ userId },
-		);
+		const removeUserFn =
+			this.runtimeKind === "component"
+				? this.componentRuntimeRefs.coreRefs?.removeUser ??
+					resolveComponentFn(this.component, "core/users:remove")
+				: resolveComponentFn(this.component, "core/users:remove");
+		await (ctx as RunsMutations).runMutation(removeUserFn, { userId });
 	}
 
 	private async resolveActorEmail(ctx: unknown): Promise<string | undefined> {
@@ -522,10 +571,14 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 			context: "signUp",
 		});
 
-		const result = (await ctx.runMutation(this.fn("gateway:signUp"), {
+		const result = (await ctx.runMutation(this.fn("core/gateway:signUp"), {
 			...args,
 			defaultRole: this.resolveDefaultRole(),
-		})) as { status: "verification_required"; verificationCode: string | null };
+		})) as {
+			status: "verification_required";
+			verificationCode: string | null;
+			suppressedReason: "email_already_registered" | null;
+		};
 
 		// Only send the verification email when a code was produced.
 		// A null code means the address was already registered; we return the
@@ -535,6 +588,13 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 				args.email,
 				result.verificationCode,
 			);
+		} else if (result.suppressedReason !== null) {
+			await this.options.onSuppressedEmailPasswordEvent?.({
+				flow: "signUp",
+				reason: result.suppressedReason,
+				email: args.email,
+				...(args.ipAddress !== undefined ? { ipAddress: args.ipAddress } : {}),
+			});
 		}
 
 		return { status: "verification_required" };
@@ -553,9 +613,10 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 			userAgent?: string;
 		},
 	): Promise<{ sessionToken: string; userId: string }> {
-		return ctx.runMutation(this.fn("gateway:signIn"), {
+		return ctx.runMutation(this.fn("core/gateway:signIn"), {
 			...args,
 			requireEmailVerified: this.options.requireEmailVerified ?? true,
+			checkBanned: this.shouldCheckCreateSession(),
 		}) as Promise<{ sessionToken: string; userId: string }>;
 	}
 
@@ -566,7 +627,7 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 		ctx: ConvexCtx,
 		args: { email: string; code: string },
 	): Promise<{ status: string }> {
-		return ctx.runMutation(this.fn("gateway:verifyEmail"), args) as Promise<{
+		return ctx.runMutation(this.fn("core/gateway:verifyEmail"), args) as Promise<{
 			status: string;
 		}>;
 	}
@@ -583,15 +644,26 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 		}
 
 		const result = (await ctx.runMutation(
-			this.fn("gateway:requestPasswordReset"),
+			this.fn("core/gateway:requestPasswordReset"),
 			args,
-		)) as { status: "sent"; resetCode: string | null };
+		)) as {
+			status: "sent";
+			resetCode: string | null;
+			suppressedReason: "email_not_found" | "rate_limited" | null;
+		};
 
 		if (result.resetCode) {
 			await this.options.emailProvider.sendPasswordResetEmail(
 				args.email,
 				result.resetCode,
 			);
+		} else if (result.suppressedReason !== null) {
+			await this.options.onSuppressedEmailPasswordEvent?.({
+				flow: "requestPasswordReset",
+				reason: result.suppressedReason,
+				email: args.email,
+				...(args.ipAddress !== undefined ? { ipAddress: args.ipAddress } : {}),
+			});
 		}
 
 		return { status: "sent" };
@@ -603,14 +675,29 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 	async resetPassword(
 		ctx: ConvexCtx,
 		args: { email: string; code: string; newPassword: string },
-	): Promise<{ status: string }> {
+	): Promise<{ status: "valid" }> {
 		await this.assertPasswordPolicy({
 			password: args.newPassword,
 			context: "resetPassword",
 		});
-		return ctx.runMutation(this.fn("gateway:resetPassword"), args) as Promise<{
-			status: string;
-		}>;
+		const result = (await ctx.runMutation(
+			this.fn("core/gateway:resetPassword"),
+			args,
+		)) as { status: "valid" | "invalid" | "expired" | "too_many_attempts" };
+
+		if (result.status === "invalid") {
+			throw new Error("Invalid password reset code");
+		}
+
+		if (result.status === "expired") {
+			throw new Error("Password reset code has expired");
+		}
+
+		if (result.status === "too_many_attempts") {
+			throw new Error("Too many invalid password reset attempts");
+		}
+
+		return { status: "valid" };
 	}
 
 	/**
@@ -633,7 +720,7 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 						redirectUrl: options,
 					}
 				: options;
-		return ctx.runMutation(this.fn("gateway:getAuthorizationUrl"), {
+		return ctx.runMutation(this.fn("core/gateway:getAuthorizationUrl"), {
 			provider,
 			callbackUrl: resolvedOptions?.callbackUrl,
 			redirectTo: resolvedOptions?.redirectTo,
@@ -654,7 +741,7 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 		if (!provider) {
 			throw new Error(`OAuth provider "${args.providerId}" not configured`);
 		}
-		return ctx.runAction(this.fn("gateway:handleCallback"), {
+		return ctx.runAction(this.fn("core/gateway:handleCallback"), {
 			provider,
 			code: args.code,
 			state: args.state,
@@ -665,6 +752,7 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 			ipAddress: args.ipAddress,
 			userAgent: args.userAgent,
 			defaultRole: this.resolveDefaultRole(),
+			checkBanned: this.shouldCheckCreateSession(),
 		}) as Promise<OAuthCallbackResult>;
 	}
 
@@ -676,7 +764,7 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 		ctx: ConvexCtx,
 		token: string,
 	): Promise<{ userId: string; sessionId: string } | null> {
-		return ctx.runMutation(this.fn("gateway:validateSession"), {
+		return ctx.runMutation(this.fn("core/gateway:validateSession"), {
 			token,
 			checkBanned: this.shouldCheckResolvedSession(),
 		}) as Promise<{ userId: string; sessionId: string } | null>;
@@ -718,7 +806,7 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 		ctx: RunsQueries,
 		token: string,
 	): Promise<AuthUser | null> {
-		return ctx.runQuery(this.fn("gateway:getCurrentUser"), {
+		return ctx.runQuery(this.fn("core/gateway:getCurrentUser"), {
 			token,
 			checkBanned: this.shouldCheckAuthUserRead(),
 		}) as Promise<AuthUser | null>;
@@ -732,7 +820,7 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 		ctx: RunsQueries,
 		userId: string,
 	): Promise<AuthUser | null> {
-		return ctx.runQuery(this.fn("gateway:getUserById"), {
+		return ctx.runQuery(this.fn("core/gateway:getUserById"), {
 			userId,
 			checkBanned: this.shouldCheckAuthUserRead(),
 		}) as Promise<AuthUser | null>;
@@ -761,7 +849,7 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 			return null;
 		}
 
-		return ctx.runQuery(this.fn("gateway:getUserById"), {
+		return ctx.runQuery(this.fn("core/gateway:getUserById"), {
 			userId,
 			checkBanned: this.shouldCheckAuthUserRead(),
 		}) as Promise<AuthUser | null>;
@@ -783,14 +871,14 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 	 * Can be called from a mutation or action context.
 	 */
 	async signOut(ctx: RunsMutations, token: string): Promise<void> {
-		await ctx.runMutation(this.fn("gateway:invalidateSession"), { token });
+		await ctx.runMutation(this.fn("core/gateway:invalidateSession"), { token });
 	}
 
 	/**
 	 * Sign out all sessions for a user.
 	 */
 	async signOutAll(ctx: RunsMutations, userId: string): Promise<void> {
-		await ctx.runMutation(this.fn("gateway:invalidateAllSessions"), { userId });
+		await ctx.runMutation(this.fn("core/gateway:invalidateAllSessions"), { userId });
 	}
 
 	private resolveDefaultRole(): string | undefined {
@@ -809,6 +897,12 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 	private shouldCheckResolvedSession(): boolean {
 		return (this.options.plugins ?? []).some(
 			(plugin) => plugin.definition.hooks?.assertCanResolveSession === true,
+		);
+	}
+
+	private shouldCheckCreateSession(): boolean {
+		return (this.options.plugins ?? []).some(
+			(plugin) => plugin.definition.hooks?.assertCanCreateSession === true,
 		);
 	}
 
@@ -986,14 +1080,26 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 	 */
 	private fn(path: string): unknown {
 		if (this.runtimeKind === "component") {
-			return resolveComponentFn(this.component, `core/${path}`);
+			const [, functionName] = path.split(":");
+			if (!functionName) {
+				throw new Error(`Invalid core function path: ${path}`);
+			}
+			const gatewayRefs = this.componentRuntimeRefs.coreRefs?.gateway;
+			const fn = gatewayRefs?.[functionName];
+			if (!fn) {
+				throw new Error(
+					`Missing component runtime core gateway reference for "${functionName}".`,
+				);
+			}
+			return fn;
 		}
 		return resolveComponentFn(this.component, path);
 	}
-	}
+
+}
 
 // Named exports for convenience
-export { definePlugin };
+export { definePlugin, definePluginSchema };
 export {
 	buildOAuthAuthorizationUrl,
 	discordProvider,
@@ -1040,6 +1146,7 @@ export type {
 	PluginGatewayFunctionMetadata,
 	PluginGatewayModule,
 	PluginGatewayRuntimeMap,
+	PluginSchemaDefinition,
 	PluginRuntimeExtensionContext,
 	SystemAdminPluginConfig,
 	SystemAdminListUsersResult,

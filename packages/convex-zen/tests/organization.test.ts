@@ -6,12 +6,12 @@ import {
   defineConvexZen,
 } from "../src/client";
 import schema from "../src/component/schema";
-import { organizationPlugin } from "../../convex-zen-organization/src";
+import { organizationPlugin } from "../src/plugins/organization/runtime";
 
 const modules = {
   ...import.meta.glob("../src/component/**/*.*s"),
   "../src/component/plugins/organization/gateway.ts": () =>
-    import("../../convex-zen-organization/src/gateway"),
+    import("../src/plugins/organization/gateway"),
 };
 
 function organizationQueryRef(name: string): FunctionReference<"query", "public"> {
@@ -82,7 +82,7 @@ async function insertSystemMembership(
   }
 ) {
   await t.run(async (ctx) => {
-    await ctx.db.insert("organizationMembers", {
+    await ctx.db.insert("organization__members", {
       organizationId: args.organizationId as never,
       userId: args.userId as never,
       roleType: "system",
@@ -658,25 +658,25 @@ describe("organization plugin", () => {
     const counts = await t.run(async (ctx) => {
       const org = await ctx.db.get(organization._id as never);
       const members = await ctx.db
-        .query("organizationMembers")
+        .query("organization__members")
         .withIndex("by_organizationId", (q) =>
           q.eq("organizationId", organization._id as never)
         )
         .collect();
       const invites = await ctx.db
-        .query("organizationInvitations")
+        .query("organization__invitations")
         .withIndex("by_organizationId", (q) =>
           q.eq("organizationId", organization._id as never)
         )
         .collect();
       const roles = await ctx.db
-        .query("organizationRoles")
+        .query("organization__roles")
         .withIndex("by_organizationId", (q) =>
           q.eq("organizationId", organization._id as never)
         )
         .collect();
       const domains = await ctx.db
-        .query("organizationDomains")
+        .query("organization__domains")
         .withIndex("by_organizationId", (q) =>
           q.eq("organizationId", organization._id as never)
         )
@@ -746,22 +746,24 @@ describe("organization plugin", () => {
 
     const auth = createConvexZenClient(
       {
-        core: {
-          users: {
-            remove: makeFunctionReference("core/users:remove"),
-          },
-        },
-        organization: {
-          gateway: {
-            deleteUserRelations: makeFunctionReference(
-              "plugins/organization/gateway:deleteUserRelations"
-            ),
+        plugins: {
+          organization: {
+            gateway: {
+              deleteUserRelations: makeFunctionReference(
+                "plugins/organization/gateway:deleteUserRelations"
+              ),
+            },
           },
         },
       },
       defineConvexZen({
         plugins: [organizationPlugin()],
-      })
+      }),
+      {
+        coreRefs: {
+          removeUser: makeFunctionReference("core/users:remove"),
+        },
+      }
     );
 
     await expect(

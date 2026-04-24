@@ -21,11 +21,11 @@ If you already have a TanStack Start app, continue from here.
 ## 2. Install dependencies
 
 ```bash
-pnpm add convex convex-zen convex-zen-system-admin convex-zen-organization @convex-dev/react-query @tanstack/react-query
+pnpm add convex convex-zen @convex-dev/react-query @tanstack/react-query
 pnpm add -D concurrently
 ```
 
-If you are not using the example plugins, leave out `convex-zen-system-admin` and `convex-zen-organization`.
+Built-in plugins are imported from `convex-zen/plugins/*`, so no extra plugin package install is needed.
 
 ## 3. Add Convex app wiring
 
@@ -61,8 +61,8 @@ import {
 	githubProvider,
 	googleProvider,
 } from "convex-zen";
-import { systemAdminPlugin } from "convex-zen-system-admin";
-import { organizationPlugin } from "convex-zen-organization";
+import { systemAdminPlugin } from "convex-zen/plugins/system-admin";
+import { organizationPlugin } from "convex-zen/plugins/organization";
 
 export default defineConvexZen({
 	emailProvider: {

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { convexQuery, useConvexMutation } from "@convex-dev/react-query";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api } from "../../../convex/_generated/api";
-import { messageFromError } from "./shared";
+import { type OrganizationRole, messageFromError } from "./shared";
 
 export function DynamicRolesSection({
   organizationId,
@@ -37,7 +37,7 @@ export function DynamicRolesSection({
   });
 
   const availablePermissions = permissionsQuery.data?.permissions ?? [];
-  const roles = rolesQuery.data?.roles ?? [];
+  const roles: OrganizationRole[] = rolesQuery.data?.roles ?? [];
   const canCreateRole = canCreateRoleQuery.data ?? false;
   const canUpdateRole = canUpdateRoleQuery.data ?? false;
   const canDeleteRole = canDeleteRoleQuery.data ?? false;
@@ -201,7 +201,7 @@ export function DynamicRolesSection({
                 onSubmit={(event) => {
                   event.preventDefault();
                   updateRoleMutation.mutate({
-                    roleId: editingRoleId,
+                    roleId: role._id,
                     name: editingRoleName,
                     slug: editingRoleSlug,
                     permissions: editingRolePermissions

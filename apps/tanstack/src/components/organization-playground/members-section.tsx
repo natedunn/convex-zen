@@ -3,6 +3,7 @@ import { convexQuery, useConvexMutation } from "@convex-dev/react-query";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api } from "../../../convex/_generated/api";
 import {
+  type OrganizationMember,
   buildRoleOptions,
   messageFromError,
   parseRoleValue,
@@ -38,7 +39,7 @@ export function MembersSection({
     }),
   });
 
-  const members = membersQuery.data ?? [];
+  const members: OrganizationMember[] = membersQuery.data ?? [];
   const roleOptions = useMemo(
     () => buildRoleOptions(rolesQuery.data?.roles ?? []),
     [rolesQuery.data]

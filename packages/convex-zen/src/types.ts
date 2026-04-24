@@ -1,11 +1,12 @@
 /**
  * Core interfaces for convex-zen plugin and provider system.
  */
-import type {
-  DefaultFunctionArgs,
-  RegisteredAction,
-  RegisteredMutation,
-  RegisteredQuery,
+import {
+  defineTable,
+  type DefaultFunctionArgs,
+  type RegisteredAction,
+  type RegisteredMutation,
+  type RegisteredQuery,
 } from "convex/server";
 import type { ObjectType, PropertyValidators } from "convex/values";
 
@@ -196,6 +197,7 @@ export type AuthPluginFunctionKind = "query" | "mutation" | "action";
 export type AuthPluginFunctionAuth = "public" | "actor" | "optionalActor";
 
 export const PLUGIN_FUNCTION_METADATA_KEY = "__convexZenPluginFunction" as const;
+export const PLUGIN_FUNCTION_HANDLER_KEY = "__convexZenPluginHandler" as const;
 
 export type PluginGatewayFieldConfig = {
   actorEmail?: boolean;
@@ -212,7 +214,25 @@ export type PluginFunctionCarrier<
   TMetadata extends PluginFunctionMetadata = PluginFunctionMetadata,
 > = {
   [PLUGIN_FUNCTION_METADATA_KEY]?: TMetadata;
+  [PLUGIN_FUNCTION_HANDLER_KEY]?: PluginFunctionHandler;
 };
+
+export type PluginFunctionHandler = (
+  ctx: unknown,
+  args: Record<string, unknown>
+) => Promise<unknown> | unknown;
+
+export type PluginSchemaTable = ReturnType<typeof defineTable>;
+
+export interface PluginSchemaDefinition<
+  TTables extends Record<string, PluginSchemaTable> = Record<
+    string,
+    PluginSchemaTable
+  >,
+> {
+  kind: "pluginSchema";
+  tables: TTables;
+}
 
 export interface AuthPluginHooks<TOptions = unknown> {
   onUserCreated?: {
@@ -335,22 +355,21 @@ export type PluginGatewayRuntimeMap<TGateway extends PluginGatewayModule> = {
   ) => Promise<PluginGatewayFunctionReturn<TGateway[TMethod]>>;
 };
 
+type PluginFactoryOptions<
+  TDefinition extends PluginDefinition<any, any, any, any, any>,
+> = TDefinition extends PluginDefinition<any, infer TOptions, any, any, any>
+  ? TOptions
+  : never;
+
 export interface PluginRuntimeExtensionContext<
   TOptions = unknown,
   TGateway extends PluginGatewayModule = PluginGatewayModule,
 > {
-  component: Record<string, unknown>;
-  childName: string;
   runtimeKind: "app" | "component";
   options: TOptions;
   gateway: PluginGatewayRuntimeMap<TGateway>;
   requireActorUserId: (ctx: unknown) => Promise<string>;
   resolveUserId: (ctx: unknown) => Promise<string | null>;
-  callInternalMutation: (
-    ctx: unknown,
-    functionName: string,
-    args: Record<string, unknown>
-  ) => Promise<unknown>;
   deleteAuthUser: (ctx: unknown, userId: string) => Promise<void>;
 }
 
@@ -363,6 +382,10 @@ export interface PluginUserDeletedHookContext<
   userId: string;
   options: TOptions;
   runtime: PluginGatewayRuntimeMap<TGateway> & TRuntimeExtension;
+  callPluginMutation: (
+    functionName: string,
+    args: Record<string, unknown>
+  ) => Promise<unknown>;
 }
 
 export interface PluginDefinition<
@@ -370,8 +393,12 @@ export interface PluginDefinition<
   TOptions = unknown,
   TGateway extends PluginGatewayModule = PluginGatewayModule,
   TRuntimeExtension extends object = {},
+  TSchema extends PluginSchemaDefinition<any> | undefined =
+    | PluginSchemaDefinition<any>
+    | undefined,
 > {
   id: TId;
+  schema?: TSchema;
   gateway: TGateway;
   normalizeOptions?: (options: TOptions | undefined) => TOptions;
   optionsSchema?: unknown;
@@ -386,7 +413,9 @@ export interface PluginDefinition<
 }
 
 export interface ConvexAuthPlugin<
-  TDefinition extends PluginDefinition<any, any, any, any> = PluginDefinition<
+  TDefinition extends PluginDefinition<any, any, any, any, any> = PluginDefinition<
+    any,
+    any,
     any,
     any,
     any
@@ -394,24 +423,50 @@ export interface ConvexAuthPlugin<
 > {
   id: TDefinition["id"];
   definition: TDefinition;
-  options: TDefinition extends PluginDefinition<any, infer TOptions, any, any>
-    ? TOptions
-    : never;
+  options: PluginFactoryOptions<TDefinition>;
 }
 
 export interface AuthPluginFactory<
-  TDefinition extends PluginDefinition<any, any, any, any> = PluginDefinition<
+  TDefinition extends PluginDefinition<any, any, any, any, any> = PluginDefinition<
+    any,
+    any,
     any,
     any,
     any
   >,
 > {
-  (
-    options?: TDefinition extends PluginDefinition<any, infer TOptions, any, any>
-      ? TOptions
-      : never
-  ): ConvexAuthPlugin<TDefinition>;
+  (options?: PluginFactoryOptions<TDefinition>): ConvexAuthPlugin<TDefinition>;
   definition: TDefinition;
+}
+
+const RESERVED_PLUGIN_IDS = new Set([
+  "core",
+  "plugin",
+  "component",
+  "_generated",
+  "auth",
+]);
+
+function assertValidPluginId(id: string): void {
+  if (!/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(id)) {
+    throw new Error(
+      `Invalid auth plugin id "${id}". Plugin ids must be valid JavaScript identifiers.`
+    );
+  }
+  if (RESERVED_PLUGIN_IDS.has(id)) {
+    throw new Error(`Invalid auth plugin id "${id}". This id is reserved.`);
+  }
+}
+
+export function definePluginSchema<
+  TTables extends Record<string, PluginSchemaTable>,
+>(definition: {
+  tables: TTables;
+}): PluginSchemaDefinition<TTables> {
+  return {
+    kind: "pluginSchema",
+    tables: definition.tables,
+  };
 }
 
 export function definePlugin<
@@ -419,18 +474,32 @@ export function definePlugin<
   TOptions,
   TGateway extends PluginGatewayModule,
   TRuntimeExtension extends object,
+  TSchema extends PluginSchemaDefinition<any> | undefined,
 >(
-  definition: PluginDefinition<TId, TOptions, TGateway, TRuntimeExtension>
-): AuthPluginFactory<PluginDefinition<TId, TOptions, TGateway, TRuntimeExtension>> {
+  definition: PluginDefinition<
+    TId,
+    TOptions,
+    TGateway,
+    TRuntimeExtension,
+    TSchema
+  >
+): AuthPluginFactory<
+  PluginDefinition<TId, TOptions, TGateway, TRuntimeExtension, TSchema>
+> {
+  assertValidPluginId(definition.id);
   const factory = ((
     options?: TOptions
-  ): ConvexAuthPlugin<PluginDefinition<TId, TOptions, TGateway, TRuntimeExtension>> => ({
+  ): ConvexAuthPlugin<
+    PluginDefinition<TId, TOptions, TGateway, TRuntimeExtension, TSchema>
+  > => ({
     id: definition.id,
     definition,
     options: definition.normalizeOptions
       ? definition.normalizeOptions(options)
       : (options as TOptions),
-  })) as AuthPluginFactory<PluginDefinition<TId, TOptions, TGateway, TRuntimeExtension>>;
+  })) as AuthPluginFactory<
+    PluginDefinition<TId, TOptions, TGateway, TRuntimeExtension, TSchema>
+  >;
   factory.definition = definition;
   return factory;
 }

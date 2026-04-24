@@ -162,8 +162,8 @@ convex-zen/expo         → src/client/expo.ts
 convex-zen/next         → src/client/next.ts
 convex-zen/react        → src/client/react.ts
 convex-zen/tanstack-start → src/client/tanstack-start.ts
-convex-zen-system-admin → packages/convex-zen-system-admin/src/index.ts
-convex-zen-organization → packages/convex-zen-organization/src/index.ts
+convex-zen/plugins/system-admin → src/plugins/system-admin/index.ts
+convex-zen/plugins/organization → src/plugins/organization/index.ts
 convex-zen/convex.config → src/component/convex.config.ts
 ```
 
@@ -259,7 +259,7 @@ All gateway functions are `action` type because actions can call queries, mutati
 // convex/auth.ts
 import { ConvexZen } from "convex-zen";
 import { googleProvider, githubProvider } from "convex-zen";
-import { systemAdminPlugin } from "convex-zen-system-admin";
+import { systemAdminPlugin } from "convex-zen/plugins/system-admin";
 import { components } from "./_generated/api";
 
 export const auth = new ConvexZen(components.convexAuth, {

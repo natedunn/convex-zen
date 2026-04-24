@@ -41,6 +41,24 @@ const typedPlugin = definePlugin({
   gateway: typedGateway,
 });
 
+const hookDeleteStateHandler = vi.fn(
+  async (_ctx: unknown, args: Record<string, unknown>) => args.userId
+);
+
+const hookPlugin = definePlugin({
+  id: "hook",
+  gateway: {
+    deleteState: Object.assign(() => null, {
+      _handler: hookDeleteStateHandler,
+    }),
+  },
+  hooks: {
+    onUserDeleted: async ({ userId, callPluginMutation }) => {
+      await callPluginMutation("deleteState", { userId });
+    },
+  },
+});
+
 describe("defineConvexZen", () => {
   it("rejects duplicate plugin ids", () => {
     expect(() =>
@@ -102,23 +120,79 @@ describe("defineConvexZen", () => {
 
   it("routes core methods through core child refs in component runtime mode", async () => {
     const auth = createConvexZenClient(
+      {},
+      defineConvexZen({}),
       {
-        core: {
+        runtimeKind: "component",
+        coreRefs: {
           gateway: {
-            invalidateSession: "core/gateway:invalidateSession",
+            invalidateSession: "gateway:invalidateSession",
           },
         },
-      },
-      defineConvexZen({}),
-      { runtimeKind: "component" }
+      }
     );
     const runMutation = vi.fn(async () => undefined);
 
     await auth.signOut({ runMutation }, "session_token");
 
     expect(runMutation).toHaveBeenCalledWith(
-      "core/gateway:invalidateSession",
+      "gateway:invalidateSession",
       { token: "session_token" }
     );
+  });
+
+  it("routes component plugin methods through raw gateway handlers", async () => {
+    const auth = createConvexZenClient(
+      {},
+      defineConvexZen({
+        plugins: [typedPlugin()] as const,
+        resolveUserId: async () => "user_1",
+      }),
+      {
+        runtimeKind: "component",
+      }
+    );
+    const runMutation = vi.fn(async () => ({
+      actorUserId: "user_1",
+      message: "hello",
+    }));
+
+    await expect(
+      auth.plugins.typed.log({ runMutation }, { message: "hello" })
+    ).resolves.toEqual({
+      actorUserId: "user_1",
+      message: "hello",
+    });
+
+    expect(runMutation).not.toHaveBeenCalled();
+  });
+
+  it("runs component plugin hook mutations through attached handlers", async () => {
+    hookDeleteStateHandler.mockClear();
+
+    const auth = createConvexZenClient(
+      {},
+      defineConvexZen({
+        plugins: [hookPlugin()] as const,
+      }),
+      {
+        runtimeKind: "component",
+        coreRefs: {
+          removeUser: "core/users:remove",
+        },
+      }
+    );
+    const runMutation = vi.fn(async () => undefined);
+
+    await auth.deleteAuthUser({ runMutation }, "user_1");
+
+    expect(hookDeleteStateHandler).toHaveBeenCalledWith(
+      { runMutation },
+      { userId: "user_1" }
+    );
+    expect(runMutation).toHaveBeenCalledTimes(1);
+    expect(runMutation).toHaveBeenCalledWith("core/users:remove", {
+      userId: "user_1",
+    });
   });
 });

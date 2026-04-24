@@ -4,10 +4,18 @@
  * Built-in plugins expose their own public gateways under child components.
  */
 import { v } from "convex/values";
-import { action, mutation, query, type DatabaseReader } from "./_generated/server.js";
+import {
+  action,
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+  type DatabaseReader,
+} from "./_generated/server.js";
 import type { Id } from "./_generated/dataModel.js";
 import { oauthProviderConfigValidator } from "./lib/validators.js";
 import { omitUndefined } from "./lib/object.js";
+import { cleanupExpiredVerifications as cleanupExpiredVerificationRecords } from "./core/verifications.js";
 import {
   requestPasswordResetCode,
   resetPasswordWithCode,
@@ -22,11 +30,15 @@ import {
   validateSessionTokenReadOnly,
 } from "./core/sessions.js";
 import {
+  findAccount,
   findUserById,
   getAdminStateForUser,
   isAdminStateCurrentlyBanned,
 } from "./core/users.js";
 import {
+  cleanupExpiredOAuthStates as cleanupExpiredOAuthStateRecords,
+  consumeOAuthStateRecord,
+  finalizeOAuthCallbackForProvider,
   getAuthorizationUrlForProvider,
   handleOAuthCallbackForProvider,
 } from "./providers/oauth.js";
@@ -36,8 +48,11 @@ async function normalizeUserForAuthRead<T extends { _id: Id<"users"> }>(
   user: T,
   checkBanned: boolean | undefined
 ): Promise<T | null> {
+  if (!checkBanned) {
+    return user;
+  }
   const adminState = await getAdminStateForUser(db as DatabaseReader, user._id);
-  if (!checkBanned || !adminState?.banned) {
+  if (!adminState?.banned) {
     return user;
   }
   const now = Date.now();
@@ -65,6 +80,7 @@ export const signIn = mutation({
     ipAddress: v.optional(v.string()),
     userAgent: v.optional(v.string()),
     requireEmailVerified: v.optional(v.boolean()),
+    checkBanned: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => await signInWithEmailPassword(ctx, args),
 });
@@ -182,6 +198,7 @@ export const handleCallback = action({
     ipAddress: v.optional(v.string()),
     userAgent: v.optional(v.string()),
     defaultRole: v.optional(v.string()),
+    checkBanned: v.optional(v.boolean()),
   },
   handler: async (ctx, args) =>
     await handleOAuthCallbackForProvider(ctx, {
@@ -196,6 +213,51 @@ export const handleCallback = action({
         ipAddress: args.ipAddress,
         userAgent: args.userAgent,
         defaultRole: args.defaultRole,
+        checkBanned: args.checkBanned,
       }),
     }),
+});
+
+export const cleanupExpiredVerifications = internalMutation({
+  args: {},
+  handler: async (ctx) => await cleanupExpiredVerificationRecords(ctx.db),
+});
+
+export const cleanupExpiredOAuthStates = internalMutation({
+  args: {},
+  handler: async (ctx) => await cleanupExpiredOAuthStateRecords(ctx.db),
+});
+
+export const consumeOAuthState = internalMutation({
+  args: { stateHash: v.string() },
+  handler: async (ctx, { stateHash }) =>
+    await consumeOAuthStateRecord(ctx.db, stateHash),
+});
+
+export const getLinkedAccount = internalQuery({
+  args: {
+    providerId: v.string(),
+    accountId: v.string(),
+  },
+  handler: async (ctx, { providerId, accountId }) =>
+    await findAccount(ctx.db, providerId, accountId),
+});
+
+export const finalizeOAuthCallback = internalMutation({
+  args: {
+    providerId: v.string(),
+    accountId: v.string(),
+    email: v.optional(v.string()),
+    name: v.optional(v.string()),
+    image: v.optional(v.string()),
+    encryptedAccessToken: v.string(),
+    encryptedRefreshToken: v.optional(v.string()),
+    accessTokenExpiresAt: v.optional(v.number()),
+    ipAddress: v.optional(v.string()),
+    userAgent: v.optional(v.string()),
+    defaultRole: v.optional(v.string()),
+    checkBanned: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) =>
+    await finalizeOAuthCallbackForProvider(ctx, args),
 });

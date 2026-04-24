@@ -12,76 +12,68 @@ import { OrganizationSetupSection } from "./components/organization-setup-sectio
 import { OrganizationSummarySection } from "./components/organization-summary-section";
 import { PermissionProbeSection } from "./components/permission-probe-section";
 import type {
-  OrganizationListEntry,
-  OrganizationListResult,
+	OrganizationListEntry,
+	OrganizationListResult,
 } from "./components/organization-playground-shared";
 import { messageFromError } from "./components/organization-playground-shared";
 
 export function OrganizationPlayground() {
-  const organizationsQuery = useQuery(
-    convexQuery(api.zen.plugin.organization.listOrganizations, {})
-  );
-  const organizations =
-    (organizationsQuery.data as OrganizationListResult | undefined)
-      ?.organizations ?? [];
-  const [selectedOrganizationId, setSelectedOrganizationId] = useState("");
-  const selectedOrganization =
-    organizations.find(
-      (entry) => entry.organization._id === selectedOrganizationId
-    )?.organization ?? null;
+	const organizationsQuery = useQuery(
+		convexQuery(api.zen.plugin.organization.listOrganizations, {}),
+	);
+	const organizations =
+		(organizationsQuery.data as OrganizationListResult | undefined)
+			?.organizations ?? [];
+	const [selectedOrganizationId, setSelectedOrganizationId] = useState("");
+	const selectedOrganization =
+		organizations.find(
+			(entry) => entry.organization._id === selectedOrganizationId,
+		)?.organization ?? null;
 
-  useEffect(() => {
-    if (
-      selectedOrganizationId &&
-      organizations.some((entry) => entry.organization._id === selectedOrganizationId)
-    ) {
-      return;
-    }
-    setSelectedOrganizationId(organizations[0]?.organization._id ?? "");
-  }, [organizations, selectedOrganizationId]);
+	useEffect(() => {
+		if (
+			selectedOrganizationId &&
+			organizations.some(
+				(entry) => entry.organization._id === selectedOrganizationId,
+			)
+		) {
+			return;
+		}
+		setSelectedOrganizationId(organizations[0]?.organization._id ?? "");
+	}, [organizations, selectedOrganizationId]);
 
-  return (
-    <>
-      {organizationsQuery.error ? (
-        <p className="text-error">
-          {messageFromError(
-            organizationsQuery.error,
-            "Could not load organizations"
-          )}
-        </p>
-      ) : null}
+	return (
+		<>
+			{organizationsQuery.error ? (
+				<p className="text-error">
+					{messageFromError(
+						organizationsQuery.error,
+						"Could not load organizations",
+					)}
+				</p>
+			) : null}
 
-      <OrganizationSetupSection
-        loading={organizationsQuery.isLoading}
-        organizations={organizations}
-        selectedOrganizationId={selectedOrganizationId}
-        onOrganizationsChanged={() => organizationsQuery.refetch()}
-        onSelectOrganization={setSelectedOrganizationId}
-      />
+			<OrganizationSetupSection
+				loading={organizationsQuery.isLoading}
+				organizations={organizations}
+				selectedOrganizationId={selectedOrganizationId}
+				onOrganizationsChanged={() => organizationsQuery.refetch()}
+				onSelectOrganization={setSelectedOrganizationId}
+			/>
 
-      {selectedOrganization ? (
-        <>
-          <OrganizationSummarySection
-            organization={selectedOrganization}
-          />
-          <DynamicRolesSection
-            organizationId={selectedOrganizationId}
-          />
-          <InvitationsSection
-            organizationId={selectedOrganizationId}
-            onMembershipChanged={() => organizationsQuery.refetch()}
-          />
-          <MembersSection
-            organizationId={selectedOrganizationId}
-          />
-          <DomainsSection
-            organizationId={selectedOrganizationId}
-          />
-          <PermissionProbeSection
-            organizationId={selectedOrganizationId}
-          />
-        </>
-      ) : null}
-    </>
-  );
+			{selectedOrganization ? (
+				<>
+					<OrganizationSummarySection organization={selectedOrganization} />
+					<DynamicRolesSection organizationId={selectedOrganizationId} />
+					<InvitationsSection
+						organizationId={selectedOrganizationId}
+						onMembershipChanged={() => organizationsQuery.refetch()}
+					/>
+					<MembersSection organizationId={selectedOrganizationId} />
+					<DomainsSection organizationId={selectedOrganizationId} />
+					<PermissionProbeSection organizationId={selectedOrganizationId} />
+				</>
+			) : null}
+		</>
+	);
 }

@@ -329,6 +329,17 @@ describe("createTanStackStartAuthApiHandler oauth routes", () => {
     expect(await response.json()).toEqual({
       error: "OAuth redirect targets must be relative paths",
     });
+
+    const backslashResponse = await handler(
+      new Request(
+        "https://app.test/api/auth/sign-in/google?mode=json&redirectTo=%2F%5Cevil.example%2Fsteal"
+      )
+    );
+
+    expect(backslashResponse.status).toBe(400);
+    expect(await backslashResponse.json()).toEqual({
+      error: "OAuth redirect targets must be relative paths",
+    });
   });
 
   it("completes OAuth callbacks and establishes the session", async () => {

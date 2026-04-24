@@ -2,8 +2,8 @@
 export const authMeta = {
   "core": {
     "currentUser": "query",
-    "getUserById": "query",
-    "invalidateAllSessions": "mutation",
+    "getOAuthUrl": "mutation",
+    "handleOAuthCallback": "action",
     "invalidateSession": "mutation",
     "requestPasswordReset": "mutation",
     "resetPassword": "mutation",
@@ -13,14 +13,6 @@ export const authMeta = {
     "verifyEmail": "mutation"
   },
   "plugin": {
-    "systemAdmin": {
-      "banUser": "mutation",
-      "deleteUser": "mutation",
-      "isAdmin": "query",
-      "listUsers": "query",
-      "setRole": "mutation",
-      "unbanUser": "mutation"
-    },
     "organization": {
       "acceptIncomingInvitation": "mutation",
       "acceptInvitation": "mutation",
@@ -56,6 +48,16 @@ export const authMeta = {
       "transferOwnership": "mutation",
       "updateOrganization": "mutation",
       "updateRole": "mutation"
+    },
+    "systemAdmin": {
+      "banUser": "mutation",
+      "bootstrapAdmin": "mutation",
+      "canBootstrapAdmin": "query",
+      "deleteUser": "mutation",
+      "isAdmin": "query",
+      "listUsers": "query",
+      "setRole": "mutation",
+      "unbanUser": "mutation"
     }
   }
 } as const;

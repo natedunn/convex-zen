@@ -65,13 +65,29 @@
       "types": "./src/component/index.ts",
       "import": "./src/component/index.ts"
     },
-    "./component/plugin-support": {
-      "types": "./src/component/plugin-support.ts",
-      "import": "./src/component/plugin-support.ts"
+    "./component/core/gateway": {
+      "types": "./src/component/core/gateway.ts",
+      "import": "./src/component/core/gateway.ts"
+    },
+    "./component/core/users": {
+      "types": "./src/component/core/users.ts",
+      "import": "./src/component/core/users.ts"
+    },
+    "./component/core-schema-definition": {
+      "types": "./src/component/core/schemaDefinition.ts",
+      "import": "./src/component/core/schemaDefinition.ts"
     },
     "./convex.config": {
       "types": "./src/component/convex.config.ts",
       "import": "./src/component/convex.config.ts"
+    },
+    "./plugins/system-admin": {
+      "types": "./src/plugins/system-admin/index.ts",
+      "import": "./src/plugins/system-admin/index.ts"
+    },
+    "./plugins/organization": {
+      "types": "./src/plugins/organization/index.ts",
+      "import": "./src/plugins/organization/index.ts"
     }
   },
   "publishConfig": {
@@ -130,13 +146,29 @@
         "types": "./dist/component/index.d.ts",
         "import": "./dist/component/index.js"
       },
-      "./component/plugin-support": {
-        "types": "./dist/component/plugin-support.d.ts",
-        "import": "./dist/component/plugin-support.js"
+      "./component/core/gateway": {
+        "types": "./dist/component/core/gateway.d.ts",
+        "import": "./dist/component/core/gateway.js"
+      },
+      "./component/core/users": {
+        "types": "./dist/component/core/users.d.ts",
+        "import": "./dist/component/core/users.js"
+      },
+      "./component/core-schema-definition": {
+        "types": "./dist/component/core/schemaDefinition.d.ts",
+        "import": "./dist/component/core/schemaDefinition.js"
       },
       "./convex.config": {
         "types": "./dist/component/convex.config.d.ts",
         "import": "./dist/component/convex.config.js"
+      },
+      "./plugins/system-admin": {
+        "types": "./dist/plugins/system-admin/index.d.ts",
+        "import": "./dist/plugins/system-admin/index.js"
+      },
+      "./plugins/organization": {
+        "types": "./dist/plugins/organization/index.d.ts",
+        "import": "./dist/plugins/organization/index.js"
       }
     }
   },
@@ -150,7 +182,7 @@
   "dependencies": {
     "@noble/curves": "^1.9.7",
     "@noble/hashes": "^1.8.0",
-    "convex": "^1.35.1",
+    "convex": "^1.36.0",
     "hash-wasm": "^4.11.0",
     "jose": "^5.10.0"
   },
@@ -167,7 +199,7 @@
   },
   "peerDependencies": {
     "@tanstack/react-start": "^1.162.1",
-    "convex": "^1.35.1",
+    "convex": "^1.36.0",
     "next": ">=15 <16",
     "react": ">=18.0.0 || >=19.0.0"
   },

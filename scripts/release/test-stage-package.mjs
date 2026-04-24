@@ -54,16 +54,10 @@ function assertCommonStageContents(stageDir, stagedPackageJson) {
   );
 }
 
-const stagedPackages = [
-  stagePackage("convex-zen"),
-  stagePackage("convex-zen-system-admin"),
-  stagePackage("convex-zen-organization"),
-];
+const stagedPackages = [stagePackage("convex-zen")];
 
 try {
   const convexZen = stagedPackages[0];
-  const systemAdmin = stagedPackages[1];
-  const organization = stagedPackages[2];
 
   assertCommonStageContents(convexZen.stageDir, convexZen.stagedPackageJson);
   assert.deepEqual(convexZen.stagedPackageJson.exports["./_generated/*.js"], {
@@ -74,18 +68,21 @@ try {
     types: "./dist/component/core/_generated/*.d.ts",
     import: "./dist/component/core/_generated/*.js",
   });
-
-  assertCommonStageContents(systemAdmin.stageDir, systemAdmin.stagedPackageJson);
-  assert.deepEqual(systemAdmin.stagedPackageJson.exports["./_generated/*.js"], {
-    types: "./dist/_generated/*.d.ts",
-    import: "./dist/_generated/*.js",
+  assert.deepEqual(convexZen.stagedPackageJson.exports["./plugins/system-admin"], {
+    types: "./dist/plugins/system-admin/index.d.ts",
+    import: "./dist/plugins/system-admin/index.js",
   });
-
-  assertCommonStageContents(organization.stageDir, organization.stagedPackageJson);
-  assert.deepEqual(organization.stagedPackageJson.exports["./_generated/*.js"], {
-    types: "./dist/_generated/*.d.ts",
-    import: "./dist/_generated/*.js",
+  assert.deepEqual(convexZen.stagedPackageJson.exports["./plugins/organization"], {
+    types: "./dist/plugins/organization/index.d.ts",
+    import: "./dist/plugins/organization/index.js",
   });
+  assert.deepEqual(
+    convexZen.stagedPackageJson.exports["./component/core-schema-definition"],
+    {
+      types: "./dist/component/core/schemaDefinition.d.ts",
+      import: "./dist/component/core/schemaDefinition.js",
+    }
+  );
 
   process.stdout.write("PASS stage-package-includes-configured-files\n");
   process.stdout.write("PASS stage-package-exports-generated-subpaths\n");
