@@ -81,12 +81,17 @@ describe("emailPassword", () => {
       const result = (await t.mutation(internal.providers.emailPassword.signUp, {
         email: "dup@example.com",
         password: "AnotherPassword123!",
-      })) as { status: string; verificationCode: string | null };
+      })) as {
+        status: string;
+        verificationCode: string | null;
+        suppressedReason: string | null;
+      };
 
       expect(result.status).toBe("verification_required");
       // verificationCode is null so the caller knows not to send a code,
       // but the response shape itself doesn't reveal the email exists.
       expect(result.verificationCode).toBeNull();
+      expect(result.suppressedReason).toBe("email_already_registered");
     });
 
     it("rejects short passwords", async () => {
@@ -117,7 +122,7 @@ describe("emailPassword", () => {
       });
       const adminUser = await t.run(async (ctx) => {
         return ctx.db
-          .query("adminUsers")
+          .query("systemAdmin__users")
           .withIndex("by_userId", (q) => q.eq("userId", user!._id))
           .unique();
       });
@@ -208,13 +213,41 @@ describe("emailPassword", () => {
       ).rejects.toThrow("Invalid email or password");
     });
 
+    it("does not reveal OAuth-only accounts during sign-in", async () => {
+      const t = convexTest(schema, modules);
+
+      await t.run(async (ctx) => {
+        const now = Date.now();
+        const userId = await ctx.db.insert("users", {
+          email: "oauth-only@example.com",
+          emailVerified: true,
+          createdAt: now,
+          updatedAt: now,
+        });
+        await ctx.db.insert("accounts", {
+          userId,
+          providerId: "google",
+          accountId: "google-account-1",
+          createdAt: now,
+          updatedAt: now,
+        });
+      });
+
+      await expect(
+        t.mutation(internal.providers.emailPassword.signIn, {
+          email: "oauth-only@example.com",
+          password: "WrongPassword123!",
+        })
+      ).rejects.toThrow("Invalid email or password");
+    });
+
     it("rejects banned users", async () => {
       const t = convexTest(schema, modules);
       const { userId } = await createVerifiedUser(t);
 
       await t.run(async (ctx) => {
         const adminUser = await ctx.db
-          .query("adminUsers")
+          .query("systemAdmin__users")
           .withIndex("by_userId", (q) => q.eq("userId", userId))
           .unique();
         if (adminUser) {
@@ -225,7 +258,7 @@ describe("emailPassword", () => {
           });
           return;
         }
-        await ctx.db.insert("adminUsers", {
+        await ctx.db.insert("systemAdmin__users", {
           userId,
           role: "user",
           banned: true,
@@ -239,6 +272,7 @@ describe("emailPassword", () => {
         t.mutation(internal.providers.emailPassword.signIn, {
           email: "verified@example.com",
           password: "CorrectPassword123!",
+          checkBanned: true,
         })
       ).rejects.toThrow("Account banned");
     });
@@ -443,10 +477,15 @@ describe("emailPassword", () => {
 
       const result = (await t.mutation(internal.providers.emailPassword.requestPasswordReset,
         { email: "nonexistent@example.com" }
-      )) as { status: string; resetCode: string | null };
+      )) as {
+        status: string;
+        resetCode: string | null;
+        suppressedReason: string | null;
+      };
 
       expect(result.status).toBe("sent");
       expect(result.resetCode).toBeNull();
+      expect(result.suppressedReason).toBe("email_not_found");
     });
 
     it("rejects short new passwords", async () => {

@@ -70,12 +70,18 @@ export default function ResetPage() {
   if (phase === "reset") {
     return (
       <div className="card">
-        <h2>Set a new password</h2>
+        <h2>Check your email</h2>
         <p className="muted">
-          Enter the reset code sent to <strong>{email}</strong> and choose a new
+          If an account exists for that email, we sent instructions.
+        </p>
+        <p className="muted">
+          If you received a reset code, enter it below and choose a new
           password.
         </p>
-        <p className="muted">In local dev mode, the code is printed in the Convex server logs.</p>
+        <p className="muted">
+          In local dev mode, any reset code is printed in the Convex server
+          logs.
+        </p>
 
         <hr className="card-divider" />
 

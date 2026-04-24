@@ -1,7 +1,9 @@
+import { makeFunctionReference } from "convex/server";
 import { v, type GenericId } from "convex/values";
 import {
   internalAction,
   internalMutation,
+  internalQuery,
   type ActionCtx,
   type MutationCtx,
   type DatabaseWriter,
@@ -14,7 +16,6 @@ import {
   hashToken,
 } from "../lib/crypto.js";
 import { oauthProviderConfigValidator } from "../lib/validators.js";
-import { internal } from "../lib/internalApi.js";
 import { omitUndefined } from "../lib/object.js";
 import {
   requireOAuthVerifiedEmail,
@@ -42,6 +43,18 @@ import { createSession } from "../core/sessions.js";
 
 /** OAuth state TTL: 10 minutes. */
 const STATE_TTL_MS = 10 * 60 * 1000;
+const cleanupExpiredOAuthStatesRef = makeFunctionReference<"mutation">(
+  "core/gateway:cleanupExpiredOAuthStates"
+);
+const consumeOAuthStateRef = makeFunctionReference<"mutation">(
+  "core/gateway:consumeOAuthState"
+);
+const getLinkedAccountRef = makeFunctionReference<"query">(
+  "core/gateway:getLinkedAccount"
+);
+const finalizeOAuthCallbackRef = makeFunctionReference<"mutation">(
+  "core/gateway:finalizeOAuthCallback"
+);
 
 type StoredOAuthStateRecord = {
   _id: GenericId<"oauthStates">;
@@ -223,7 +236,7 @@ export async function getAuthorizationUrlForProvider(
     }),
     expiresAt,
   });
-  await ctx.scheduler.runAt(expiresAt, internal.providers.oauth.cleanup, {});
+  await ctx.scheduler.runAt(expiresAt, cleanupExpiredOAuthStatesRef, {});
 
   return {
     authorizationUrl: runtime.buildAuthorizationUrl(
@@ -250,6 +263,7 @@ export async function handleOAuthCallbackForProvider(
     ipAddress?: string;
     userAgent?: string;
     defaultRole?: string;
+    checkBanned?: boolean;
   }
 ): Promise<OAuthCallbackResult> {
   const provider = args.provider;
@@ -259,10 +273,7 @@ export async function handleOAuthCallbackForProvider(
   assertRelativeRedirectTarget(args.errorRedirectTo, "errorRedirectTo");
 
   const stateHash = await hashToken(args.state);
-  const stateRecord = await ctx.runMutation(
-    internal.providers.oauth.consumeOAuthState,
-    { stateHash }
-  );
+  const stateRecord = await ctx.runMutation(consumeOAuthStateRef, { stateHash });
 
   if (!stateRecord) {
     throw new Error("Invalid or expired OAuth state");
@@ -295,13 +306,10 @@ export async function handleOAuthCallbackForProvider(
     : undefined;
 
   const profile = await runtime.fetchProfile(provider, tokens);
-  const existingLinkedAccount = await ctx.runQuery(
-    internal.core.users.getAccount,
-    {
-      providerId: provider.id,
-      accountId: profile.accountId,
-    }
-  );
+  const existingLinkedAccount = await ctx.runQuery(getLinkedAccountRef, {
+    providerId: provider.id,
+    accountId: profile.accountId,
+  });
 
   const email = providerTrustsVerifiedEmail(provider)
     ? (runtime.requireVerifiedEmail?.(profile, provider) ??
@@ -318,24 +326,22 @@ export async function handleOAuthCallbackForProvider(
     ? Date.now() + tokens.expiresIn * 1000
     : undefined;
 
-  const result = await ctx.runMutation(
-    internal.providers.oauth.finalizeCallback,
-    {
-      providerId: provider.id,
-      accountId: profile.accountId,
-      email,
-      name: profile.name,
-      image: profile.image,
-      encryptedAccessToken,
-      ...omitUndefined({
-        encryptedRefreshToken,
-        accessTokenExpiresAt,
-        ipAddress: args.ipAddress,
-        userAgent: args.userAgent,
-        defaultRole: args.defaultRole,
-      }),
-    }
-  );
+  const result = await ctx.runMutation(finalizeOAuthCallbackRef, {
+    providerId: provider.id,
+    accountId: profile.accountId,
+    email,
+    name: profile.name,
+    image: profile.image,
+    encryptedAccessToken,
+    ...omitUndefined({
+      encryptedRefreshToken,
+      accessTokenExpiresAt,
+      ipAddress: args.ipAddress,
+      userAgent: args.userAgent,
+      defaultRole: args.defaultRole,
+      checkBanned: args.checkBanned,
+    }),
+  });
 
   return {
     ...result,
@@ -345,29 +351,22 @@ export async function handleOAuthCallbackForProvider(
   };
 }
 
-/** Store OAuth state and code verifier for PKCE flow. */
-export const storeOAuthState = internalMutation({
-  args: {
-    stateHash: v.string(),
-    codeVerifier: v.string(),
-    provider: v.string(),
-    redirectUrl: v.optional(v.string()),
-    callbackUrl: v.optional(v.string()),
-    redirectTo: v.optional(v.string()),
-    errorRedirectTo: v.optional(v.string()),
-    expiresAt: v.number(),
-  },
-  handler: async (ctx, args) => {
-    await storeOAuthStateRecord(ctx.db, args);
-  },
-});
-
 /** Retrieve and delete an OAuth state record by state hash (single-use). */
 export const consumeOAuthState = internalMutation({
   args: { stateHash: v.string() },
   handler: async (ctx, { stateHash }) => {
     return await consumeOAuthStateRecord(ctx.db, stateHash);
   },
+});
+
+/** Resolve an existing OAuth-linked account through the root component API. */
+export const getLinkedAccount = internalQuery({
+  args: {
+    providerId: v.string(),
+    accountId: v.string(),
+  },
+  handler: async (ctx, { providerId, accountId }) =>
+    await findAccount(ctx.db, providerId, accountId),
 });
 
 /** Cleanup expired OAuth state rows (intended to be scheduled). */
@@ -400,81 +399,84 @@ export const getAuthorizationUrl = internalMutation({
     }),
 });
 
-export const finalizeCallback = internalMutation({
+export async function finalizeOAuthCallbackForProvider(
+  ctx: Pick<MutationCtx, "db">,
   args: {
-    providerId: v.string(),
-    accountId: v.string(),
-    email: v.optional(v.string()),
-    name: v.optional(v.string()),
-    image: v.optional(v.string()),
-    encryptedAccessToken: v.string(),
-    encryptedRefreshToken: v.optional(v.string()),
-    accessTokenExpiresAt: v.optional(v.number()),
-    ipAddress: v.optional(v.string()),
-    userAgent: v.optional(v.string()),
-    defaultRole: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const existingAccount = await findAccount(
-      ctx.db,
-      args.providerId,
-      args.accountId
-    );
+    providerId: string;
+    accountId: string;
+    email?: string;
+    name?: string;
+    image?: string;
+    encryptedAccessToken: string;
+    encryptedRefreshToken?: string;
+    accessTokenExpiresAt?: number;
+    ipAddress?: string;
+    userAgent?: string;
+    defaultRole?: string;
+    checkBanned?: boolean;
+  }
+) {
+  const existingAccount = await findAccount(
+    ctx.db,
+    args.providerId,
+    args.accountId
+  );
 
-    let userId: GenericId<"users">;
+  let userId: GenericId<"users">;
 
-    if (existingAccount) {
-      await patchAccount(ctx.db, existingAccount._id, {
-        accessToken: args.encryptedAccessToken,
+  if (existingAccount) {
+    await patchAccount(ctx.db, existingAccount._id, {
+      accessToken: args.encryptedAccessToken,
+      ...omitUndefined({
+        refreshToken: args.encryptedRefreshToken,
+        accessTokenExpiresAt: args.accessTokenExpiresAt,
+      }),
+    });
+    userId = existingAccount.userId;
+  } else {
+    if (!args.email) {
+      throw new Error(
+        "OAuth provider is not configured for trusted email linking. Link this provider to an existing account before signing in."
+      );
+    }
+    const existingUser = await findUserByEmail(ctx.db, args.email);
+
+    if (!existingUser) {
+      userId = await insertUser(ctx.db, {
+        email: args.email,
+        emailVerified: true,
         ...omitUndefined({
-          refreshToken: args.encryptedRefreshToken,
-          accessTokenExpiresAt: args.accessTokenExpiresAt,
+          name: args.name,
+          image: args.image,
         }),
       });
-      userId = existingAccount.userId;
+      if (args.defaultRole !== undefined) {
+        await upsertAdminStateForUser(ctx.db, userId, { role: args.defaultRole });
+      }
     } else {
-      if (!args.email) {
-        throw new Error(
-          "OAuth provider is not configured for trusted email linking. Link this provider to an existing account before signing in."
-        );
-      }
-      const existingUser = await findUserByEmail(ctx.db, args.email);
-
-      if (!existingUser) {
-        userId = await insertUser(ctx.db, {
-          email: args.email,
-          emailVerified: true,
-          ...omitUndefined({
-            name: args.name,
-            image: args.image,
-          }),
-        });
-        if (args.defaultRole !== undefined) {
-          await upsertAdminStateForUser(ctx.db, userId, { role: args.defaultRole });
-        }
-      } else {
-        userId = existingUser._id;
-        await patchUser(ctx.db, existingUser._id, {
-          emailVerified: true,
-          ...omitUndefined({
-            name: existingUser.name ?? args.name,
-            image: existingUser.image ?? args.image,
-          }),
-        });
-      }
-
-      await insertAccount(ctx.db, {
-        userId,
-        providerId: args.providerId,
-        accountId: args.accountId,
-        accessToken: args.encryptedAccessToken,
+      userId = existingUser._id;
+      await patchUser(ctx.db, existingUser._id, {
+        emailVerified: true,
         ...omitUndefined({
-          refreshToken: args.encryptedRefreshToken,
-          accessTokenExpiresAt: args.accessTokenExpiresAt,
+          name: existingUser.name ?? args.name,
+          image: existingUser.image ?? args.image,
         }),
       });
     }
 
+    await insertAccount(ctx.db, {
+      userId,
+      providerId: args.providerId,
+      accountId: args.accountId,
+      accessToken: args.encryptedAccessToken,
+      ...omitUndefined({
+        refreshToken: args.encryptedRefreshToken,
+        accessTokenExpiresAt: args.accessTokenExpiresAt,
+      }),
+    });
+  }
+
+  if (args.checkBanned) {
     const user = await findUserById(ctx.db, userId);
     const adminState = user
       ? await getAdminStateForUser(ctx.db, user._id)
@@ -484,21 +486,21 @@ export const finalizeCallback = internalMutation({
           `Account banned${adminState.banReason ? ": " + adminState.banReason : ""}`
         );
     }
+  }
 
-    const sessionToken = await createSession(ctx.db, {
-      userId,
-      ...omitUndefined({
-        ipAddress: args.ipAddress,
-        userAgent: args.userAgent,
-      }),
-    });
+  const sessionToken = await createSession(ctx.db, {
+    userId,
+    ...omitUndefined({
+      ipAddress: args.ipAddress,
+      userAgent: args.userAgent,
+    }),
+  });
 
-    return {
-      sessionToken,
-      userId,
-    };
-  },
-});
+  return {
+    sessionToken,
+    userId,
+  };
+}
 
 /**
  * Handle the OAuth callback.
@@ -514,6 +516,7 @@ export const handleCallback = internalAction({
     ipAddress: v.optional(v.string()),
     userAgent: v.optional(v.string()),
     defaultRole: v.optional(v.string()),
+    checkBanned: v.optional(v.boolean()),
   },
   handler: async (ctx, args) =>
     await handleOAuthCallbackForProvider(ctx, {
@@ -526,6 +529,7 @@ export const handleCallback = internalAction({
         ipAddress: args.ipAddress,
         userAgent: args.userAgent,
         defaultRole: args.defaultRole,
+        checkBanned: args.checkBanned,
       }),
     }),
 });

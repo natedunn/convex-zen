@@ -1,6 +1,7 @@
 import type { PluginGatewayRuntimeMap } from "convex-zen";
 import { definePlugin } from "convex-zen";
 import * as gatewayModule from "./gateway";
+import { schema } from "./schema";
 
 export interface ExamplePluginOptions {
   defaultScope?: string;
@@ -64,6 +65,7 @@ export class ExamplePlugin {
 
 export const examplePlugin = definePlugin({
   id: "example",
+  schema,
   gateway: gatewayModule,
   normalizeOptions: (options?: ExamplePluginOptions): ExamplePluginOptions => ({
     ...(options?.defaultScope !== undefined

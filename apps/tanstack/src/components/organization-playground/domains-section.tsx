@@ -2,7 +2,11 @@ import { useState } from "react";
 import { convexQuery, useConvexMutation } from "@convex-dev/react-query";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api } from "../../../convex/_generated/api";
-import { formatTimestamp, messageFromError } from "./shared";
+import {
+	type OrganizationDomain,
+	formatTimestamp,
+	messageFromError,
+} from "./shared";
 
 export function DomainsSection({ organizationId }: { organizationId: string }) {
 	const domainsQuery = useQuery({
@@ -24,6 +28,7 @@ export function DomainsSection({ organizationId }: { organizationId: string }) {
 	});
 
 	const [domainHostname, setDomainHostname] = useState("");
+	const domains: OrganizationDomain[] = domainsQuery.data ?? [];
 	const addDomainMutation = useMutation({
 		mutationFn: useConvexMutation(api.zen.plugin.organization.addDomain),
 		onSuccess: () => {
@@ -98,8 +103,8 @@ export function DomainsSection({ organizationId }: { organizationId: string }) {
 			<hr className="card-divider" />
 			{domainsQuery.isError ? (
 				<p className="muted">You do not have permission to view domains.</p>
-			) : domainsQuery.data && domainsQuery.data.length > 0 ? (
-				domainsQuery.data.map((domain) => (
+			) : domains.length > 0 ? (
+				domains.map((domain) => (
 					<div key={domain._id} className="card">
 						<strong>{domain.hostname}</strong>
 						<p className="session-detail">

@@ -572,7 +572,7 @@ describe("oauth", () => {
           createdAt: Date.now(),
           updatedAt: Date.now(),
         });
-        await ctx.db.insert("adminUsers", {
+        await ctx.db.insert("systemAdmin__users", {
           userId,
           role: "user",
           banned: true,
@@ -590,6 +590,7 @@ describe("oauth", () => {
           provider: googleConfig,
           code: "code",
           state,
+          checkBanned: true,
         })
       ).rejects.toThrow("Account banned");
     });

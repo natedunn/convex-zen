@@ -12,10 +12,8 @@
     "@convex-dev/react-query": "^0.1.0",
     "@convex-zen/playground-ui": "workspace:*",
     "@tanstack/react-query": "^5.90.21",
-    "convex": "^1.35.1",
+    "convex": "^1.36.0",
     "convex-zen": "workspace:*",
-    "convex-zen-system-admin": "workspace:*",
-    "convex-zen-organization": "workspace:*",
     "next": "^15.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

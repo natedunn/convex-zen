@@ -20,8 +20,10 @@ import {
   type Validator,
 } from "convex/values";
 import {
+  PLUGIN_FUNCTION_HANDLER_KEY,
   PLUGIN_FUNCTION_METADATA_KEY,
   type PluginFunctionCarrier,
+  type PluginFunctionHandler,
   type PluginFunctionMetadata,
   type PluginGatewayFieldConfig,
 } from "../types.js";
@@ -204,10 +206,17 @@ function attachPluginMetadata<
   TMetadata extends PluginFunctionMetadata,
 >(
   value: TValue,
-  metadata: TMetadata
+  metadata: TMetadata,
+  handler: PluginFunctionHandler
 ): TValue & { [PLUGIN_FUNCTION_METADATA_KEY]: TMetadata } {
   Object.defineProperty(value, PLUGIN_FUNCTION_METADATA_KEY, {
     value: metadata,
+    enumerable: false,
+    configurable: false,
+    writable: false,
+  });
+  Object.defineProperty(value, PLUGIN_FUNCTION_HANDLER_KEY, {
+    value: handler,
     enumerable: false,
     configurable: false,
     writable: false,
@@ -237,6 +246,11 @@ export function pluginQuery<
   definition: PluginQueryDefinition<TDataModel, TArgs, TAuth, TActor, TReturn>
 ): PluginRegisteredQuery<TArgs, TAuth, TActor, TReturn> {
   const query = getQueryBuilder<TDataModel>();
+  const rawHandler = (
+    ctx: GenericQueryCtx<TDataModel>,
+    args: PluginHandlerArgs<TArgs, TAuth, TActor>
+  ) =>
+    definition.handler(ctx, args);
   return attachPluginMetadata(
     query({
       args: buildRegisteredArgs(
@@ -251,7 +265,8 @@ export function pluginQuery<
       auth: definition.auth,
       args: definition.args,
       ...(definition.actor ? { actor: definition.actor } : {}),
-    }
+    },
+    rawHandler as PluginFunctionHandler
   );
 }
 
@@ -265,6 +280,10 @@ export function pluginMutation<
   definition: PluginMutationDefinition<TDataModel, TArgs, TAuth, TActor, TReturn>
 ): PluginRegisteredMutation<TArgs, TAuth, TActor, TReturn> {
   const mutation = getMutationBuilder<TDataModel>();
+  const rawHandler = (
+    ctx: GenericMutationCtx<TDataModel>,
+    args: PluginHandlerArgs<TArgs, TAuth, TActor>
+  ) => definition.handler(ctx, args);
   return attachPluginMetadata(
     mutation({
       args: buildRegisteredArgs(
@@ -279,7 +298,8 @@ export function pluginMutation<
       auth: definition.auth,
       args: definition.args,
       ...(definition.actor ? { actor: definition.actor } : {}),
-    }
+    },
+    rawHandler as PluginFunctionHandler
   );
 }
 
@@ -293,6 +313,10 @@ export function pluginAction<
   definition: PluginActionDefinition<TDataModel, TArgs, TAuth, TActor, TReturn>
 ): PluginRegisteredAction<TArgs, TAuth, TActor, TReturn> {
   const action = getActionBuilder<TDataModel>();
+  const rawHandler = (
+    ctx: GenericActionCtx<TDataModel>,
+    args: PluginHandlerArgs<TArgs, TAuth, TActor>
+  ) => definition.handler(ctx, args);
   return attachPluginMetadata(
     action({
       args: buildRegisteredArgs(
@@ -307,7 +331,8 @@ export function pluginAction<
       auth: definition.auth,
       args: definition.args,
       ...(definition.actor ? { actor: definition.actor } : {}),
-    }
+    },
+    rawHandler as PluginFunctionHandler
   );
 }
 
@@ -325,6 +350,22 @@ export function getPluginFunctionMetadata(
     );
   }
   return metadata;
+}
+
+export function getPluginFunctionHandler(
+  value: unknown,
+  exportName: string
+): PluginFunctionHandler {
+  const handler =
+    (value as PluginFunctionCarrier | null)?.[PLUGIN_FUNCTION_HANDLER_KEY] ??
+    (value as { _handler?: unknown } | null)?._handler;
+  if (typeof handler !== "function") {
+    throw new Error(
+      `Plugin gateway export "${exportName}" is missing convex-zen plugin handler metadata. ` +
+        `Use pluginQuery/pluginMutation/pluginAction for public plugin functions.`
+    );
+  }
+  return handler as PluginFunctionHandler;
 }
 
 export function getPublicPluginFunctionArgs<TValue>(
@@ -359,4 +400,4 @@ export function collectPluginGatewayMetadata(
   return entries;
 }
 
-export { PLUGIN_FUNCTION_METADATA_KEY };
+export { PLUGIN_FUNCTION_HANDLER_KEY, PLUGIN_FUNCTION_METADATA_KEY };

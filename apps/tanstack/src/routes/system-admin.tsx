@@ -15,6 +15,8 @@ type SystemAdminListUsersResponse = {
 };
 
 type ListUsersArgs = FunctionArgs<typeof api.zen.plugin.systemAdmin.listUsers>;
+type IsAdminArgs = FunctionArgs<typeof api.zen.plugin.systemAdmin.isAdmin>;
+type BootstrapArgs = FunctionArgs<typeof api.zen.plugin.systemAdmin.bootstrapAdmin>;
 
 const listSystemAdminUsersServerFn = createServerFn({ method: "POST" })
 	.inputValidator(
@@ -25,6 +27,33 @@ const listSystemAdminUsersServerFn = createServerFn({ method: "POST" })
 		return fetchAuthQuery(api.zen.plugin.systemAdmin.listUsers, data);
 	})
 
+const isSystemAdminServerFn = createServerFn({ method: "POST" })
+	.inputValidator(
+		(input: IsAdminArgs | undefined): IsAdminArgs => input ?? {},
+	)
+	.handler(async ({ data }) => {
+		const { fetchAuthQuery } = await import("../lib/auth-server");
+		return fetchAuthQuery(api.zen.plugin.systemAdmin.isAdmin, data);
+	})
+
+const canBootstrapSystemAdminServerFn = createServerFn({ method: "POST" })
+	.inputValidator(
+		(input: IsAdminArgs | undefined): IsAdminArgs => input ?? {},
+	)
+	.handler(async ({ data }) => {
+		const { fetchAuthQuery } = await import("../lib/auth-server");
+		return fetchAuthQuery(api.zen.plugin.systemAdmin.canBootstrapAdmin, data);
+	})
+
+const bootstrapSystemAdminServerFn = createServerFn({ method: "POST" })
+	.inputValidator(
+		(input: BootstrapArgs | undefined): BootstrapArgs => input ?? {},
+	)
+	.handler(async ({ data }) => {
+		const { fetchAuthMutation } = await import("../lib/auth-server");
+		return fetchAuthMutation(api.zen.plugin.systemAdmin.bootstrapAdmin, data);
+	})
+
 export const Route = createFileRoute("/system-admin")({
 	preload: false,
 	staleTime: 0,
@@ -33,25 +62,27 @@ export const Route = createFileRoute("/system-admin")({
 		if (!context.isAuthenticated) {
 			throw redirect({ to: "/signin" });
 		}
-		try {
-			const result = (await listSystemAdminUsersServerFn({
-				data: {
-					limit: 50,
-				},
-			})) as SystemAdminListUsersResponse;
+		const isAdmin = (await isSystemAdminServerFn({ data: {} })) as boolean;
+		if (!isAdmin) {
+			const canBootstrap = (await canBootstrapSystemAdminServerFn({
+				data: {},
+			})) as boolean;
 			return {
-				users: result.users,
-			}
-		} catch (error) {
-			const message = error instanceof Error ? error.message : "Forbidden";
-			if (message.includes("Unauthorized")) {
-				throw redirect({ to: "/signin" });
-			}
-			if (message.includes("Forbidden")) {
-				throw redirect({ to: "/dashboard" });
-			}
-			throw error;
+				users: [],
+				isAdmin: false,
+				canBootstrap,
+			};
 		}
+		const result = (await listSystemAdminUsersServerFn({
+			data: {
+				limit: 50,
+			},
+		})) as SystemAdminListUsersResponse;
+		return {
+			users: result.users,
+			isAdmin: true,
+			canBootstrap: false,
+		};
 	},
 	component: SystemAdminPage,
 	errorComponent: ({ error }) => {
@@ -66,7 +97,11 @@ export const Route = createFileRoute("/system-admin")({
 });
 
 function SystemAdminPage() {
-	const { users: prefetchedUsers } = Route.useLoaderData();
+	const {
+		users: prefetchedUsers,
+		isAdmin,
+		canBootstrap,
+	} = Route.useLoaderData();
 	const { status, session } = useSession();
 	const navigate = useNavigate();
 	const [users, setUsers] = useState(prefetchedUsers);
@@ -92,6 +127,20 @@ function SystemAdminPage() {
 				mutationError instanceof Error
 					? mutationError.message
 					: "Could not ban user",
+			)
+		},
+	})
+
+	const bootstrapAdminMutation = useMutation({
+		mutationFn: async () => bootstrapSystemAdminServerFn({ data: {} }),
+		onSuccess: async () => {
+			await navigate({ to: "/system-admin", replace: true });
+		},
+		onError: (mutationError) => {
+			setError(
+				mutationError instanceof Error
+					? mutationError.message
+					: "Could not claim system admin access",
 			)
 		},
 	})
@@ -158,6 +207,34 @@ function SystemAdminPage() {
 						Sign In
 					</button>
 				</div>
+			</div>
+		)
+	}
+
+	if (!isAdmin) {
+		return (
+			<div className="card">
+				<h2>System Admin</h2>
+				<p className="muted">
+					This page requires the configured system admin role.
+				</p>
+				{canBootstrap ? (
+					<div className="actions">
+						<button
+							className="btn-primary"
+							onClick={() => {
+								bootstrapAdminMutation.mutate();
+							}}
+						>
+							Claim First Admin Access
+						</button>
+					</div>
+				) : (
+					<p className="muted">
+						Your account is not a system admin.
+					</p>
+				)}
+				{error ? <p className="text-error">{error}</p> : null}
 			</div>
 		)
 	}

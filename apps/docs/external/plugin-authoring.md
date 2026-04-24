@@ -1,5 +1,9 @@
 # Plugin Authoring
 
+> Legacy child-component authoring guide.
+> The current build-time plugin contract is documented in `flat-buildtime-plugins.md`.
+> This file stays in the repo for historical reference and migration support.
+
 The plugin API is gateway-first:
 
 - you define public plugin methods once, in `gateway.ts`
@@ -195,7 +199,7 @@ npx convex codegen
 This still generates the same output surface:
 
 - `convex/zen/plugin/custom.ts`
-- `convex/zen/component/custom/gateway.ts`
+- `convex/zen/component/plugins/custom/gateway.ts`
 - `convex/zen/_generated/meta.ts`
 
 ## What gets generated
@@ -203,7 +207,7 @@ This still generates the same output surface:
 From the gateway exports, `convex-zen` generates:
 
 - Convex wrappers under `convex/zen/plugin/<plugin>.ts`
-- component gateway wrappers under `convex/zen/component/<plugin>/gateway.ts`
+- component gateway wrappers under `convex/zen/component/plugins/<plugin>/gateway.ts`
 - adapter metadata in `convex/zen/_generated/meta.ts`
 - runtime methods under `auth.plugins.<pluginId>.<functionName>`
 

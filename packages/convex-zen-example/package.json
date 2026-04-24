@@ -9,14 +9,6 @@
     ".": {
       "types": "./src/index.ts",
       "import": "./src/index.ts"
-    },
-    "./gateway": {
-      "types": "./src/gateway.ts",
-      "import": "./src/gateway.ts"
-    },
-    "./convex.config": {
-      "types": "./src/convex.config.ts",
-      "import": "./src/convex.config.ts"
     }
   },
   "scripts": {
@@ -24,7 +16,7 @@
     "test": "echo 'no tests'"
   },
   "dependencies": {
-    "convex": "^1.35.1",
+    "convex": "^1.36.0",
     "convex-zen": "workspace:*"
   },
   "devDependencies": {

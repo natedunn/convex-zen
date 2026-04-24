@@ -4,6 +4,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "../../../convex/_generated/api";
 import {
+  type OrganizationInvitation,
   buildRoleOptions,
   formatTimestamp,
   messageFromError,
@@ -36,6 +37,7 @@ export function InvitationsSection({
   const [inviteRoleValue, setInviteRoleValue] = useState("member");
   const [inviteToken, setInviteToken] = useState<string | null>(null);
   const [acceptToken, setAcceptToken] = useState("");
+  const invitations: OrganizationInvitation[] = invitationsQuery.data ?? [];
 
   const roleOptions = buildRoleOptions(rolesQuery.data?.roles ?? []);
   const inviteMemberMutation = useMutation({
@@ -174,8 +176,8 @@ export function InvitationsSection({
 
       {invitationsQuery.isError ? (
         <p className="muted">You do not have permission to view invites.</p>
-      ) : invitationsQuery.data && invitationsQuery.data.length > 0 ? (
-        invitationsQuery.data.map((invitation) => (
+      ) : invitations.length > 0 ? (
+        invitations.map((invitation) => (
           <div key={invitation._id} className="card">
             <strong>{invitation.email}</strong>
             <p className="session-detail">Role: {invitation.roleName}</p>

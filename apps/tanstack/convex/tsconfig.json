@@ -13,35 +13,29 @@
 		"allowSyntheticDefaultImports": true,
 		"paths": {
 			"convex-zen": ["../../../packages/convex-zen/src/client/index.ts"],
-			"convex-zen-system-admin": [
-				"../../../packages/convex-zen-system-admin/src/index.ts"
+			"convex-zen/plugins/system-admin": [
+				"../../../packages/convex-zen/src/plugins/system-admin/index.ts"
 			],
-			"convex-zen-system-admin/gateway": [
-				"../../../packages/convex-zen-system-admin/src/gateway.ts"
-			],
-			"convex-zen-system-admin/convex.config": [
-				"../../../packages/convex-zen-system-admin/src/convex.config.ts"
-			],
-			"convex-zen-organization": [
-				"../../../packages/convex-zen-organization/src/index.ts"
-			],
-			"convex-zen-organization/gateway": [
-				"../../../packages/convex-zen-organization/src/gateway.ts"
-			],
-			"convex-zen-organization/convex.config": [
-				"../../../packages/convex-zen-organization/src/convex.config.ts"
+			"convex-zen/plugins/organization": [
+				"../../../packages/convex-zen/src/plugins/organization/index.ts"
 			],
 			"convex-zen/component": [
 				"../../../packages/convex-zen/src/component/index.ts"
 			],
+			"convex-zen/component/core/gateway": [
+				"../../../packages/convex-zen/src/component/core/gateway.ts"
+			],
+			"convex-zen/component/core/users": [
+				"../../../packages/convex-zen/src/component/core/users.ts"
+			],
+			"convex-zen/component/core-schema-definition": [
+				"../../../packages/convex-zen/src/component/core/schemaDefinition.ts"
+			],
+			"convex-zen/_generated/*": [
+				"../../../packages/convex-zen/src/component/_generated/*"
+			],
 			"convex-zen-example": [
 				"../../../packages/convex-zen-example/src/index.ts"
-			],
-			"convex-zen-example/gateway": [
-				"../../../packages/convex-zen-example/src/gateway.ts"
-			],
-			"convex-zen-example/convex.config": [
-				"../../../packages/convex-zen-example/src/convex.config.ts"
 			]
 		},
 

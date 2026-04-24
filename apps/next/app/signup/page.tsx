@@ -49,10 +49,11 @@ export default function SignUpPage() {
       <div className="card">
         <h2>Check your email</h2>
         <p className="muted">
-          A verification code was sent to <strong>{email}</strong>.
+          If this email can be used, check your inbox for next steps.
         </p>
         <p className="muted">
-          In local dev mode, the code is printed in the Convex server logs.
+          In local dev mode, any verification code is printed in the Convex
+          server logs.
         </p>
         <div className="actions">
           <button className="btn-primary" onClick={() => router.push(`/verify?email=${encodeURIComponent(email)}`)}>

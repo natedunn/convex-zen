@@ -1,14 +1,16 @@
 import { v } from "convex/values";
-import { internalMutation } from "./_generated/server.js";
-import type {
-  MutationCtx,
-  QueryCtx,
-  Id,
-} from "convex-zen/component/plugin-support";
-import { pluginMutation, pluginQuery } from "convex-zen/component";
+import {
+  internalMutation,
+  type MutationCtx,
+  type QueryCtx,
+} from "../../component/_generated/server.js";
+import type { Id } from "../../component/_generated/dataModel.js";
+import { pluginMutation, pluginQuery } from "../../component/index.js";
 import {
   assertAdminActor,
   banUserByAdmin,
+  bootstrapAdminForUser,
+  canBootstrapAdminForRole,
   deleteAdminStateForUser,
   deleteUserByAdmin,
   listUsersForAdmin,
@@ -29,6 +31,30 @@ export const isAdmin = pluginQuery({
     } catch {
       return false;
     }
+  },
+});
+
+export const canBootstrapAdmin = pluginQuery({
+  auth: "actor",
+  args: {
+    adminRole: v.optional(v.string()),
+  },
+  handler: async (ctx: QueryCtx, { adminRole }) => {
+    return await canBootstrapAdminForRole(ctx.db, adminRole);
+  },
+});
+
+export const bootstrapAdmin = pluginMutation({
+  auth: "actor",
+  args: {
+    adminRole: v.optional(v.string()),
+  },
+  handler: async (ctx: MutationCtx, { actorUserId, adminRole }) => {
+    return await bootstrapAdminForUser(
+      ctx.db,
+      actorUserId as Id<"users">,
+      adminRole
+    );
   },
 });
 

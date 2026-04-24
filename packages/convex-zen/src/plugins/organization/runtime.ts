@@ -23,8 +23,9 @@ import {
   OrganizationRoleRecord,
   OrganizationSlugCheckResult,
   type PluginGatewayRuntimeMap,
-} from "convex-zen";
+} from "../../client/index.js";
 import * as gatewayModule from "./gateway.js";
+import { schema } from "./schema.js";
 
 /**
  * Organization plugin client module.
@@ -75,38 +76,6 @@ type RunsQueries = {
 type RunsMutations = {
   runMutation(fn: unknown, args: Record<string, unknown>): Promise<unknown>;
 };
-
-type OrganizationRuntimeHelpers = {
-  callInternalMutation?: (
-    ctx: RunsMutations,
-    functionName: string,
-    args: Record<string, unknown>
-  ) => Promise<unknown>;
-};
-
-function resolveComponentFn(
-  api: Record<string, unknown>,
-  path: string
-): unknown {
-  const [modulePath, funcName] = path.split(":");
-  if (!modulePath || !funcName) {
-    throw new Error(`Invalid function path: ${path}`);
-  }
-  const parts = modulePath.split("/");
-  let ref: Record<string, unknown> = api;
-  for (const part of parts) {
-    const next = ref[part];
-    if (!next || typeof next !== "object" || Array.isArray(next)) {
-      throw new Error(`Invalid function path segment: ${part}`);
-    }
-    ref = next as Record<string, unknown>;
-  }
-  const resolved = ref[funcName];
-  if (!resolved) {
-    throw new Error(`Function not found: ${path}`);
-  }
-  return resolved;
-}
 
 type OrganizationGatewayRuntime = PluginGatewayRuntimeMap<typeof gatewayModule>;
 type RuntimeRolePermissions = Record<string, string[]>;
@@ -260,55 +229,10 @@ export class OrganizationPlugin<
   > = {},
 > {
   constructor(
-    gatewayOrComponentApi: OrganizationGatewayRuntime | Record<string, unknown>,
+    private readonly gateway: OrganizationGatewayRuntime,
     private readonly config: OrganizationPluginConfig<TCustomAccessControl, TCustomRoles>,
-    childName: string = "organizationComponent",
-    private readonly runtimeKind: "app" | "component" = "app",
-    private readonly helpers: OrganizationRuntimeHelpers = {}
-  ) {
-    this.gateway = this.isGatewayRuntime(gatewayOrComponentApi)
-      ? gatewayOrComponentApi
-      : this.createLegacyGatewayRuntime(gatewayOrComponentApi, childName);
-  }
-
-  private readonly gateway: OrganizationGatewayRuntime;
-
-  private isGatewayRuntime(
-    value: OrganizationGatewayRuntime | Record<string, unknown>
-  ): value is OrganizationGatewayRuntime {
-    return typeof (value as OrganizationGatewayRuntime).checkSlug === "function";
-  }
-
-  private createLegacyGatewayRuntime(
-    componentApi: Record<string, unknown>,
-    childName: string
-  ): OrganizationGatewayRuntime {
-    return new Proxy({} as OrganizationGatewayRuntime, {
-      get: (_target, property) => {
-        if (typeof property !== "string") {
-          return undefined;
-        }
-        const path =
-          this.runtimeKind === "component"
-            ? `${childName}/gateway:${property}`
-            : `organization/gateway:${property}`;
-        return async (ctx: unknown, args: Record<string, unknown>) => {
-          const ref = resolveComponentFn(componentApi, path);
-          if (
-            property.startsWith("list") ||
-            property.startsWith("get") ||
-            property.startsWith("has") ||
-            property.startsWith("require") ||
-            property === "checkSlug" ||
-            property === "resolveOrganizationByHost"
-          ) {
-            return await (ctx as RunsQueries).runQuery(ref, args);
-          }
-          return await (ctx as RunsMutations).runMutation(ref, args);
-        };
-      },
-    });
-  }
+    private readonly runtimeKind: "app" | "component" = "app"
+  ) {}
 
   private async runGatewayMutation(
     ctx: RunsMutations,
@@ -876,27 +800,17 @@ export class OrganizationPlugin<
   get subdomainSuffix() {
     return this.resolveSubdomainSuffix();
   }
-
-  async deleteUserRelations(
-    ctx: RunsMutations,
-    args: {
-      userId: string;
-    }
-  ): Promise<void> {
-    if (!this.helpers.callInternalMutation) {
-      throw new Error("Organization deleteUserRelations is unavailable in this runtime");
-    }
-    await this.helpers.callInternalMutation(ctx, "deleteUserRelations", args);
-  }
 }
 
 export const organizationPlugin = definePlugin<
   "organization",
   OrganizationPluginConfig<any, any>,
   typeof gatewayModule,
-  OrganizationPlugin<any, any>
+  OrganizationPlugin<any, any>,
+  typeof schema
 >({
   id: "organization",
+  schema,
   gateway: gatewayModule,
   normalizeOptions: (
     config?: OrganizationPluginConfig<any, any>
@@ -914,20 +828,15 @@ export const organizationPlugin = definePlugin<
         : {}),
       ...(config?.roles !== undefined ? { roles: config.roles } : {}),
     }),
-  extendRuntime: ({ gateway, options, runtimeKind, callInternalMutation }) =>
+  extendRuntime: ({ gateway, options, runtimeKind }) =>
     new OrganizationPlugin(
       gateway as OrganizationGatewayRuntime,
       options as OrganizationPluginConfig<any, any>,
-      "organizationComponent",
-      runtimeKind,
-      { callInternalMutation }
+      runtimeKind
     ),
   hooks: {
-    onUserDeleted: async ({ ctx, userId, runtime }) => {
-      await (runtime as OrganizationPlugin<any, any>).deleteUserRelations(
-        ctx as RunsMutations,
-        { userId }
-      );
+    onUserDeleted: async ({ userId, callPluginMutation }) => {
+      await callPluginMutation("deleteUserRelations", { userId });
     },
   },
 });

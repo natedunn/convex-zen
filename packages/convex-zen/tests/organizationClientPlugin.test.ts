@@ -3,59 +3,78 @@ import { createConvexZenClient, defineConvexZen } from "../src/client";
 import {
   OrganizationPlugin,
   organizationPlugin,
-} from "../../convex-zen-organization/src";
+} from "../src/plugins/organization/runtime";
+
+function gatewayQuery(path: string) {
+  return async (
+    ctx: { runQuery(fn: unknown, args: Record<string, unknown>): Promise<unknown> },
+    args: Record<string, unknown>
+  ) => ctx.runQuery(path, args);
+}
+
+function gatewayMutation(path: string) {
+  return async (
+    ctx: {
+      runMutation(fn: unknown, args: Record<string, unknown>): Promise<unknown>;
+    },
+    args: Record<string, unknown>
+  ) => ctx.runMutation(path, args);
+}
+
+function makeOrganizationGateway() {
+  return {
+    checkSlug: gatewayQuery("organization/gateway:checkSlug"),
+    createOrganization: gatewayMutation("organization/gateway:createOrganization"),
+    updateOrganization: gatewayMutation("organization/gateway:updateOrganization"),
+    deleteOrganization: gatewayMutation("organization/gateway:deleteOrganization"),
+    listOrganizations: gatewayQuery("organization/gateway:listOrganizations"),
+    getOrganization: gatewayQuery("organization/gateway:getOrganization"),
+    getMembership: gatewayQuery("organization/gateway:getMembership"),
+    listMembers: gatewayQuery("organization/gateway:listMembers"),
+    inviteMember: gatewayMutation("organization/gateway:inviteMember"),
+    listInvitations: gatewayQuery("organization/gateway:listInvitations"),
+    listIncomingInvitations: gatewayQuery(
+      "organization/gateway:listIncomingInvitations"
+    ),
+    acceptInvitation: gatewayMutation("organization/gateway:acceptInvitation"),
+    acceptIncomingInvitation: gatewayMutation(
+      "organization/gateway:acceptIncomingInvitation"
+    ),
+    cancelInvitation: gatewayMutation("organization/gateway:cancelInvitation"),
+    declineIncomingInvitation: gatewayMutation(
+      "organization/gateway:declineIncomingInvitation"
+    ),
+    removeMember: gatewayMutation("organization/gateway:removeMember"),
+    setMemberRole: gatewayMutation("organization/gateway:setMemberRole"),
+    transferOwnership: gatewayMutation("organization/gateway:transferOwnership"),
+    createRole: gatewayMutation("organization/gateway:createRole"),
+    listRoles: gatewayQuery("organization/gateway:listRoles"),
+    listAvailablePermissions: gatewayQuery(
+      "organization/gateway:listAvailablePermissions"
+    ),
+    getRole: gatewayQuery("organization/gateway:getRole"),
+    updateRole: gatewayMutation("organization/gateway:updateRole"),
+    deleteRole: gatewayMutation("organization/gateway:deleteRole"),
+    addDomain: gatewayMutation("organization/gateway:addDomain"),
+    listDomains: gatewayQuery("organization/gateway:listDomains"),
+    getDomainVerificationChallenge: gatewayQuery(
+      "organization/gateway:getDomainVerificationChallenge"
+    ),
+    markDomainVerified: gatewayMutation("organization/gateway:markDomainVerified"),
+    removeDomain: gatewayMutation("organization/gateway:removeDomain"),
+    resolveOrganizationByHost: gatewayQuery(
+      "organization/gateway:resolveOrganizationByHost"
+    ),
+    hasRole: gatewayQuery("organization/gateway:hasRole"),
+    requireRole: gatewayQuery("organization/gateway:requireRole"),
+    hasPermission: gatewayQuery("organization/gateway:hasPermission"),
+    requirePermission: gatewayQuery("organization/gateway:requirePermission"),
+  };
+}
 
 function makeOrganizationPlugin() {
   return new OrganizationPlugin(
-    {
-      core: {
-        gateway: {
-          getUserById: "core/gateway:getUserById",
-        },
-      },
-      organization: {
-        gateway: {
-          checkSlug: "organization/gateway:checkSlug",
-          createOrganization: "organization/gateway:createOrganization",
-          updateOrganization: "organization/gateway:updateOrganization",
-          deleteOrganization: "organization/gateway:deleteOrganization",
-          listOrganizations: "organization/gateway:listOrganizations",
-          getOrganization: "organization/gateway:getOrganization",
-          getMembership: "organization/gateway:getMembership",
-          listMembers: "organization/gateway:listMembers",
-          inviteMember: "organization/gateway:inviteMember",
-          listInvitations: "organization/gateway:listInvitations",
-          listIncomingInvitations: "organization/gateway:listIncomingInvitations",
-          acceptInvitation: "organization/gateway:acceptInvitation",
-          acceptIncomingInvitation:
-            "organization/gateway:acceptIncomingInvitation",
-          cancelInvitation: "organization/gateway:cancelInvitation",
-          declineIncomingInvitation:
-            "organization/gateway:declineIncomingInvitation",
-          removeMember: "organization/gateway:removeMember",
-          setMemberRole: "organization/gateway:setMemberRole",
-          transferOwnership: "organization/gateway:transferOwnership",
-          createRole: "organization/gateway:createRole",
-          listRoles: "organization/gateway:listRoles",
-          listAvailablePermissions:
-            "organization/gateway:listAvailablePermissions",
-          getRole: "organization/gateway:getRole",
-          updateRole: "organization/gateway:updateRole",
-          deleteRole: "organization/gateway:deleteRole",
-          addDomain: "organization/gateway:addDomain",
-          listDomains: "organization/gateway:listDomains",
-          getDomainVerificationChallenge:
-            "organization/gateway:getDomainVerificationChallenge",
-          markDomainVerified: "organization/gateway:markDomainVerified",
-          removeDomain: "organization/gateway:removeDomain",
-          resolveOrganizationByHost: "organization/gateway:resolveOrganizationByHost",
-          hasRole: "organization/gateway:hasRole",
-          requireRole: "organization/gateway:requireRole",
-          hasPermission: "organization/gateway:hasPermission",
-          requirePermission: "organization/gateway:requirePermission",
-        },
-      },
-    },
+    makeOrganizationGateway(),
     organizationPlugin({
       inviteExpiresInMs: 1234,
       accessControl: {
@@ -71,7 +90,6 @@ function makeOrganizationPlugin() {
       },
       subdomainSuffix: "example.com",
     }).options,
-    "organization",
     "component"
   );
 }
@@ -180,16 +198,8 @@ describe("OrganizationPlugin client", () => {
 
   it("passes only actorUserId when listing incoming invitations (no app/component distinction)", async () => {
     const plugin = new OrganizationPlugin(
-      {
-        organization: {
-          gateway: {
-            listIncomingInvitations:
-              "organization/gateway:listIncomingInvitations",
-          },
-        },
-      },
+      makeOrganizationGateway(),
       organizationPlugin({}).options,
-      "organizationComponent",
       "app"
     );
     const runQuery = vi.fn(async () => []);
@@ -313,10 +323,12 @@ describe("ConvexZen organization plugins", () => {
   it("exposes configured organization runtime under auth.plugins", async () => {
     const auth = createConvexZenClient(
       {
-        organization: {
-          gateway: {
-            listOrganizations: "organization/gateway:listOrganizations",
-            hasPermission: "organization/gateway:hasPermission",
+        plugins: {
+          organization: {
+            gateway: {
+              listOrganizations: "plugins/organization/gateway:listOrganizations",
+              hasPermission: "plugins/organization/gateway:hasPermission",
+            },
           },
         },
       },
@@ -352,12 +364,16 @@ describe("ConvexZen organization plugins", () => {
       }
     );
 
-    expect(runQuery).toHaveBeenNthCalledWith(1, "organization/gateway:listOrganizations", {
+    expect(runQuery).toHaveBeenNthCalledWith(
+      1,
+      "plugins/organization/gateway:listOrganizations",
+      {
       actorUserId: "resolved_user",
-    });
+      }
+    );
     expect(runQuery).toHaveBeenNthCalledWith(
       2,
-      "organization/gateway:hasPermission",
+      "plugins/organization/gateway:hasPermission",
       {
         actorUserId: "resolved_user",
         organizationId: "org_1",

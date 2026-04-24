@@ -14,6 +14,8 @@ export default function SystemAdminPage() {
   const [users, setUsers] = useState<UserRowData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [canBootstrapAdmin, setCanBootstrapAdmin] = useState(false);
 
   const loadUsers = async () => {
     setLoading(true);
@@ -24,6 +26,15 @@ export default function SystemAdminPage() {
         router.replace("/signin");
         return;
       }
+      const hasAdminAccess = await authClient.plugin.systemAdmin.isAdmin();
+      setIsAdmin(hasAdminAccess);
+      if (!hasAdminAccess) {
+        const bootstrapAvailable =
+          await authClient.plugin.systemAdmin.canBootstrapAdmin();
+        setCanBootstrapAdmin(bootstrapAvailable);
+        setUsers([]);
+        return;
+      }
       const result = (await authClient.plugin.systemAdmin.listUsers({
         limit: 50,
       })) as SystemAdminListUsersResult;
@@ -32,10 +43,6 @@ export default function SystemAdminPage() {
       const message = err instanceof Error ? err.message : "Could not load users";
       if (message.includes("Unauthorized")) {
         router.replace("/signin");
-        return;
-      }
-      if (message.includes("Forbidden")) {
-        router.replace("/dashboard");
         return;
       }
       setError(message);
@@ -90,11 +97,42 @@ export default function SystemAdminPage() {
     }
   };
 
+  const handleBootstrapAdmin = async () => {
+    setError(null);
+    try {
+      await authClient.plugin.systemAdmin.bootstrapAdmin();
+      await loadUsers();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Could not claim system admin access"
+      );
+    }
+  };
+
   if (loading) {
     return (
       <div className="card">
         <h2>System Admin</h2>
         <p className="loading-text">Loading...</p>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="card">
+        <h2>System Admin</h2>
+        <p className="muted">This page requires the configured system admin role.</p>
+        {canBootstrapAdmin ? (
+          <div className="actions">
+            <button className="btn-primary" onClick={() => void handleBootstrapAdmin()}>
+              Claim First Admin Access
+            </button>
+          </div>
+        ) : (
+          <p className="muted">Your account is not a system admin.</p>
+        )}
+        {error && <p className="text-error">{error}</p>}
       </div>
     );
   }

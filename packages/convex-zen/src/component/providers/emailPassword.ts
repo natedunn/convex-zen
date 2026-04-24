@@ -1,7 +1,7 @@
 import { argon2id, argon2Verify } from "hash-wasm";
+import { makeFunctionReference } from "convex/server";
 import { v } from "convex/values";
 import { internalMutation, type MutationCtx } from "../_generated/server.js";
-import { internal } from "../lib/internalApi.js";
 import { omitUndefined } from "../lib/object.js";
 import {
   findAccount,
@@ -22,6 +22,7 @@ import {
 } from "../lib/rateLimit.js";
 import {
   createVerification,
+  cleanupExpiredVerifications as cleanupExpiredVerificationRecords,
   verifyVerification,
 } from "../core/verifications.js";
 import {
@@ -31,8 +32,13 @@ import {
 
 const MIN_PASSWORD_LENGTH = 12;
 const MAX_PASSWORD_LENGTH = 128;
+const cleanupExpiredVerificationsRef = makeFunctionReference<"mutation">(
+  "core/gateway:cleanupExpiredVerifications"
+);
 
 type EmailPasswordCtx = Pick<MutationCtx, "db" | "scheduler">;
+type SignUpSuppressedReason = "email_already_registered";
+type PasswordResetSuppressedReason = "email_not_found" | "rate_limited";
 
 async function hashPassword(password: string): Promise<string> {
   return argon2id({
@@ -79,7 +85,11 @@ export async function signUpWithEmailPassword(
     ipAddress?: string;
     defaultRole?: string;
   }
-): Promise<{ status: "verification_required"; verificationCode: string | null }> {
+): Promise<{
+  status: "verification_required";
+  verificationCode: string | null;
+  suppressedReason: SignUpSuppressedReason | null;
+}> {
   const { email, password, name, ipAddress, defaultRole } = args;
   const normalizedEmail = email.toLowerCase();
 
@@ -107,7 +117,11 @@ export async function signUpWithEmailPassword(
     }
     // Return the same shape as a successful signup to avoid revealing
     // whether this email address is already registered (email enumeration).
-    return { status: "verification_required" as const, verificationCode: null };
+    return {
+      status: "verification_required" as const,
+      verificationCode: null,
+      suppressedReason: "email_already_registered",
+    };
   }
 
   const passwordHash = await hashPassword(password);
@@ -134,11 +148,15 @@ export async function signUpWithEmailPassword(
 
   await ctx.scheduler.runAt(
     expiresAt,
-    internal.core.verifications.cleanup,
+    cleanupExpiredVerificationsRef,
     {}
   );
 
-  return { status: "verification_required" as const, verificationCode: code };
+  return {
+    status: "verification_required" as const,
+    verificationCode: code,
+    suppressedReason: null,
+  };
 }
 
 export async function signInWithEmailPassword(
@@ -149,9 +167,17 @@ export async function signInWithEmailPassword(
     ipAddress?: string;
     userAgent?: string;
     requireEmailVerified?: boolean;
+    checkBanned?: boolean;
   }
 ): Promise<{ sessionToken: string; userId: string }> {
-  const { email, password, ipAddress, userAgent, requireEmailVerified } = args;
+  const {
+    email,
+    password,
+    ipAddress,
+    userAgent,
+    requireEmailVerified,
+    checkBanned,
+  } = args;
   const normalizedEmail = email.toLowerCase();
 
   const rateLimitKeys: string[] = [];
@@ -196,9 +222,7 @@ export async function signInWithEmailPassword(
       );
       if (hasOAuthAccount) {
         await recordFailure();
-        throw new Error(
-          "This email is registered via OAuth. Continue with OAuth or use password reset to create an email/password login."
-        );
+        throw new Error("Invalid email or password");
       }
     }
     await recordFailure();
@@ -247,13 +271,13 @@ export async function signInWithEmailPassword(
     throw new Error("Email address not verified");
   }
 
-  const adminState = user
-    ? await getAdminStateForUser(ctx.db, user._id)
-    : null;
-  if (adminState && isAdminStateCurrentlyBanned(adminState, Date.now())) {
-      throw new Error(
-        `Account banned${adminState.banReason ? ": " + adminState.banReason : ""}`
-      );
+  if (checkBanned && user) {
+    const adminState = await getAdminStateForUser(ctx.db, user._id);
+    if (adminState && isAdminStateCurrentlyBanned(adminState, Date.now())) {
+        throw new Error(
+          `Account banned${adminState.banReason ? ": " + adminState.banReason : ""}`
+        );
+    }
   }
 
   for (const key of rateLimitKeys) {
@@ -321,7 +345,11 @@ export async function verifyEmailCode(
 export async function requestPasswordResetCode(
   ctx: EmailPasswordCtx,
   args: { email: string; ipAddress?: string }
-): Promise<{ status: "sent"; resetCode: string | null }> {
+): Promise<{
+  status: "sent";
+  resetCode: string | null;
+  suppressedReason: PasswordResetSuppressedReason | null;
+}> {
   const { email, ipAddress } = args;
   const normalizedEmail = email.toLowerCase();
   const rateLimitKeys = [`reset:email:${normalizedEmail}`];
@@ -332,7 +360,11 @@ export async function requestPasswordResetCode(
   for (const key of rateLimitKeys) {
     const rateCheck = await checkRateLimit(ctx.db, key);
     if (rateCheck.limited) {
-      return { status: "sent" as const, resetCode: null };
+      return {
+        status: "sent" as const,
+        resetCode: null,
+        suppressedReason: "rate_limited",
+      };
     }
   }
 
@@ -342,7 +374,11 @@ export async function requestPasswordResetCode(
 
   const user = await findUserByEmail(ctx.db, normalizedEmail);
   if (!user) {
-    return { status: "sent" as const, resetCode: null };
+    return {
+      status: "sent" as const,
+      resetCode: null,
+      suppressedReason: "email_not_found",
+    };
   }
 
   const { code, expiresAt } = await createVerification(ctx.db, {
@@ -352,11 +388,15 @@ export async function requestPasswordResetCode(
 
   await ctx.scheduler.runAt(
     expiresAt,
-    internal.core.verifications.cleanup,
+    cleanupExpiredVerificationsRef,
     {}
   );
 
-  return { status: "sent" as const, resetCode: code };
+  return {
+    status: "sent" as const,
+    resetCode: code,
+    suppressedReason: null,
+  };
 }
 
 export async function resetPasswordWithCode(
@@ -438,6 +478,7 @@ export const signIn = internalMutation({
     ipAddress: v.optional(v.string()),
     userAgent: v.optional(v.string()),
     requireEmailVerified: v.optional(v.boolean()),
+    checkBanned: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => await signInWithEmailPassword(ctx, args),
 });
@@ -476,16 +517,8 @@ export const resetPassword = internalMutation({
   handler: async (ctx, args) => await resetPasswordWithCode(ctx, args),
 });
 
-/** Internal mutation to update password hash on an account. */
-export const updatePasswordHash = internalMutation({
-  args: {
-    accountId: v.id("accounts"),
-    passwordHash: v.string(),
-  },
-  handler: async (ctx, { accountId, passwordHash }) => {
-    await ctx.db.patch(accountId, {
-      passwordHash,
-      updatedAt: Date.now(),
-    });
-  },
+/** Cleanup expired verification records for scheduled email/password flows. */
+export const cleanupExpiredVerifications = internalMutation({
+  args: {},
+  handler: async (ctx) => await cleanupExpiredVerificationRecords(ctx.db),
 });

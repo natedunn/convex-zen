@@ -4,15 +4,17 @@ import {
   internalQuery,
   type DatabaseReader,
   type DatabaseWriter,
-  type Id,
+} from "../../component/_generated/server.js";
+import type { Id } from "../../component/_generated/dataModel.js";
+import {
   deleteUserWithRelations,
   getAdminStateForUser,
   getAdminUserRecord,
   isAdminStateCurrentlyBanned,
-  invalidateAllUserSessions,
-  omitUndefined,
   upsertAdminStateForUser,
-} from "convex-zen/component/plugin-support";
+} from "../../component/core/users.js";
+import { invalidateAllUserSessions } from "../../component/core/sessions.js";
+import { omitUndefined } from "../../component/lib/object.js";
 
 export function normalizeAdminRole(adminRole?: string): string {
   const normalizedRole = adminRole?.trim();
@@ -56,6 +58,37 @@ export async function assertAdminActor(
   if (actor.role !== requiredRole) {
     throw new Error("Forbidden");
   }
+}
+
+export async function canBootstrapAdminForRole(
+  db: DatabaseReader,
+  adminRole?: string
+): Promise<boolean> {
+  const requiredRole = normalizeAdminRole(adminRole);
+  const existing = await db
+    .query("systemAdmin__users")
+    .withIndex("by_role", (q) => q.eq("role", requiredRole))
+    .take(1);
+  return existing.length === 0;
+}
+
+export async function bootstrapAdminForUser(
+  db: DatabaseWriter,
+  actorUserId: Id<"users">,
+  adminRole?: string
+): Promise<boolean> {
+  const requiredRole = normalizeAdminRole(adminRole);
+  const canBootstrap = await canBootstrapAdminForRole(db, requiredRole);
+  if (!canBootstrap) {
+    const actor = await getAdminStateForUser(db, actorUserId);
+    return actor?.role === requiredRole;
+  }
+
+  await upsertAdminStateForUser(db, actorUserId, {
+    role: requiredRole,
+    banned: false,
+  });
+  return true;
 }
 
 export async function listUsersForAdmin(

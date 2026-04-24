@@ -5,10 +5,35 @@ import {
 	useNavigate,
 	useRouter,
 } from "@tanstack/react-router";
+import type { FunctionReturnType } from "convex/server";
 import { useEffect, useState } from "react";
 import { useSession } from "convex-zen/react";
+import { api } from "../../convex/_generated/api";
 import { authClient } from "../lib/auth-client";
 import { SessionCard } from "@convex-zen/playground-ui";
+
+type DashboardOrganizationEntry =
+	FunctionReturnType<typeof api.zen.plugin.organization.listOrganizations>["organizations"][number];
+type DashboardIncomingInvitation =
+	FunctionReturnType<typeof api.zen.plugin.organization.listIncomingInvitations>[number];
+
+function mapOrganizations(entries: DashboardOrganizationEntry[]) {
+	return entries.map((entry) => ({
+		_id: entry.organization._id,
+		name: entry.organization.name,
+		slug: entry.organization.slug,
+		roleName: entry.membership.roleName,
+	}));
+}
+
+function mapIncomingInvitations(invitations: DashboardIncomingInvitation[]) {
+	return invitations.map((invitation) => ({
+		_id: invitation._id,
+		organizationName: invitation.organization.name,
+		organizationSlug: invitation.organization.slug,
+		roleName: invitation.roleName,
+	}));
+}
 
 export const Route = createFileRoute("/dashboard")({
 	beforeLoad: ({ context }) => {
@@ -48,20 +73,10 @@ function DashboardPage() {
 		]);
 		setUser(currentUser);
 		setOrganizations(
-			organizationResult.organizations.map((entry) => ({
-				_id: entry.organization._id,
-				name: entry.organization.name,
-				slug: entry.organization.slug,
-				roleName: entry.membership.roleName,
-			})),
+			mapOrganizations(organizationResult.organizations as DashboardOrganizationEntry[]),
 		);
 		setIncomingInvitations(
-			incomingResult.map((invitation) => ({
-				_id: invitation._id,
-				organizationName: invitation.organization.name,
-				organizationSlug: invitation.organization.slug,
-				roleName: invitation.roleName,
-			})),
+			mapIncomingInvitations(incomingResult as DashboardIncomingInvitation[]),
 		);
 		setInviteError(null);
 	};
@@ -102,20 +117,14 @@ function DashboardPage() {
 
 				setUser(currentUser);
 				setOrganizations(
-					organizationResult.organizations.map((entry) => ({
-						_id: entry.organization._id,
-						name: entry.organization.name,
-						slug: entry.organization.slug,
-						roleName: entry.membership.roleName,
-					})),
+					mapOrganizations(
+						organizationResult.organizations as DashboardOrganizationEntry[],
+					),
 				);
 				setIncomingInvitations(
-					incomingResult.map((invitation) => ({
-						_id: invitation._id,
-						organizationName: invitation.organization.name,
-						organizationSlug: invitation.organization.slug,
-						roleName: invitation.roleName,
-					})),
+					mapIncomingInvitations(
+						incomingResult as DashboardIncomingInvitation[],
+					),
 				);
 				setInviteError(null);
 			} catch {

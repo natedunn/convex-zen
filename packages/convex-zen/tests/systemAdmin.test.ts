@@ -7,7 +7,7 @@ import { internal } from "../src/component/_generated/api";
 const modules = {
   ...import.meta.glob("../src/component/**/*.*s"),
   "../src/component/plugins/system-admin/gateway.ts": () =>
-    import("../../convex-zen-system-admin/src/gateway"),
+    import("../src/plugins/system-admin/gateway"),
 };
 const CONVEX_DIRECT_CALL_WARNING =
   "Convex functions should not directly call other Convex functions.";
@@ -36,7 +36,7 @@ async function createUser(
 
     const id = await ctx.db.insert("users", userDoc);
     if (opts.role !== undefined) {
-      await ctx.db.insert("adminUsers", {
+      await ctx.db.insert("systemAdmin__users", {
         userId: id,
         role: opts.role,
         banned: false,
@@ -63,7 +63,7 @@ async function getAdminUser(
 ) {
   return await t.run((ctx) =>
     ctx.db
-      .query("adminUsers")
+      .query("systemAdmin__users")
       .withIndex("by_userId", (q) => q.eq("userId", userId))
       .unique()
   );
@@ -181,6 +181,64 @@ describe("admin plugin", () => {
     });
   });
 
+  describe("bootstrapAdmin", () => {
+    it("allows the first signed-in user to claim the admin role", async () => {
+      const t = convexTest(schema, modules);
+      const userId = await createUser(t, "bootstrap-admin@example.com", {
+        role: "user",
+      });
+
+      await expect(
+        t.query(adminQueryRef("canBootstrapAdmin"), {
+          actorUserId: userId,
+        })
+      ).resolves.toBe(true);
+
+      await expect(
+        t.mutation(adminMutationRef("bootstrapAdmin"), {
+          actorUserId: userId,
+        })
+      ).resolves.toBe(true);
+
+      const adminUser = await getAdminUser(t, userId);
+      expect(adminUser?.role).toBe("admin");
+
+      await expect(
+        t.query(adminQueryRef("listUsers"), {
+          actorUserId: userId,
+          limit: 10,
+        })
+      ).resolves.toMatchObject({
+        users: expect.any(Array),
+      });
+    });
+
+    it("does not allow bootstrapping after an admin already exists", async () => {
+      const t = convexTest(schema, modules);
+      await createUser(t, "existing-admin@example.com", {
+        role: "admin",
+      });
+      const userId = await createUser(t, "blocked-bootstrap@example.com", {
+        role: "user",
+      });
+
+      await expect(
+        t.query(adminQueryRef("canBootstrapAdmin"), {
+          actorUserId: userId,
+        })
+      ).resolves.toBe(false);
+
+      await expect(
+        t.mutation(adminMutationRef("bootstrapAdmin"), {
+          actorUserId: userId,
+        })
+      ).resolves.toBe(false);
+
+      const adminUser = await getAdminUser(t, userId);
+      expect(adminUser?.role).toBe("user");
+    });
+  });
+
   describe("banUser", () => {
     it("bans a user and invalidates their sessions", async () => {
       const t = convexTest(schema, modules);
@@ -267,6 +325,7 @@ describe("admin plugin", () => {
         t.mutation(internal.providers.emailPassword.signIn, {
           email: "willbeban@example.com",
           password: "Password123!",
+          checkBanned: true,
         })
       ).rejects.toThrow("Account banned");
     });
@@ -420,7 +479,7 @@ describe("admin plugin", () => {
       // Ban the admin
       await t.run(async (ctx) => {
         const adminRecord = await ctx.db
-          .query("adminUsers")
+          .query("systemAdmin__users")
           .withIndex("by_userId", (q) => q.eq("userId", adminId))
           .unique();
         await ctx.db.patch(adminRecord!._id, {
