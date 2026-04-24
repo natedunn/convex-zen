@@ -17,6 +17,7 @@ import {
 } from "../lib/crypto.js";
 import { oauthProviderConfigValidator } from "../lib/validators.js";
 import { omitUndefined } from "../lib/object.js";
+import { scheduleCleanupAt } from "../lib/scheduler.js";
 import {
   requireOAuthVerifiedEmail,
   resolveOAuthProviderRuntime,
@@ -236,7 +237,11 @@ export async function getAuthorizationUrlForProvider(
     }),
     expiresAt,
   });
-  await ctx.scheduler.runAt(expiresAt, cleanupExpiredOAuthStatesRef, {});
+  await scheduleCleanupAt(
+    ctx.scheduler,
+    expiresAt,
+    cleanupExpiredOAuthStatesRef
+  );
 
   return {
     authorizationUrl: runtime.buildAuthorizationUrl(

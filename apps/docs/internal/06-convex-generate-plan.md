@@ -2,9 +2,9 @@
 
 ## Source of truth
 
-- user-authored file: `convex/authConvex.ts`
-  - exports `authOptions`
-  - exports `auth`
+- user-authored file: `convex/zen.config.ts`
+  - exports the `defineConvexZen(...)` config object
+  - is the only author-edited auth configuration input consumed by the generator
 
 ## Generated outputs
 
@@ -35,7 +35,7 @@ Flags:
 
 Behavior:
 
-1. Read `convex/authConvex.ts`.
+1. Read `convex/zen.config.ts`.
 2. Detect enabled built-in plugins (currently admin).
 3. Generate core + plugin wrappers.
 4. Generate `convex/zen/_generated/meta.ts` by collecting plugin function kinds (`query|mutation|action`) from plugin wrapper files.

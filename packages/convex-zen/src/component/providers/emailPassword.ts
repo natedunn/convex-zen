@@ -3,6 +3,7 @@ import { makeFunctionReference } from "convex/server";
 import { v } from "convex/values";
 import { internalMutation, type MutationCtx } from "../_generated/server.js";
 import { omitUndefined } from "../lib/object.js";
+import { scheduleCleanupAt } from "../lib/scheduler.js";
 import {
 	findAccount,
 	getAdminStateForUser,
@@ -143,7 +144,11 @@ export async function signUpWithEmailPassword(
 		type: "email-verification",
 	});
 
-	await ctx.scheduler.runAt(expiresAt, cleanupExpiredVerificationsRef, {});
+	await scheduleCleanupAt(
+		ctx.scheduler,
+		expiresAt,
+		cleanupExpiredVerificationsRef,
+	);
 
 	return {
 		status: "verification_required" as const,
@@ -380,7 +385,11 @@ export async function requestPasswordResetCode(
 		type: "password-reset",
 	});
 
-	await ctx.scheduler.runAt(expiresAt, cleanupExpiredVerificationsRef, {});
+	await scheduleCleanupAt(
+		ctx.scheduler,
+		expiresAt,
+		cleanupExpiredVerificationsRef,
+	);
 
 	return {
 		status: "sent" as const,

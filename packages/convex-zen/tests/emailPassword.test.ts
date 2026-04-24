@@ -11,6 +11,7 @@ describe("emailPassword", () => {
   });
 
   afterEach(() => {
+    vi.clearAllTimers();
     vi.useRealTimers();
   });
 
