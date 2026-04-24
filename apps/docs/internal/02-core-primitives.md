@@ -1,11 +1,11 @@
 # 02 - Core Primitives (`convex-zen`)
 
-Import distinction baseline:
+Positioning:
 
-- https://github.com/get-convex/better-auth
-- https://labs.convex.dev/better-auth
+- Better Auth Convex component: https://github.com/get-convex/better-auth
+- Convex Auth: https://labs.convex.dev/auth
 
-This primitives layer is where `convex-zen` diverges: shared auth orchestration is native to this package and does not import Better Auth runtime/adapters.
+This primitives layer reflects the `convex-zen` package-first model for Convex auth.
 
 ## What was added
 

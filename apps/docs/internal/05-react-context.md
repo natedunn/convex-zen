@@ -1,11 +1,11 @@
 # 05 - React Context Wrapper (`convex-zen/react`)
 
-Import distinction baseline:
+Positioning:
 
-- https://github.com/get-convex/better-auth
-- https://labs.convex.dev/better-auth
+- Better Auth Convex component: https://github.com/get-convex/better-auth
+- Convex Auth: https://labs.convex.dev/auth
 
-The React surface is intentionally familiar to existing Convex + Better Auth users, but is backed by `convex-zen` native Convex-component auth flows.
+The React surface is backed by `convex-zen` native Convex-component auth flows.
 
 ## What was added
 

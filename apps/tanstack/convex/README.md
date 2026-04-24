@@ -4,12 +4,12 @@
 
 This app is the `convex-zen` TanStack demo.
 
-Import distinction baseline:
+Positioning:
 
-- https://github.com/get-convex/better-auth
-- https://labs.convex.dev/better-auth
+- Better Auth Convex component: https://github.com/get-convex/better-auth
+- Convex Auth: https://labs.convex.dev/auth
 
-In this repo we keep auth runtime inside Convex components (`packages/convex-zen`) and use framework-specific package exports rather than importing Better Auth runtime into this app.
+This demo uses `convex-zen` as a native Convex auth component, and integrates through the package's TanStack Start entrypoint.
 
 Write your Convex functions here.
 See https://docs.convex.dev/functions for more.

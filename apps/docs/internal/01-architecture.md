@@ -2,14 +2,14 @@
 
 ## Why this structure
 
-`convex-zen` runs auth inside a Convex component, so unlike Better Auth adapters we do not run a second auth server.
+`convex-zen` runs auth inside a Convex component.
 
-Import distinction baseline:
+Positioning:
 
-- https://github.com/get-convex/better-auth
-- https://labs.convex.dev/better-auth
+- Better Auth Convex component: https://github.com/get-convex/better-auth
+- Convex Auth: https://labs.convex.dev/auth
 
-Those references keep behavior familiar, but `convex-zen` intentionally implements auth runtime in Convex components instead of importing adapter/server layers from Better Auth integrations.
+`convex-zen` is a native Convex alternative with framework adapters exposed from the package.
 
 The integration surface should still feel familiar:
 

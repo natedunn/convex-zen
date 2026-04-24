@@ -6,22 +6,18 @@ A production-grade authentication component built natively for [Convex](https://
 
 ## Why this exists
 
-[Better Auth](https://www.better-auth.com) is a capable auth library, but it brings significant baggage when used with Convex:
+`convex-zen` is a production-grade auth component built specifically for Convex.
 
-- It was designed for traditional server environments — it expects a database adapter layer, a Node.js HTTP server, and its own session/user management that duplicates what Convex already does well
-- The Convex integration baseline ([get-convex/better-auth](https://github.com/get-convex/better-auth), docs: https://labs.convex.dev/better-auth) is still an adapter approach — it translates Better Auth's data model into Convex queries, which is both fragile and wasteful for this use case
-- It carries abstractions designed for many databases and frameworks, most of which don't apply in a Convex app
-- Configuration is complex and its security decisions are buried in adapters and middleware
+It should be understood as an alternative to:
 
-`convex-zen` is built the other way around: **start with Convex, add auth on top**. It treats Convex's reactivity, components, and function types as first-class features rather than things to work around.
+- the Better Auth Convex component: https://github.com/get-convex/better-auth
+- Convex Auth: https://labs.convex.dev/auth
 
-The goal is to cover ~90% of what Better Auth offers, but designed specifically for how Convex apps are actually built.
+The project direction is straightforward:
 
-### Import distinction
-
-- Baseline reference project: https://github.com/get-convex/better-auth
-- Baseline reference docs: https://labs.convex.dev/better-auth
-- `convex-zen` direction: native auth implementation inside Convex components, with framework-specific surfaces exposed from `convex-zen/<framework>` exports.
+- keep auth logic inside Convex components
+- provide framework-specific entrypoints from `convex-zen/<framework>`
+- provide a package-first model that fits how Convex apps are built
 
 ---
 
