@@ -2,15 +2,14 @@
 
 Production-grade authentication for Convex, built as a reusable component package.
 
-## Import Distinction
+## Positioning
 
-`convex-zen` is intentionally different from the Convex Better Auth integration:
+`convex-zen` is a native auth component for Convex and an alternative to:
 
-- Baseline reference: https://github.com/get-convex/better-auth
-- Baseline docs: https://labs.convex.dev/better-auth
-- This project: native auth implementation inside Convex components (`packages/convex-zen`), with framework-specific exports like `convex-zen/tanstack-start`, `convex-zen/next`, and `convex-zen/expo`.
+- the Better Auth Convex component: https://github.com/get-convex/better-auth
+- Convex Auth: https://labs.convex.dev/auth
 
-In short: we do not import Better Auth runtime into app code. We keep auth logic in Convex component functions and expose a familiar integration surface.
+It keeps auth logic in Convex components (`packages/convex-zen`) and exposes framework-specific entrypoints like `convex-zen/tanstack-start`, `convex-zen/next`, and `convex-zen/expo`.
 
 ## Packages
 

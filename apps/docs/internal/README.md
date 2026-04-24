@@ -2,11 +2,14 @@
 
 This folder documents the package-first integration model for `convex-zen`.
 
-## Import Distinction
+## Positioning
 
-- Baseline reference project: https://github.com/get-convex/better-auth
-- Baseline reference docs: https://labs.convex.dev/better-auth
-- `convex-zen` does not import Better Auth runtime into the app. It reimplements auth natively inside Convex components and exposes framework entrypoints from `convex-zen/<framework>`.
+`convex-zen` is a native Convex auth component and an alternative to:
+
+- the Better Auth Convex component: https://github.com/get-convex/better-auth
+- Convex Auth: https://labs.convex.dev/auth
+
+It exposes framework entrypoints from `convex-zen/<framework>` while keeping auth logic inside Convex components.
 
 Goals:
 
