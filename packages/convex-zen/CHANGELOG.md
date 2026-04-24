@@ -1,3 +1,10 @@
+## [1.15.1](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.15.0...convex-zen-v1.15.1) (2026-04-24)
+
+
+### Bug Fixes
+
+* **ci:** remove stale multi-package release jobs ([d010bde](https://github.com/natedunn/convex-zen/commit/d010bdebc9ee0f1948560fc85f7f4272e6ed423c))
+
 # [1.15.0](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.14.0...convex-zen-v1.15.0) (2026-04-24)
 
 
