@@ -18,7 +18,9 @@ function replaceTypesPath(value) {
   if (typeof value !== "string") {
     return value;
   }
-  return value.replace(/^\.\/src\//, "./dist/").replace(/\.ts$/, ".d.ts");
+  return value
+    .replace(/^\.\/src\//, "./dist/")
+    .replace(/(?<!\.d)\.ts$/, ".d.ts");
 }
 
 function transformExports(exportsField) {
@@ -45,6 +47,35 @@ function transformExports(exportsField) {
         ];
       }
       return [key, transformExports(value)];
+    })
+  );
+}
+
+function transformTypesVersions(typesVersionsField) {
+  if (!typesVersionsField || typeof typesVersionsField !== "object") {
+    return typesVersionsField;
+  }
+
+  return Object.fromEntries(
+    Object.entries(typesVersionsField).map(([key, value]) => {
+      if (!value || typeof value !== "object") {
+        return [key, value];
+      }
+
+      return [
+        key,
+        Object.fromEntries(
+          Object.entries(value).map(([innerKey, innerValue]) => {
+            if (!Array.isArray(innerValue)) {
+              return [innerKey, innerValue];
+            }
+            return [
+              innerKey,
+              innerValue.map((entry) => replaceTypesPath(entry)),
+            ];
+          })
+        ),
+      ];
     })
   );
 }
@@ -141,6 +172,7 @@ const publishedPackageJson = {
   version,
   main: replaceImportPath(packageJson.main),
   types: replaceTypesPath(packageJson.types),
+  typesVersions: transformTypesVersions(packageJson.typesVersions),
   exports: transformExports(packageJson.exports),
   dependencies: rewriteDependencyMap(packageJson.dependencies, repoRoot),
   optionalDependencies: rewriteDependencyMap(

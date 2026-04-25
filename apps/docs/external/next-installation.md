@@ -24,7 +24,7 @@ If you already have a Next app, continue from here.
 pnpm add convex convex-zen
 ```
 
-Built-in plugins are imported from `convex-zen/plugins/*`, so no extra package install is needed.
+Built-in plugins are imported from direct subpaths like `convex-zen/plugins/system-admin`, so no extra package install is needed.
 
 ## 3. Add Convex app wiring
 

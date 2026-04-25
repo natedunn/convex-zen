@@ -25,7 +25,7 @@ pnpm add convex convex-zen @convex-dev/react-query @tanstack/react-query
 pnpm add -D concurrently
 ```
 
-Built-in plugins are imported from `convex-zen/plugins/*`, so no extra plugin package install is needed.
+Built-in plugins are imported from direct subpaths like `convex-zen/plugins/system-admin`, so no extra plugin package install is needed.
 
 ## 3. Add Convex app wiring
 

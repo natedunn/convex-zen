@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { builtInPlugins } from "./built-in-plugins.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..");
@@ -41,6 +42,7 @@ function assertCommonStageContents(stageDir, stagedPackageJson) {
   assert.deepEqual(stagedPackageJson.files, [
     "dist",
     "src",
+    "plugins",
     "README.md",
     "LICENSE",
   ]);
@@ -52,6 +54,38 @@ function assertCommonStageContents(stageDir, stagedPackageJson) {
     existsSync(path.join(stageDir, "src")),
     "Expected staged package to include src/"
   );
+  assert.ok(
+    existsSync(path.join(stageDir, "plugins")),
+    "Expected staged package to include plugins/"
+  );
+}
+
+function assertBuiltInPluginMetadata(stageDir, stagedPackageJson) {
+  const expectedTypesVersions = Object.fromEntries(
+    builtInPlugins.map((pluginId) => [
+      `plugins/${pluginId}`,
+      [`plugins/${pluginId}/index.d.ts`],
+    ])
+  );
+
+  assert.deepEqual(stagedPackageJson.typesVersions, {
+    "*": expectedTypesVersions,
+  });
+
+  for (const pluginId of builtInPlugins) {
+    assert.deepEqual(stagedPackageJson.exports[`./plugins/${pluginId}`], {
+      types: `./plugins/${pluginId}/index.d.ts`,
+      import: `./plugins/${pluginId}/index.js`,
+    });
+    assert.ok(
+      existsSync(path.join(stageDir, "plugins", pluginId, "index.js")),
+      `Expected staged package to include ${pluginId} subpath shim`
+    );
+    assert.ok(
+      existsSync(path.join(stageDir, "plugins", pluginId, "index.d.ts")),
+      `Expected staged package to include ${pluginId} type shim`
+    );
+  }
 }
 
 const stagedPackages = [stagePackage("convex-zen")];
@@ -68,14 +102,7 @@ try {
     types: "./dist/component/core/_generated/*.d.ts",
     import: "./dist/component/core/_generated/*.js",
   });
-  assert.deepEqual(convexZen.stagedPackageJson.exports["./plugins/system-admin"], {
-    types: "./dist/plugins/system-admin/index.d.ts",
-    import: "./dist/plugins/system-admin/index.js",
-  });
-  assert.deepEqual(convexZen.stagedPackageJson.exports["./plugins/organization"], {
-    types: "./dist/plugins/organization/index.d.ts",
-    import: "./dist/plugins/organization/index.js",
-  });
+  assertBuiltInPluginMetadata(convexZen.stageDir, convexZen.stagedPackageJson);
   assert.deepEqual(
     convexZen.stagedPackageJson.exports["./component/core-schema-definition"],
     {

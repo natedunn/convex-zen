@@ -12,6 +12,16 @@
   },
   "main": "./src/client/index.ts",
   "types": "./src/client/index.ts",
+  "typesVersions": {
+    "*": {
+      "plugins/system-admin": [
+        "plugins/system-admin/index.d.ts"
+      ],
+      "plugins/organization": [
+        "plugins/organization/index.d.ts"
+      ]
+    }
+  },
   "exports": {
     ".": {
       "types": "./src/client/index.ts",
@@ -82,17 +92,27 @@
       "import": "./src/component/convex.config.ts"
     },
     "./plugins/system-admin": {
-      "types": "./src/plugins/system-admin/index.ts",
-      "import": "./src/plugins/system-admin/index.ts"
+      "types": "./plugins/system-admin/index.d.ts",
+      "import": "./plugins/system-admin/index.js"
     },
     "./plugins/organization": {
-      "types": "./src/plugins/organization/index.ts",
-      "import": "./src/plugins/organization/index.ts"
+      "types": "./plugins/organization/index.d.ts",
+      "import": "./plugins/organization/index.js"
     }
   },
   "publishConfig": {
     "main": "./dist/client/index.js",
     "types": "./dist/client/index.d.ts",
+    "typesVersions": {
+      "*": {
+        "plugins/system-admin": [
+          "plugins/system-admin/index.d.ts"
+        ],
+        "plugins/organization": [
+          "plugins/organization/index.d.ts"
+        ]
+      }
+    },
     "exports": {
       ".": {
         "types": "./dist/client/index.d.ts",
@@ -163,12 +183,12 @@
         "import": "./dist/component/convex.config.js"
       },
       "./plugins/system-admin": {
-        "types": "./dist/plugins/system-admin/index.d.ts",
-        "import": "./dist/plugins/system-admin/index.js"
+        "types": "./plugins/system-admin/index.d.ts",
+        "import": "./plugins/system-admin/index.js"
       },
       "./plugins/organization": {
-        "types": "./dist/plugins/organization/index.d.ts",
-        "import": "./dist/plugins/organization/index.js"
+        "types": "./plugins/organization/index.d.ts",
+        "import": "./plugins/organization/index.js"
       }
     }
   },
@@ -216,7 +236,8 @@
   },
   "files": [
     "dist",
-    "src"
+    "src",
+    "plugins"
   ],
   "license": "Apache-2.0"
 }
