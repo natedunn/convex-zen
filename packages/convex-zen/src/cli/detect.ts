@@ -71,6 +71,10 @@ const DOC_ROOT = "apps/docs/external/install";
 const SOURCE_FILE_PATTERN = /\.(cjs|cts|js|json|jsx|mjs|mts|ts|tsx)$/;
 const SCRIPT_EXTENSIONS = ["ts", "tsx", "js", "jsx", "mts", "cts", "mjs", "cjs"] as const;
 
+function toPosixPath(filePath: string): string {
+  return filePath.split(path.sep).join(path.posix.sep);
+}
+
 async function pathExists(targetPath: string): Promise<boolean> {
   try {
     await access(targetPath);
@@ -211,9 +215,9 @@ async function findFileContainingNeedles(
 
 async function findTanstackApiRoutePath(cwd: string): Promise<string | null> {
   const routeCandidates = SCRIPT_EXTENSIONS.flatMap((extension) => [
-    path.join("src", "routes", `api.auth.$.${extension}`),
-    path.join("src", "routes", "api", `auth.$.${extension}`),
-    path.join("src", "routes", "api", "auth", `$.${extension}`),
+    path.posix.join("src", "routes", `api.auth.$.${extension}`),
+    path.posix.join("src", "routes", "api", `auth.$.${extension}`),
+    path.posix.join("src", "routes", "api", "auth", `$.${extension}`),
   ]);
   const directMatch = await findFirstExistingPath(cwd, routeCandidates);
   if (directMatch) {
@@ -225,7 +229,7 @@ async function findTanstackApiRoutePath(cwd: string): Promise<string | null> {
     ['createFileRoute("/api/auth/$")', "createFileRoute('/api/auth/$')"]
   );
   if (semanticMatch) {
-    return path.relative(cwd, semanticMatch);
+    return toPosixPath(path.relative(cwd, semanticMatch));
   }
 
   const routeTreePath = await findFirstExistingPath(cwd, ["src/routeTree.gen.ts"]);
