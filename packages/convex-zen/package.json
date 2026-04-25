@@ -1,6 +1,6 @@
 {
   "name": "convex-zen",
-  "version": "1.16.0",
+  "version": "1.16.1",
   "description": "Production-grade auth component for Convex",
   "repository": {
     "type": "git",

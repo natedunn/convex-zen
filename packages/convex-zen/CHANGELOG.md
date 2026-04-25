@@ -1,3 +1,11 @@
+## [1.16.1](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.16.0...convex-zen-v1.16.1) (2026-04-25)
+
+
+### Bug Fixes
+
+* **cli:** broaden tanstack doctor route detection ([c3fc9ce](https://github.com/natedunn/convex-zen/commit/c3fc9ce8313629d21f16267bf604881c71f2ef5d))
+* **cli:** normalize doctor finding paths ([46cb013](https://github.com/natedunn/convex-zen/commit/46cb0136729d6240d802cba811367d5a53da8170))
+
 # [1.16.0](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.15.1...convex-zen-v1.16.0) (2026-04-25)
 
 
