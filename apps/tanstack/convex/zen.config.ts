@@ -1,6 +1,7 @@
 import { defineConvexZen, githubProvider } from "convex-zen";
 import { examplePlugin } from "convex-zen-example";
-import { organizationPlugin, systemAdminPlugin } from "convex-zen/plugins";
+import { systemAdminPlugin } from "convex-zen/plugins/system-admin";
+import { organizationPlugin } from "convex-zen/plugins/organization";
 
 const githubClientId = process.env.GITHUB_CLIENT_ID;
 const githubClientSecret = process.env.GITHUB_CLIENT_SECRET;

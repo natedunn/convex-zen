@@ -5,7 +5,8 @@
 ## Built-in imports
 
 ```ts
-import { organizationPlugin, systemAdminPlugin } from "convex-zen/plugins";
+import { systemAdminPlugin } from "convex-zen/plugins/system-admin";
+import { organizationPlugin } from "convex-zen/plugins/organization";
 ```
 
 ## Third-party layout

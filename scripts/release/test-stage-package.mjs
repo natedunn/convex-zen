@@ -41,6 +41,7 @@ function assertCommonStageContents(stageDir, stagedPackageJson) {
   assert.deepEqual(stagedPackageJson.files, [
     "dist",
     "src",
+    "plugins",
     "README.md",
     "LICENSE",
   ]);
@@ -51,6 +52,10 @@ function assertCommonStageContents(stageDir, stagedPackageJson) {
   assert.ok(
     existsSync(path.join(stageDir, "src")),
     "Expected staged package to include src/"
+  );
+  assert.ok(
+    existsSync(path.join(stageDir, "plugins")),
+    "Expected staged package to include plugins/"
   );
 }
 
@@ -68,18 +73,28 @@ try {
     types: "./dist/component/core/_generated/*.d.ts",
     import: "./dist/component/core/_generated/*.js",
   });
-  assert.deepEqual(convexZen.stagedPackageJson.exports["./plugins"], {
-    types: "./dist/plugins/index.d.ts",
-    import: "./dist/plugins/index.js",
-  });
   assert.deepEqual(convexZen.stagedPackageJson.exports["./plugins/system-admin"], {
-    types: "./dist/plugins/system-admin/index.d.ts",
-    import: "./dist/plugins/system-admin/index.js",
+    types: "./plugins/system-admin/index.d.ts",
+    import: "./plugins/system-admin/index.js",
   });
   assert.deepEqual(convexZen.stagedPackageJson.exports["./plugins/organization"], {
-    types: "./dist/plugins/organization/index.d.ts",
-    import: "./dist/plugins/organization/index.js",
+    types: "./plugins/organization/index.d.ts",
+    import: "./plugins/organization/index.js",
   });
+  assert.deepEqual(convexZen.stagedPackageJson.typesVersions, {
+    "*": {
+      "plugins/system-admin": ["plugins/system-admin/index.d.ts"],
+      "plugins/organization": ["plugins/organization/index.d.ts"],
+    },
+  });
+  assert.ok(
+    existsSync(path.join(convexZen.stageDir, "plugins", "system-admin", "index.js")),
+    "Expected staged package to include system-admin subpath shim"
+  );
+  assert.ok(
+    existsSync(path.join(convexZen.stageDir, "plugins", "organization", "index.js")),
+    "Expected staged package to include organization subpath shim"
+  );
   assert.deepEqual(
     convexZen.stagedPackageJson.exports["./component/core-schema-definition"],
     {
