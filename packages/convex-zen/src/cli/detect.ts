@@ -58,6 +58,7 @@ type ProjectSignals = {
   hasNextAuthRoute: boolean;
   hasNextAuthProvider: boolean;
   hasTanstackApiRoute: boolean;
+  tanstackApiRoutePath: string | null;
   hasTanstackRouter: boolean;
   hasTanstackRootRoute: boolean;
   convexAuthDetected: boolean;
@@ -67,6 +68,8 @@ type ProjectSignals = {
 };
 
 const DOC_ROOT = "apps/docs/external/install";
+const SOURCE_FILE_PATTERN = /\.(cjs|cts|js|json|jsx|mjs|mts|ts|tsx)$/;
+const SCRIPT_EXTENSIONS = ["ts", "tsx", "js", "jsx", "mts", "cts", "mjs", "cjs"] as const;
 
 async function pathExists(targetPath: string): Promise<boolean> {
   try {
@@ -141,7 +144,7 @@ async function collectSourceTexts(cwd: string): Promise<string> {
       }
       continue;
     }
-    if (!/\.(cjs|cts|js|json|jsx|mjs|mts|ts|tsx)$/.test(current)) {
+    if (!SOURCE_FILE_PATTERN.test(current)) {
       continue;
     }
     const source = await readTextIfExists(current);
@@ -157,6 +160,94 @@ function hasAnyNeedle(haystack: string, needles: readonly string[]): boolean {
   return needles.some((needle) => haystack.includes(needle));
 }
 
+async function findFirstExistingPath(
+  cwd: string,
+  candidates: readonly string[]
+): Promise<string | null> {
+  for (const candidate of candidates) {
+    if (await pathExists(path.join(cwd, candidate))) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+async function findFileContainingNeedles(
+  rootPath: string,
+  needles: readonly string[]
+): Promise<string | null> {
+  const queue = [rootPath];
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current || !(await pathExists(current))) {
+      continue;
+    }
+
+    const currentStat = await stat(current);
+    if (currentStat.isDirectory()) {
+      const entries = await readdir(current, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.name.startsWith(".") || entry.name === "node_modules") {
+          continue;
+        }
+        queue.push(path.join(current, entry.name));
+      }
+      continue;
+    }
+
+    if (!SOURCE_FILE_PATTERN.test(current)) {
+      continue;
+    }
+
+    const source = await readTextIfExists(current);
+    if (source && hasAnyNeedle(source, needles)) {
+      return current;
+    }
+  }
+
+  return null;
+}
+
+async function findTanstackApiRoutePath(cwd: string): Promise<string | null> {
+  const routeCandidates = SCRIPT_EXTENSIONS.flatMap((extension) => [
+    path.join("src", "routes", `api.auth.$.${extension}`),
+    path.join("src", "routes", "api", `auth.$.${extension}`),
+    path.join("src", "routes", "api", "auth", `$.${extension}`),
+  ]);
+  const directMatch = await findFirstExistingPath(cwd, routeCandidates);
+  if (directMatch) {
+    return directMatch;
+  }
+
+  const semanticMatch = await findFileContainingNeedles(
+    path.join(cwd, "src", "routes"),
+    ['createFileRoute("/api/auth/$")', "createFileRoute('/api/auth/$')"]
+  );
+  if (semanticMatch) {
+    return path.relative(cwd, semanticMatch);
+  }
+
+  const routeTreePath = await findFirstExistingPath(cwd, ["src/routeTree.gen.ts"]);
+  if (!routeTreePath) {
+    return null;
+  }
+  const routeTreeSource = await readTextIfExists(path.join(cwd, routeTreePath));
+  if (
+    routeTreeSource &&
+    hasAnyNeedle(routeTreeSource, [
+      "path: '/api/auth/$'",
+      'path: "/api/auth/$"',
+      "fullPath: '/api/auth/$'",
+      'fullPath: "/api/auth/$"',
+    ])
+  ) {
+    return routeTreePath;
+  }
+
+  return null;
+}
+
 async function collectSignals(cwd: string): Promise<ProjectSignals> {
   const packageJson = await readPackageJson(cwd);
   const packageNames = listPackageNames(packageJson);
@@ -169,6 +260,7 @@ async function collectSignals(cwd: string): Promise<ProjectSignals> {
     findConfigMatch(cwd, ["next.config.ts", "next.config.mjs", "next.config.js"]),
     findConfigMatch(cwd, ["vite.config.ts", "vite.config.mjs", "vite.config.js"]),
   ]);
+  const tanstackApiRoutePathPromise = findTanstackApiRoutePath(cwd);
   const [
     hasConvexConfig,
     hasAuthConfig,
@@ -176,9 +268,9 @@ async function collectSignals(cwd: string): Promise<ProjectSignals> {
     hasZenGeneratedMeta,
     hasNextAuthRoute,
     hasNextAuthProvider,
-    hasTanstackApiRoute,
     hasTanstackRouter,
     hasTanstackRootRoute,
+    tanstackApiRoutePath,
   ] = await Promise.all([
     pathExists(path.join(cwd, "convex", "convex.config.ts")),
     pathExists(path.join(cwd, "convex", "auth.config.ts")),
@@ -186,10 +278,11 @@ async function collectSignals(cwd: string): Promise<ProjectSignals> {
     pathExists(path.join(cwd, "convex", "zen", "_generated", "meta.ts")),
     pathExists(path.join(cwd, "app", "api", "auth", "[...auth]", "route.ts")),
     pathExists(path.join(cwd, "app", "auth-provider.tsx")),
-    pathExists(path.join(cwd, "src", "routes", "api.auth.$.tsx")),
     pathExists(path.join(cwd, "src", "router.tsx")),
     pathExists(path.join(cwd, "src", "routes", "__root.tsx")),
+    tanstackApiRoutePathPromise,
   ]);
+  const hasTanstackApiRoute = tanstackApiRoutePath !== null;
 
   let framework: DoctorFramework = "unknown";
   if (
@@ -265,6 +358,7 @@ async function collectSignals(cwd: string): Promise<ProjectSignals> {
     hasNextAuthRoute,
     hasNextAuthProvider,
     hasTanstackApiRoute,
+    tanstackApiRoutePath,
     hasTanstackRouter,
     hasTanstackRootRoute,
     convexAuthDetected,
@@ -359,6 +453,12 @@ function buildFindings(signals: ProjectSignals, state: DoctorState): DoctorFindi
         ? "Generated convex-zen metadata is present."
         : "Generated convex-zen metadata is missing. Run `npx convex-zen generate` after setup.",
     },
+    {
+      id: "layout_assumptions",
+      status: "info",
+      message:
+        "Doctor assumes conventional app/, src/, and convex/ locations at the current workspace root. Custom layouts may need manual verification.",
+    },
   ];
 
   if (signals.framework === "next") {
@@ -387,7 +487,9 @@ function buildFindings(signals: ProjectSignals, state: DoctorState): DoctorFindi
       {
         id: "tanstack_auth_route",
         status: signals.hasTanstackApiRoute ? "ok" : "missing",
-        path: "src/routes/api.auth.$.tsx",
+        path:
+          signals.tanstackApiRoutePath ??
+          "src/routes/api.auth.$.* or another /api/auth/$ TanStack route file",
         message: signals.hasTanstackApiRoute
           ? "TanStack auth route is present."
           : "TanStack auth route is missing.",
