@@ -72,7 +72,7 @@ Use these example files as the canonical reference:
 - `apps/tanstack/src/lib/auth-client.ts`
 - `apps/tanstack/src/router.tsx`
 - `apps/tanstack/src/routes/__root.tsx`
-- `apps/tanstack/src/routes/api.auth.$.tsx`
+- `apps/tanstack/src/routes/api/auth/$.tsx`
 
 Required app wiring:
 
@@ -80,7 +80,7 @@ Required app wiring:
 - `src/lib/auth-client.ts` must use `createTanStackAuthClient(...)`
 - `src/router.tsx` must connect Convex auth with `authClient.connectConvexAuth(...)`
 - `src/routes/__root.tsx` must mount `ConvexZenAuthProvider`
-- `src/routes/api.auth.$.tsx` must expose the auth handler
+- `src/routes/api/auth/$.tsx` must expose the auth handler
 
 ## Minimal env vars
 
@@ -101,4 +101,4 @@ pnpm exec convex env set CONVEX_ZEN_SECRET "<your-random-secret>"
 - `convex/zen/_generated/meta.ts` exists
 - `src/router.tsx` wires direct Convex auth
 - `src/routes/__root.tsx` mounts the auth provider
-- the auth route exists at `src/routes/api.auth.$.tsx`
+- the auth route exists at `src/routes/api/auth/$.tsx`

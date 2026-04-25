@@ -182,11 +182,11 @@ await authClient.signIn.oauth("google", {
 For custom providers, shared runtime helpers, `runtimeConfig`, and `trustVerifiedEmail`, see:
 - [custom-oauth-providers.md](./custom-oauth-providers.md)
 
-Create `src/routes/api.auth.$.tsx`:
+Create `src/routes/api/auth/$.tsx`:
 
 ```tsx
 import { createFileRoute } from "@tanstack/react-router";
-import { handler } from "../lib/auth-server";
+import { handler } from "../../../lib/auth-server";
 
 export const Route = createFileRoute("/api/auth/$")({
 	server: {
@@ -303,5 +303,7 @@ pnpm dev
     ├── router.tsx
     └── routes/
         ├── __root.tsx
-        └── api.auth.$.tsx
+        └── api/
+            └── auth/
+                └── $.tsx
 ```

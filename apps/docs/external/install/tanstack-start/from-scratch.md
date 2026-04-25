@@ -33,7 +33,7 @@ If `doctor` reports `existing-framework-no-convex`, install Convex first, then c
 - `apps/tanstack/src/lib/auth-client.ts`
 - `apps/tanstack/src/router.tsx`
 - `apps/tanstack/src/routes/__root.tsx`
-- `apps/tanstack/src/routes/api.auth.$.tsx`
+- `apps/tanstack/src/routes/api/auth/$.tsx`
 
 ## Done means
 
