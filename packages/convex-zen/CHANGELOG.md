@@ -1,3 +1,15 @@
+# [1.16.0](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.15.1...convex-zen-v1.16.0) (2026-04-25)
+
+
+### Bug Fixes
+
+* **convex-zen:** strengthen plugin subpath resolution ([0df0ff0](https://github.com/natedunn/convex-zen/commit/0df0ff0e0bfb2202ceca7301ae4de6e33ed38c3b))
+
+
+### Features
+
+* **convex-zen:** add plugins barrel export ([45c09a1](https://github.com/natedunn/convex-zen/commit/45c09a19fccd06b7c983f197309cfdfe3d5af306))
+
 ## [1.15.1](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.15.0...convex-zen-v1.15.1) (2026-04-24)
 
 
