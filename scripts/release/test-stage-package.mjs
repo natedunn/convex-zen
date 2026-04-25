@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { builtInPlugins } from "./built-in-plugins.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..");
@@ -59,6 +60,34 @@ function assertCommonStageContents(stageDir, stagedPackageJson) {
   );
 }
 
+function assertBuiltInPluginMetadata(stageDir, stagedPackageJson) {
+  const expectedTypesVersions = Object.fromEntries(
+    builtInPlugins.map((pluginId) => [
+      `plugins/${pluginId}`,
+      [`plugins/${pluginId}/index.d.ts`],
+    ])
+  );
+
+  assert.deepEqual(stagedPackageJson.typesVersions, {
+    "*": expectedTypesVersions,
+  });
+
+  for (const pluginId of builtInPlugins) {
+    assert.deepEqual(stagedPackageJson.exports[`./plugins/${pluginId}`], {
+      types: `./plugins/${pluginId}/index.d.ts`,
+      import: `./plugins/${pluginId}/index.js`,
+    });
+    assert.ok(
+      existsSync(path.join(stageDir, "plugins", pluginId, "index.js")),
+      `Expected staged package to include ${pluginId} subpath shim`
+    );
+    assert.ok(
+      existsSync(path.join(stageDir, "plugins", pluginId, "index.d.ts")),
+      `Expected staged package to include ${pluginId} type shim`
+    );
+  }
+}
+
 const stagedPackages = [stagePackage("convex-zen")];
 
 try {
@@ -73,28 +102,7 @@ try {
     types: "./dist/component/core/_generated/*.d.ts",
     import: "./dist/component/core/_generated/*.js",
   });
-  assert.deepEqual(convexZen.stagedPackageJson.exports["./plugins/system-admin"], {
-    types: "./plugins/system-admin/index.d.ts",
-    import: "./plugins/system-admin/index.js",
-  });
-  assert.deepEqual(convexZen.stagedPackageJson.exports["./plugins/organization"], {
-    types: "./plugins/organization/index.d.ts",
-    import: "./plugins/organization/index.js",
-  });
-  assert.deepEqual(convexZen.stagedPackageJson.typesVersions, {
-    "*": {
-      "plugins/system-admin": ["plugins/system-admin/index.d.ts"],
-      "plugins/organization": ["plugins/organization/index.d.ts"],
-    },
-  });
-  assert.ok(
-    existsSync(path.join(convexZen.stageDir, "plugins", "system-admin", "index.js")),
-    "Expected staged package to include system-admin subpath shim"
-  );
-  assert.ok(
-    existsSync(path.join(convexZen.stageDir, "plugins", "organization", "index.js")),
-    "Expected staged package to include organization subpath shim"
-  );
+  assertBuiltInPluginMetadata(convexZen.stageDir, convexZen.stagedPackageJson);
   assert.deepEqual(
     convexZen.stagedPackageJson.exports["./component/core-schema-definition"],
     {
