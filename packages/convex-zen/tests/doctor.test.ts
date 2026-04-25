@@ -71,6 +71,64 @@ describe("detectProject", () => {
     ]);
   });
 
+  it("detects TanStack auth route from nested api/auth/$ file layout", async () => {
+    const cwd = await createTempProject();
+    await writeJson(path.join(cwd, "package.json"), {
+      name: "tanstack-app",
+      dependencies: {
+        "@tanstack/react-start": "^1.0.0",
+        convex: "^1.36.0",
+      },
+    });
+    await writeText(path.join(cwd, "vite.config.ts"), "export default {};\n");
+    await writeText(path.join(cwd, "src", "routes", "__root.tsx"), "export {};\n");
+    await writeText(
+      path.join(cwd, "src", "routes", "api", "auth", "$.ts"),
+      'import { createFileRoute } from "@tanstack/react-router";\nexport const Route = createFileRoute("/api/auth/$")({ component: () => null });\n'
+    );
+    await writeText(path.join(cwd, "convex", "convex.config.ts"), "export default {};\n");
+
+    const result = await detectProject(cwd);
+
+    expect(result.framework).toBe("tanstack-start");
+    expect(result.findings).toContainEqual(
+      expect.objectContaining({
+        id: "tanstack_auth_route",
+        status: "ok",
+        path: "src/routes/api/auth/$.ts",
+      })
+    );
+  });
+
+  it("detects TanStack auth route from generated route tree fallback", async () => {
+    const cwd = await createTempProject();
+    await writeJson(path.join(cwd, "package.json"), {
+      name: "tanstack-app",
+      dependencies: {
+        "@tanstack/react-start": "^1.0.0",
+        convex: "^1.36.0",
+      },
+    });
+    await writeText(path.join(cwd, "vite.config.ts"), "export default {};\n");
+    await writeText(path.join(cwd, "src", "routes", "__root.tsx"), "export {};\n");
+    await writeText(
+      path.join(cwd, "src", "routeTree.gen.ts"),
+      "export const routeTree = { fullPath: '/api/auth/$' };\n"
+    );
+    await writeText(path.join(cwd, "convex", "convex.config.ts"), "export default {};\n");
+
+    const result = await detectProject(cwd);
+
+    expect(result.framework).toBe("tanstack-start");
+    expect(result.findings).toContainEqual(
+      expect.objectContaining({
+        id: "tanstack_auth_route",
+        status: "ok",
+        path: "src/routeTree.gen.ts",
+      })
+    );
+  });
+
   it("detects Next + Convex Auth", async () => {
     const cwd = await createTempProject();
     await writeJson(path.join(cwd, "package.json"), {
@@ -171,5 +229,6 @@ describe("formatDoctorReport", () => {
     expect(report).toContain("convex-zen doctor");
     expect(report).toContain("existing-framework-with-convex-no-auth");
     expect(report).toContain("apps/docs/external/install/next/add-to-existing-convex.md");
+    expect(report).toContain("Custom layouts may need manual verification.");
   });
 });
