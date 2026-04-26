@@ -1,3 +1,15 @@
+# [1.17.0](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.16.1...convex-zen-v1.17.0) (2026-04-26)
+
+
+### Bug Fixes
+
+* **cli:** update doctor hint to show nested api/auth/$ path first ([c112d15](https://github.com/natedunn/convex-zen/commit/c112d1570a2e1c9a87c4033037af278fe6a90f02))
+
+
+### Features
+
+* **tanstack:** move auth route to nested layout ([5b467df](https://github.com/natedunn/convex-zen/commit/5b467df35163c625c041eaaa386ff5a4b4e595b4))
+
 ## [1.16.1](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.16.0...convex-zen-v1.16.1) (2026-04-25)
 
 
