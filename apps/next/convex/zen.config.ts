@@ -38,16 +38,19 @@ const providers = [
 ].filter((provider) => provider !== null);
 
 const zenConfig = defineConvexZen({
-	emailProvider: {
-		sendVerificationEmail: async (to: string, code: string) => {
+	providers,
+	emailPassword: {
+		sendVerification: async (to: string, code: string) => {
 			console.log(`\n📧 Verification email → ${to}\n   Code: ${code}\n`);
 		},
-		sendPasswordResetEmail: async (to: string, code: string) => {
+		sendPasswordReset: async (to: string, code: string) => {
 			console.log(`\n🔑 Password reset email → ${to}\n   Code: ${code}\n`);
 		},
+		requireVerification: true,
 	},
-	providers,
-	requireEmailVerified: true,
+	runtime: {
+		tokenEncryptionSecretEnvVar: "CONVEX_ZEN_SECRET",
+	},
 	plugins: [
 		systemAdminPlugin({ defaultRole: "user", adminRole: "admin" }),
 		organizationPlugin({

@@ -42,7 +42,7 @@ The admin plugin is the first plugin, and exists as much to validate the plugin 
 
 Convex components cannot access `process.env`, cannot send emails, and cannot know your UI's redirect URLs. Rather than pretending otherwise, this library makes those boundaries explicit:
 
-- **Email sending** is always the host app's responsibility. Pass an `emailProvider` with `sendVerificationEmail` and `sendPasswordResetEmail`. Use Resend, Postmark, Nodemailer — whatever you already use.
+- **Email/password delivery** is always the host app's responsibility. Configure `emailPassword.sendVerification` and `emailPassword.sendPasswordReset`. Use Resend, Postmark, Nodemailer — whatever you already use.
 - **OAuth client secrets** come from the host app's environment, passed into provider config objects.
 - **HTTP routes** for OAuth callbacks are mounted on the host app's `httpRouter`, not hidden inside the component.
 
@@ -263,12 +263,15 @@ export const auth = new ConvexZen(components.convexAuth, {
     googleProvider({ clientId: "...", clientSecret: "..." }),
     githubProvider({ clientId: "...", clientSecret: "..." }),
   ],
-  emailProvider: {
-    sendVerificationEmail: async (to, code) => { /* Resend, etc. */ },
-    sendPasswordResetEmail: async (to, code) => { /* ... */ },
+  emailPassword: {
+    sendVerification: async (to, code) => { /* Resend, etc. */ },
+    sendPasswordReset: async (to, code) => { /* ... */ },
+    requireVerification: true,  // default
+  },
+  runtime: {
+    tokenEncryptionSecret: "...",
   },
   plugins: [systemAdminPlugin({ defaultRole: "user", adminRole: "admin" })],
-  requireEmailVerified: true,  // default
 });
 
 // convex/http.ts — register OAuth callback routes
@@ -284,7 +287,7 @@ export default http;
 | `signUp(ctx, { email, password, name? })` | action | Hash password, create user, return verification code to send |
 | `signIn(ctx, { email, password })` | action | Verify password, create session, return `{ sessionToken, userId }` |
 | `verifyEmail(ctx, { email, code })` | action | Validate code, mark email verified |
-| `requestPasswordReset(ctx, { email })` | action | Generate reset code, return it to send via emailProvider |
+| `requestPasswordReset(ctx, { email })` | action | Generate reset code, return it for delivery through `emailPassword.sendPasswordReset` |
 | `resetPassword(ctx, { email, code, newPassword })` | action | Validate code, update password hash |
 | `getOAuthUrl(ctx, providerId, redirectUrl?)` | action | Generate state+PKCE, return authorization URL |
 | `handleCallback(ctx, { code, state, providerId, ... })` | action | Exchange code, upsert user, return `{ sessionToken, userId }` |
@@ -322,7 +325,7 @@ await admin.deleteUser(ctx, { userId })
 ### Email/password sign-in
 1. Rate check (IP + email identifier)
 2. Look up user → look up account → `argon2Verify(password, hash)`
-3. Check `emailVerified` (if `requireEmailVerified: true`)
+3. Check `emailVerified` (if `emailPassword.requireVerification: true`)
 4. Check banned status (if admin plugin active)
 5. Generate 32-byte random token; store `SHA-256(token)` in sessions
 6. Return raw token to client (never stored in DB)
@@ -399,7 +402,7 @@ apps/tanstack/convex/
 ### Dev configuration
 
 - Emails print to Convex dev server console (no real email service needed)
-- `requireEmailVerified: false` in dev for convenience
+- `emailPassword.requireVerification: false` in dev for convenience
 - Session token stored in `localStorage` (demo only — use HttpOnly cookies in production)
 - System Admin plugin active with `defaultRole: "user"`, `adminRole: "admin"`
 

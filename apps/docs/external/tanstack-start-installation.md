@@ -65,14 +65,6 @@ import { systemAdminPlugin } from "convex-zen/plugins/system-admin";
 import { organizationPlugin } from "convex-zen/plugins/organization";
 
 export default defineConvexZen({
-	emailProvider: {
-		sendVerificationEmail: async (to: string, code: string) => {
-			console.log(`Verification email -> ${to}: ${code}`);
-		},
-		sendPasswordResetEmail: async (to: string, code: string) => {
-			console.log(`Password reset email -> ${to}: ${code}`);
-		},
-	},
 	providers: [
 		githubProvider({
 			clientId: process.env.GITHUB_CLIENT_ID!,
@@ -87,7 +79,18 @@ export default defineConvexZen({
 			clientSecret: process.env.DISCORD_CLIENT_SECRET!,
 		}),
 	],
-	requireEmailVerified: true,
+	emailPassword: {
+		sendVerification: async (to: string, code: string) => {
+			console.log(`Verification email -> ${to}: ${code}`);
+		},
+		sendPasswordReset: async (to: string, code: string) => {
+			console.log(`Password reset email -> ${to}: ${code}`);
+		},
+		requireVerification: true,
+	},
+	runtime: {
+		tokenEncryptionSecretEnvVar: "CONVEX_ZEN_SECRET",
+	},
 	plugins: [
 		systemAdminPlugin({ defaultRole: "user", adminRole: "admin" }),
 		organizationPlugin({

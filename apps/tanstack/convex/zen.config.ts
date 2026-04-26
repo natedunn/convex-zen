@@ -7,20 +7,6 @@ const githubClientId = process.env.GITHUB_CLIENT_ID;
 const githubClientSecret = process.env.GITHUB_CLIENT_SECRET;
 
 export default defineConvexZen({
-	onSuppressedEmailPasswordEvent: async (event) => {
-		console.log("Suppressed email/password event", {
-			flow: event.flow,
-			reason: event.reason,
-		});
-	},
-	emailProvider: {
-		sendVerificationEmail: async (to: string) => {
-			console.log(`Verification email requested for ${to}`);
-		},
-		sendPasswordResetEmail: async (to: string) => {
-			console.log(`Password reset email requested for ${to}`);
-		},
-	},
 	providers:
 		githubClientId && githubClientSecret
 			? [
@@ -30,7 +16,24 @@ export default defineConvexZen({
 					}),
 				]
 			: [],
-	requireEmailVerified: true,
+	emailPassword: {
+		onSuppressedEvent: async (event) => {
+			console.log("Suppressed email/password event", {
+				flow: event.flow,
+				reason: event.reason,
+			});
+		},
+		sendVerification: async (to: string) => {
+			console.log(`Verification email requested for ${to}`);
+		},
+		sendPasswordReset: async (to: string) => {
+			console.log(`Password reset email requested for ${to}`);
+		},
+		requireVerification: true,
+	},
+	runtime: {
+		tokenEncryptionSecretEnvVar: "CONVEX_ZEN_SECRET",
+	},
 	plugins: [
 		examplePlugin({
 			defaultScope: "tanstack-playground",

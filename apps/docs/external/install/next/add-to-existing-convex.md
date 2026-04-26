@@ -34,13 +34,16 @@ Create `convex/zen.config.ts`:
 import { defineConvexZen } from "convex-zen";
 
 export default defineConvexZen({
-  emailProvider: {
-    sendVerificationEmail: async (to, code) => {
+  emailPassword: {
+    sendVerification: async (to, code) => {
       console.log(`Verification email -> ${to}: ${code}`);
     },
-    sendPasswordResetEmail: async (to, code) => {
+    sendPasswordReset: async (to, code) => {
       console.log(`Password reset email -> ${to}: ${code}`);
     },
+  },
+  runtime: {
+    tokenEncryptionSecretEnvVar: "CONVEX_ZEN_SECRET",
   },
 });
 ```

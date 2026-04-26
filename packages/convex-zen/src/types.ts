@@ -10,10 +10,10 @@ import {
 } from "convex/server";
 import type { ObjectType, PropertyValidators } from "convex/values";
 
-/** Interface for sending transactional emails. */
-export interface EmailProvider {
-  sendVerificationEmail(to: string, code: string): Promise<void>;
-  sendPasswordResetEmail(to: string, code: string): Promise<void>;
+/** Host-provided handlers for built-in email/password delivery. */
+export interface EmailPasswordHandlers {
+  sendVerification?(to: string, code: string): Promise<void>;
+  sendPasswordReset?(to: string, code: string): Promise<void>;
 }
 
 export type BuiltInOAuthProviderId = "google" | "github" | "discord";
