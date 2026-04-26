@@ -82,7 +82,11 @@ export const signIn = mutation({
     requireVerification: v.optional(v.boolean()),
     checkBanned: v.optional(v.boolean()),
   },
-  handler: async (ctx, args) => await signInWithEmailPassword(ctx, args),
+  handler: async (ctx, args) =>
+    await signInWithEmailPassword(ctx, {
+      ...args,
+      requireVerification: args.requireVerification ?? true,
+    }),
 });
 
 export const verifyEmail = mutation({
