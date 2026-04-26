@@ -79,7 +79,7 @@ export const signIn = mutation({
     password: v.string(),
     ipAddress: v.optional(v.string()),
     userAgent: v.optional(v.string()),
-    requireEmailVerified: v.optional(v.boolean()),
+    requireVerification: v.optional(v.boolean()),
     checkBanned: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => await signInWithEmailPassword(ctx, args),

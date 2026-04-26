@@ -2,11 +2,11 @@
 import zenConfig from "../../zen.config";
 
 function resolveTokenEncryptionSecret(): string | undefined {
-  const explicit = zenConfig.tokenEncryptionSecret?.trim();
+  const explicit = zenConfig.runtime?.tokenEncryptionSecret?.trim();
   if (explicit && explicit.length > 0) {
     return explicit;
   }
-  const envVar = zenConfig.tokenEncryptionSecretEnvVar ?? "CONVEX_ZEN_SECRET";
+  const envVar = zenConfig.runtime?.tokenEncryptionSecretEnvVar ?? "CONVEX_ZEN_SECRET";
   const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
   const fromEnv = env?.[envVar]?.trim();
   return fromEnv && fromEnv.length > 0 ? fromEnv : undefined;

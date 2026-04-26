@@ -569,7 +569,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           email: string;
           ipAddress?: string;
           password: string;
-          requireEmailVerified?: boolean;
+          requireVerification?: boolean;
           userAgent?: string;
         },
         any,

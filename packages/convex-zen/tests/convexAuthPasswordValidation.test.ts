@@ -5,6 +5,7 @@ const component = {
   core: {
     gateway: {
       signUp: "core/gateway:signUp",
+      signIn: "core/gateway:signIn",
       requestPasswordReset: "core/gateway:requestPasswordReset",
       resetPassword: "core/gateway:resetPassword",
     },
@@ -33,11 +34,11 @@ describe("ConvexZen password validation", () => {
     };
 
     const auth = new ConvexZen(component, {
-      emailProvider: {
-        sendVerificationEmail: vi.fn(async () => {}),
-        sendPasswordResetEmail: vi.fn(async () => {}),
+      emailPassword: {
+        sendVerification: vi.fn(async () => {}),
+        sendPasswordReset: vi.fn(async () => {}),
+        validatePassword: schema,
       },
-      validatePassword: schema,
     });
 
     await expect(
@@ -81,11 +82,11 @@ describe("ConvexZen password validation", () => {
     };
 
     const auth = new ConvexZen(component, {
-      emailProvider: {
-        sendVerificationEmail: vi.fn(async () => {}),
-        sendPasswordResetEmail: vi.fn(async () => {}),
+      emailPassword: {
+        sendVerification: vi.fn(async () => {}),
+        sendPasswordReset: vi.fn(async () => {}),
+        validatePassword: schema,
       },
-      validatePassword: schema,
     });
 
     await auth.signUp(
@@ -107,8 +108,10 @@ describe("ConvexZen password validation", () => {
   it("keeps callback-based validation behavior", async () => {
     const runMutation = vi.fn(async () => ({ status: "valid" }));
     const auth = new ConvexZen(component, {
-      validatePassword: ({ password }) =>
-        password.endsWith("!") ? null : "Password must end with !",
+      emailPassword: {
+        validatePassword: ({ password }) =>
+          password.endsWith("!") ? null : "Password must end with !",
+      },
     });
 
     await expect(
@@ -128,7 +131,9 @@ describe("ConvexZen password validation", () => {
   it("throws for an invalid password reset code", async () => {
     const runMutation = vi.fn(async () => ({ status: "invalid" }));
     const auth = new ConvexZen(component, {
-      validatePassword: () => null,
+      emailPassword: {
+        validatePassword: () => null,
+      },
     });
 
     await expect(
@@ -149,14 +154,14 @@ describe("ConvexZen password validation", () => {
       verificationCode: null,
       suppressedReason: "email_already_registered",
     }));
-    const sendVerificationEmail = vi.fn(async () => {});
-    const onSuppressedEmailPasswordEvent = vi.fn(async () => {});
+    const sendVerification = vi.fn(async () => {});
+    const onSuppressedEvent = vi.fn(async () => {});
     const auth = new ConvexZen(component, {
-      emailProvider: {
-        sendVerificationEmail,
-        sendPasswordResetEmail: vi.fn(async () => {}),
+      emailPassword: {
+        sendVerification,
+        sendPasswordReset: vi.fn(async () => {}),
+        onSuppressedEvent,
       },
-      onSuppressedEmailPasswordEvent,
     });
 
     await expect(
@@ -170,8 +175,8 @@ describe("ConvexZen password validation", () => {
       )
     ).resolves.toEqual({ status: "verification_required" });
 
-    expect(sendVerificationEmail).not.toHaveBeenCalled();
-    expect(onSuppressedEmailPasswordEvent).toHaveBeenCalledWith({
+    expect(sendVerification).not.toHaveBeenCalled();
+    expect(onSuppressedEvent).toHaveBeenCalledWith({
       flow: "signUp",
       reason: "email_already_registered",
       email: "existing@example.com",
@@ -185,14 +190,14 @@ describe("ConvexZen password validation", () => {
       resetCode: null,
       suppressedReason: "email_not_found",
     }));
-    const sendPasswordResetEmail = vi.fn(async () => {});
-    const onSuppressedEmailPasswordEvent = vi.fn(async () => {});
+    const sendPasswordReset = vi.fn(async () => {});
+    const onSuppressedEvent = vi.fn(async () => {});
     const auth = new ConvexZen(component, {
-      emailProvider: {
-        sendVerificationEmail: vi.fn(async () => {}),
-        sendPasswordResetEmail,
+      emailPassword: {
+        sendVerification: vi.fn(async () => {}),
+        sendPasswordReset,
+        onSuppressedEvent,
       },
-      onSuppressedEmailPasswordEvent,
     });
 
     await expect(
@@ -205,8 +210,8 @@ describe("ConvexZen password validation", () => {
       )
     ).resolves.toEqual({ status: "sent" });
 
-    expect(sendPasswordResetEmail).not.toHaveBeenCalled();
-    expect(onSuppressedEmailPasswordEvent).toHaveBeenCalledWith({
+    expect(sendPasswordReset).not.toHaveBeenCalled();
+    expect(onSuppressedEvent).toHaveBeenCalledWith({
       flow: "requestPasswordReset",
       reason: "email_not_found",
       email: "missing@example.com",
@@ -217,7 +222,9 @@ describe("ConvexZen password validation", () => {
   it("throws for an expired password reset code", async () => {
     const runMutation = vi.fn(async () => ({ status: "expired" }));
     const auth = new ConvexZen(component, {
-      validatePassword: () => null,
+      emailPassword: {
+        validatePassword: () => null,
+      },
     });
 
     await expect(
@@ -235,7 +242,9 @@ describe("ConvexZen password validation", () => {
   it("throws after too many invalid password reset attempts", async () => {
     const runMutation = vi.fn(async () => ({ status: "too_many_attempts" }));
     const auth = new ConvexZen(component, {
-      validatePassword: () => null,
+      emailPassword: {
+        validatePassword: () => null,
+      },
     });
 
     await expect(
@@ -248,5 +257,86 @@ describe("ConvexZen password validation", () => {
         }
       )
     ).rejects.toThrow("Too many invalid password reset attempts");
+  });
+
+  it("throws when sign-up email delivery is not configured", async () => {
+    const auth = new ConvexZen(component, {});
+
+    await expect(
+      auth.signUp(
+        { runMutation: vi.fn(async () => ({ status: "verification_required" })) },
+        {
+          email: "user@example.com",
+          password: "ValidPassword123!",
+        }
+      )
+    ).rejects.toThrow(
+      "emailPassword.sendVerification is required for email/password sign-up"
+    );
+  });
+
+  it("throws when password reset email delivery is not configured", async () => {
+    const auth = new ConvexZen(component, {});
+
+    await expect(
+      auth.requestPasswordReset(
+        { runMutation: vi.fn(async () => ({ status: "sent" })) },
+        {
+          email: "user@example.com",
+        }
+      )
+    ).rejects.toThrow(
+      "emailPassword.sendPasswordReset is required for password reset"
+    );
+  });
+
+  it("defaults sign-in to requiring verified email", async () => {
+    const runMutation = vi.fn(async () => ({
+      sessionToken: "token",
+      userId: "user_1",
+    }));
+    const auth = new ConvexZen(component, {});
+
+    await auth.signIn(
+      { runMutation },
+      {
+        email: "user@example.com",
+        password: "ValidPassword123!",
+      }
+    );
+
+    expect(runMutation).toHaveBeenCalledWith("core/gateway:signIn", {
+      email: "user@example.com",
+      password: "ValidPassword123!",
+      requireVerification: true,
+      checkBanned: false,
+    });
+  });
+
+  it("allows disabling email verification on sign-in", async () => {
+    const runMutation = vi.fn(async () => ({
+      sessionToken: "token",
+      userId: "user_1",
+    }));
+    const auth = new ConvexZen(component, {
+      emailPassword: {
+        requireVerification: false,
+      },
+    });
+
+    await auth.signIn(
+      { runMutation },
+      {
+        email: "user@example.com",
+        password: "ValidPassword123!",
+      }
+    );
+
+    expect(runMutation).toHaveBeenCalledWith("core/gateway:signIn", {
+      email: "user@example.com",
+      password: "ValidPassword123!",
+      requireVerification: false,
+      checkBanned: false,
+    });
   });
 });

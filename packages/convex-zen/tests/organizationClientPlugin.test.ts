@@ -333,7 +333,9 @@ describe("ConvexZen organization plugins", () => {
         },
       },
       defineConvexZen({
-        resolveUserId: async () => "resolved_user",
+        runtime: {
+          resolveUserId: async () => "resolved_user",
+        },
         plugins: [
           organizationPlugin({
             accessControl: {

@@ -164,7 +164,7 @@ export async function signInWithEmailPassword(
 		password: string;
 		ipAddress?: string;
 		userAgent?: string;
-		requireEmailVerified?: boolean;
+		requireVerification?: boolean;
 		checkBanned?: boolean;
 	},
 ): Promise<{ sessionToken: string; userId: string }> {
@@ -173,7 +173,7 @@ export async function signInWithEmailPassword(
 		password,
 		ipAddress,
 		userAgent,
-		requireEmailVerified,
+		requireVerification,
 		checkBanned,
 	} = args;
 	const normalizedEmail = email.toLowerCase();
@@ -266,7 +266,7 @@ export async function signInWithEmailPassword(
 		}
 	}
 
-	if (requireEmailVerified && !user?.emailVerified) {
+	if (requireVerification && !user?.emailVerified) {
 		throw new Error("Email address not verified");
 	}
 
@@ -476,7 +476,7 @@ export const signIn = internalMutation({
 		password: v.string(),
 		ipAddress: v.optional(v.string()),
 		userAgent: v.optional(v.string()),
-		requireEmailVerified: v.optional(v.boolean()),
+		requireVerification: v.optional(v.boolean()),
 		checkBanned: v.optional(v.boolean()),
 	},
 	handler: async (ctx, args) => await signInWithEmailPassword(ctx, args),

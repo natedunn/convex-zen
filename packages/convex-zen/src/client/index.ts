@@ -1,5 +1,5 @@
 import type {
-	EmailProvider,
+	EmailPasswordHandlers,
 	ConvexAuthPlugin,
 	PluginDefinition,
 	PluginGatewayFunctionMetadata,
@@ -108,31 +108,25 @@ type PasswordSchema =
 	| StandardSchemaV1<PasswordValidationInput, unknown>;
 type PasswordValidationConfig = PasswordValidationFn | PasswordSchema;
 
-const DEFAULT_MIN_PASSWORD_LENGTH = 12;
-const DEFAULT_MAX_PASSWORD_LENGTH = 128;
-
-export interface AuthUser {
-	_id: string;
-	email: string;
-	emailVerified: boolean;
-	name?: string;
-	image?: string;
-	createdAt?: number;
-	updatedAt?: number;
-}
-
-/** ConvexZen constructor options. */
-export interface ConvexZenOptions<TPlugins extends PluginList = PluginList> {
-	providers?: OAuthProviderConfig[];
-	emailProvider?: EmailProvider;
-	plugins?: TPlugins;
+export interface EmailPasswordConfig extends EmailPasswordHandlers {
 	/** Require email verification before sign-in. Default: true. */
-	requireEmailVerified?: boolean;
+	requireVerification?: boolean;
 	/**
 	 * Optional additive password validation.
 	 * Return a string to throw that message as an auth error.
 	 */
 	validatePassword?: PasswordValidationConfig;
+	/**
+	 * Optional backend-only hook for non-enumerating email/password outcomes.
+	 * Use this for logging or observability without changing the generic UI
+	 * response shown to end users.
+	 */
+	onSuppressedEvent?: (
+		event: SuppressedEmailPasswordEvent,
+	) => MaybePromise<void>;
+}
+
+export interface RuntimeConfig {
 	/**
 	 * Secret used to encrypt sensitive persisted provider fields.
 	 * Defaults to process.env.CONVEX_ZEN_SECRET when available.
@@ -149,14 +143,27 @@ export interface ConvexZenOptions<TPlugins extends PluginList = PluginList> {
 	 * Defaults to `ctx.auth.getUserIdentity()?.subject` when available.
 	 */
 	resolveUserId?: (ctx: unknown) => MaybePromise<string | null>;
-	/**
-	 * Optional backend-only hook for non-enumerating email/password outcomes.
-	 * Use this for logging or observability without changing the generic UI
-	 * response shown to end users.
-	 */
-	onSuppressedEmailPasswordEvent?: (
-		event: SuppressedEmailPasswordEvent,
-	) => MaybePromise<void>;
+}
+
+const DEFAULT_MIN_PASSWORD_LENGTH = 12;
+const DEFAULT_MAX_PASSWORD_LENGTH = 128;
+
+export interface AuthUser {
+	_id: string;
+	email: string;
+	emailVerified: boolean;
+	name?: string;
+	image?: string;
+	createdAt?: number;
+	updatedAt?: number;
+}
+
+/** ConvexZen constructor options. */
+export interface ConvexZenOptions<TPlugins extends PluginList = PluginList> {
+	providers?: OAuthProviderConfig[];
+	emailPassword?: EmailPasswordConfig;
+	runtime?: RuntimeConfig;
+	plugins?: TPlugins;
 }
 
 export type ConvexZenDefinition<TPlugins extends PluginList = PluginList> =
@@ -220,9 +227,13 @@ export function createConvexZenClient<TPlugins extends PluginList>(
  *
  * export const auth = new ConvexZen(components.zenComponent, {
  *   providers: [googleProvider({ clientId: "...", clientSecret: "..." })],
- *   emailProvider: {
- *     sendVerificationEmail: async (to, code) => { ... },
- *     sendPasswordResetEmail: async (to, code) => { ... },
+ *   emailPassword: {
+ *     sendVerification: async (to, code) => { ... },
+ *     sendPasswordReset: async (to, code) => { ... },
+ *     requireVerification: true,
+ *   },
+ *   runtime: {
+ *     tokenEncryptionSecret: "...",
  *   },
  *   plugins: [systemAdminPlugin({ defaultRole: "user" })],
  * });
@@ -551,7 +562,7 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 
 	/**
 	 * Sign up a new user with email and password.
-	 * Generates a verification code and sends it via the configured emailProvider.
+	 * Generates a verification code and sends it via the configured email handler.
 	 * Call from a Convex mutation in the host app.
 	 */
 	async signUp(
@@ -563,8 +574,10 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 			ipAddress?: string;
 		},
 	): Promise<{ status: "verification_required" }> {
-		if (!this.options.emailProvider) {
-			throw new Error("emailProvider is required for email/password auth");
+		if (!this.options.emailPassword?.sendVerification) {
+			throw new Error(
+				"emailPassword.sendVerification is required for email/password sign-up",
+			);
 		}
 		await this.assertPasswordPolicy({
 			password: args.password,
@@ -584,12 +597,12 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 		// A null code means the address was already registered; we return the
 		// same response shape to avoid revealing whether the email exists.
 		if (result.verificationCode !== null) {
-			await this.options.emailProvider.sendVerificationEmail(
+			await this.options.emailPassword.sendVerification(
 				args.email,
 				result.verificationCode,
 			);
 		} else if (result.suppressedReason !== null) {
-			await this.options.onSuppressedEmailPasswordEvent?.({
+			await this.options.emailPassword.onSuppressedEvent?.({
 				flow: "signUp",
 				reason: result.suppressedReason,
 				email: args.email,
@@ -615,7 +628,8 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 	): Promise<{ sessionToken: string; userId: string }> {
 		return ctx.runMutation(this.fn("core/gateway:signIn"), {
 			...args,
-			requireEmailVerified: this.options.requireEmailVerified ?? true,
+			requireVerification:
+				this.options.emailPassword?.requireVerification ?? true,
 			checkBanned: this.shouldCheckCreateSession(),
 		}) as Promise<{ sessionToken: string; userId: string }>;
 	}
@@ -633,14 +647,16 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 	}
 
 	/**
-	 * Request a password reset. Sends the reset code via emailProvider.
+	 * Request a password reset. Sends the reset code via the configured email handler.
 	 */
 	async requestPasswordReset(
 		ctx: ConvexCtx,
 		args: { email: string; ipAddress?: string },
 	): Promise<{ status: "sent" }> {
-		if (!this.options.emailProvider) {
-			throw new Error("emailProvider is required for password reset");
+		if (!this.options.emailPassword?.sendPasswordReset) {
+			throw new Error(
+				"emailPassword.sendPasswordReset is required for password reset",
+			);
 		}
 
 		const result = (await ctx.runMutation(
@@ -653,12 +669,12 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 		};
 
 		if (result.resetCode) {
-			await this.options.emailProvider.sendPasswordResetEmail(
+			await this.options.emailPassword.sendPasswordReset(
 				args.email,
 				result.resetCode,
 			);
 		} else if (result.suppressedReason !== null) {
-			await this.options.onSuppressedEmailPasswordEvent?.({
+			await this.options.emailPassword.onSuppressedEvent?.({
 				flow: "requestPasswordReset",
 				reason: result.suppressedReason,
 				email: args.email,
@@ -934,7 +950,7 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 	private async runCustomPasswordValidation(
 		input: PasswordValidationInput,
 	): Promise<string | null | void> {
-		const validator = this.options.validatePassword;
+		const validator = this.options.emailPassword?.validatePassword;
 		if (!validator) {
 			return;
 		}
@@ -987,12 +1003,12 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 	}
 
 	private resolveTokenEncryptionSecret(): string | undefined {
-		const explicit = this.options.tokenEncryptionSecret?.trim();
+		const explicit = this.options.runtime?.tokenEncryptionSecret?.trim();
 		if (explicit && explicit.length > 0) {
 			return explicit;
 		}
 		const envVar =
-			this.options.tokenEncryptionSecretEnvVar ?? "CONVEX_ZEN_SECRET";
+			this.options.runtime?.tokenEncryptionSecretEnvVar ?? "CONVEX_ZEN_SECRET";
 		const env = (
 			globalThis as { process?: { env?: Record<string, string | undefined> } }
 		).process?.env;
@@ -1033,7 +1049,9 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 			return explicitToken;
 		}
 
-		const tokenFromResolver = await this.options.resolveSessionToken?.(ctx);
+		const tokenFromResolver = await this.options.runtime?.resolveSessionToken?.(
+			ctx,
+		);
 
 		if (tokenFromResolver) {
 			return tokenFromResolver;
@@ -1057,7 +1075,7 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 	}
 
 	private async resolveUserId(ctx: unknown): Promise<string | null> {
-		const userIdFromResolver = await this.options.resolveUserId?.(ctx);
+		const userIdFromResolver = await this.options.runtime?.resolveUserId?.(ctx);
 		if (userIdFromResolver) {
 			return userIdFromResolver;
 		}
@@ -1127,7 +1145,6 @@ export type {
 	BuiltInOAuthProviderId,
 	BuildOAuthAuthorizationUrlArgs,
 	ConvexAuthPlugin,
-	EmailProvider,
 	DiscordProviderOptions,
 	ExchangeOAuthAuthorizationCodeArgs,
 	GithubProviderOptions,

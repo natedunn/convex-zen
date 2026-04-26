@@ -146,7 +146,9 @@ describe("defineConvexZen", () => {
       {},
       defineConvexZen({
         plugins: [typedPlugin()] as const,
-        resolveUserId: async () => "user_1",
+        runtime: {
+          resolveUserId: async () => "user_1",
+        },
       }),
       {
         runtimeKind: "component",
