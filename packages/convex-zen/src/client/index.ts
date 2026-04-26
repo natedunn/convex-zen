@@ -1146,6 +1146,7 @@ export type {
 	BuildOAuthAuthorizationUrlArgs,
 	ConvexAuthPlugin,
 	DiscordProviderOptions,
+	EmailPasswordHandlers,
 	ExchangeOAuthAuthorizationCodeArgs,
 	GithubProviderOptions,
 	GoogleProviderOptions,

@@ -266,7 +266,7 @@ export async function signInWithEmailPassword(
 		}
 	}
 
-	if (requireVerification && !user?.emailVerified) {
+	if (requireVerification !== false && !user?.emailVerified) {
 		throw new Error("Email address not verified");
 	}
 
