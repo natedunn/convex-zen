@@ -1,3 +1,10 @@
+## [1.17.1](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.17.0...convex-zen-v1.17.1) (2026-04-26)
+
+
+### Bug Fixes
+
+* **emailPassword:** default requireVerification to true and export EmailPasswordHandlers ([476fd03](https://github.com/natedunn/convex-zen/commit/476fd03b4d119f2fb86ccfa30a01f6caeafb6f1d))
+
 # [1.17.0](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.16.1...convex-zen-v1.17.0) (2026-04-26)
 
 
