@@ -24,7 +24,7 @@ Use this guide when:
    - `apps/tanstack/src/lib/auth-client.ts`
    - `apps/tanstack/src/router.tsx`
    - `apps/tanstack/src/routes/__root.tsx`
-   - `apps/tanstack/src/routes/api.auth.$.tsx`
+   - `apps/tanstack/src/routes/api/auth/$.tsx`
 6. Move protected-route and current-user reads to `convex-zen`.
 7. Remove Better Auth handlers only after the new flow is live.
 

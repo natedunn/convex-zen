@@ -10,7 +10,7 @@ Use these files when writing docs or when an LLM agent needs the exact target sh
 - `apps/tanstack/src/lib/auth-client.ts`
 - `apps/tanstack/src/router.tsx`
 - `apps/tanstack/src/routes/__root.tsx`
-- `apps/tanstack/src/routes/api.auth.$.tsx`
+- `apps/tanstack/src/routes/api/auth/$.tsx`
 
 ## Setup
 

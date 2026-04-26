@@ -17,7 +17,7 @@ import { Route as ResetRouteImport } from './routes/reset'
 import { Route as OrganizationsRouteImport } from './routes/organizations'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ApiAuthSplatRouteImport } from './routes/api.auth.$'
+import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
 const VerifyRoute = VerifyRouteImport.update({
   id: '/verify',

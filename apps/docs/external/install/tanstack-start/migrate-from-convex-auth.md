@@ -17,7 +17,7 @@ Use this guide when:
    - `apps/tanstack/src/lib/auth-client.ts`
    - `apps/tanstack/src/router.tsx`
    - `apps/tanstack/src/routes/__root.tsx`
-   - `apps/tanstack/src/routes/api.auth.$.tsx`
+   - `apps/tanstack/src/routes/api/auth/$.tsx`
 6. Switch protected route and current-user reads to the new helpers.
 7. Remove old Convex Auth wiring only after the new flow is verified.
 

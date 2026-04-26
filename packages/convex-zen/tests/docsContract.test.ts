@@ -53,7 +53,7 @@ describe("docs contract", () => {
 
     expect(source).toContain("apps/tanstack/src/router.tsx");
     expect(source).toContain("apps/tanstack/src/routes/__root.tsx");
-    expect(source).toContain("apps/tanstack/src/routes/api.auth.$.tsx");
+    expect(source).toContain("apps/tanstack/src/routes/api/auth/$.tsx");
   });
 
   it("references real canonical example files", async () => {
@@ -67,7 +67,7 @@ describe("docs contract", () => {
       "apps/tanstack/src/lib/auth-client.ts",
       "apps/tanstack/src/router.tsx",
       "apps/tanstack/src/routes/__root.tsx",
-      "apps/tanstack/src/routes/api.auth.$.tsx",
+      "apps/tanstack/src/routes/api/auth/$.tsx",
     ];
 
     await Promise.all(paths.map((entry) => expectPathExists(entry)));

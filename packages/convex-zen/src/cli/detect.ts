@@ -493,7 +493,7 @@ function buildFindings(signals: ProjectSignals, state: DoctorState): DoctorFindi
         status: signals.hasTanstackApiRoute ? "ok" : "missing",
         path:
           signals.tanstackApiRoutePath ??
-          "src/routes/api.auth.$.* or another /api/auth/$ TanStack route file",
+          "src/routes/api/auth/$.{ts,tsx} or another /api/auth/$ TanStack route file",
         message: signals.hasTanstackApiRoute
           ? "TanStack auth route is present."
           : "TanStack auth route is missing.",
