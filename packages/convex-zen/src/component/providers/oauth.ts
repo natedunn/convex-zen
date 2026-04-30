@@ -512,8 +512,7 @@ export async function handleOAuthCallbackForProvider(
     sessionToken,
     userId,
     redirectTo: args.redirectTo ?? stateRecord.redirectTo,
-    redirectUrl:
-      args.redirectTo ?? args.redirectUrl ?? stateRecord.redirectTo,
+    redirectUrl: args.redirectTo ?? stateRecord.redirectTo,
   }) as OAuthCallbackResult;
 }
 

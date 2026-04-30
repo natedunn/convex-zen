@@ -587,6 +587,24 @@ describe("oauth", () => {
       ).rejects.toThrow("Invalid or expired OAuth state");
     });
 
+    it("does not treat deprecated redirectUrl callback input as a redirect target", async () => {
+      const t = convexTest(schema, modules);
+
+      const { state } = await initiateOAuth(t);
+      mockFetch({ sub: "uid-redirect-alias", email: "alias@example.com" });
+
+      const result = (await t.action(internal.providers.oauth.handleCallback, {
+        provider: googleConfig,
+        code: "code",
+        state,
+        redirectUrl: "https://app.example.com/api/auth/callback/google",
+      })) as { sessionToken: string; redirectTo?: string; redirectUrl?: string };
+
+      expect(result.sessionToken).toBeTruthy();
+      expect(result.redirectTo).toBeUndefined();
+      expect(result.redirectUrl).toBeUndefined();
+    });
+
     it("creates a one-time proxy handoff and exchanges it for a session", async () => {
       const t = convexTest(schema, modules);
 
