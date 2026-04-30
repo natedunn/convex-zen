@@ -10,6 +10,7 @@ import {
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import ts from "typescript";
 import { collectPluginGatewayMetadata } from "../component/plugin.js";
 import type {
   OAuthProxyConfig,
@@ -457,65 +458,116 @@ function isOAuthProxyReturnTargetRule(
   );
 }
 
+function findDefineConvexZenOptionsObject(
+  source: string
+): ts.ObjectLiteralExpression | undefined {
+  const sourceFile = ts.createSourceFile(
+    "zen.config.ts",
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS
+  );
+
+  let optionsObject: ts.ObjectLiteralExpression | undefined;
+  const visit = (node: ts.Node): void => {
+    if (optionsObject) {
+      return;
+    }
+    if (
+      ts.isCallExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      node.expression.text === "defineConvexZen"
+    ) {
+      const firstArgument = node.arguments[0];
+      if (firstArgument && ts.isObjectLiteralExpression(firstArgument)) {
+        optionsObject = firstArgument;
+        return;
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+
+  visit(sourceFile);
+  return optionsObject;
+}
+
+function getObjectPropertyInitializer(
+  objectLiteral: ts.ObjectLiteralExpression,
+  propertyName: string
+): ts.Expression | undefined {
+  for (const property of objectLiteral.properties) {
+    if (
+      ts.isPropertyAssignment(property) &&
+      ts.isIdentifier(property.name) &&
+      property.name.text === propertyName
+    ) {
+      return property.initializer;
+    }
+  }
+  return undefined;
+}
+
+function readStaticStringLiteral(node: ts.Expression): string | undefined {
+  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
+    return node.text;
+  }
+  return undefined;
+}
+
+function parseOAuthProxyReturnTargetRuleNode(
+  node: ts.Expression
+): NonNullable<OAuthProxyConfig["allowedReturnTargets"]>[number] | undefined {
+  if (!ts.isObjectLiteralExpression(node)) {
+    return undefined;
+  }
+
+  const typeNode = getObjectPropertyInitializer(node, "type");
+  const type = typeNode ? readStaticStringLiteral(typeNode) : undefined;
+  if (type === "webUrl") {
+    const urlNode = getObjectPropertyInitializer(node, "url");
+    const url = urlNode ? readStaticStringLiteral(urlNode) : undefined;
+    return url ? { type: "webUrl", url } : undefined;
+  }
+  if (type === "webUrlPattern") {
+    const patternNode = getObjectPropertyInitializer(node, "pattern");
+    const pattern = patternNode ? readStaticStringLiteral(patternNode) : undefined;
+    return pattern ? { type: "webUrlPattern", pattern } : undefined;
+  }
+  if (type === "nativeCallback") {
+    const callbackUrlNode = getObjectPropertyInitializer(node, "callbackUrl");
+    const callbackUrl = callbackUrlNode
+      ? readStaticStringLiteral(callbackUrlNode)
+      : undefined;
+    return callbackUrl ? { type: "nativeCallback", callbackUrl } : undefined;
+  }
+  return undefined;
+}
+
 function parseOAuthProxyConfigFromSource(
   source: string
 ): OAuthProxyConfig | undefined {
-  const callContent = extractDefineConvexZenCallContent(source);
-  if (!callContent) {
+  const optionsObject = findDefineConvexZenOptionsObject(source);
+  if (!optionsObject) {
     return undefined;
   }
-  const oauthProxyMatch = /oauthProxy\s*:/.exec(callContent);
-  if (!oauthProxyMatch || oauthProxyMatch.index === undefined) {
+  const oauthProxyNode = getObjectPropertyInitializer(optionsObject, "oauthProxy");
+  if (!oauthProxyNode || !ts.isObjectLiteralExpression(oauthProxyNode)) {
     return undefined;
   }
-  const objectStartIndex = callContent.indexOf(
-    "{",
-    oauthProxyMatch.index + oauthProxyMatch[0].length
-  );
-  if (objectStartIndex === -1) {
-    return undefined;
-  }
-  const objectEndIndex = findMatchingDelimiter(
-    callContent,
-    objectStartIndex,
-    "{",
-    "}"
-  );
-  if (objectEndIndex === -1) {
-    return undefined;
-  }
-  const oauthProxySource = callContent.slice(objectStartIndex, objectEndIndex + 1);
-  const allowedReturnTargetsMatch = /allowedReturnTargets\s*:/.exec(
-    oauthProxySource
+  const allowedReturnTargetsNode = getObjectPropertyInitializer(
+    oauthProxyNode,
+    "allowedReturnTargets"
   );
   if (
-    !allowedReturnTargetsMatch ||
-    allowedReturnTargetsMatch.index === undefined
+    !allowedReturnTargetsNode ||
+    !ts.isArrayLiteralExpression(allowedReturnTargetsNode)
   ) {
     return undefined;
   }
-  const arrayStartIndex = oauthProxySource.indexOf(
-    "[",
-    allowedReturnTargetsMatch.index + allowedReturnTargetsMatch[0].length
-  );
-  if (arrayStartIndex === -1) {
-    return undefined;
-  }
-  const arrayEndIndex = findMatchingDelimiter(
-    oauthProxySource,
-    arrayStartIndex,
-    "[",
-    "]"
-  );
-  if (arrayEndIndex === -1) {
-    return undefined;
-  }
-  const arraySource = oauthProxySource.slice(arrayStartIndex, arrayEndIndex + 1);
-  const evaluated = new Function(`return (${arraySource});`)() as unknown;
-  if (!Array.isArray(evaluated)) {
-    return undefined;
-  }
-  const allowedReturnTargets = evaluated.filter(isOAuthProxyReturnTargetRule);
+  const allowedReturnTargets = allowedReturnTargetsNode.elements
+    .map((element) => parseOAuthProxyReturnTargetRuleNode(element))
+    .filter(isOAuthProxyReturnTargetRule);
   if (allowedReturnTargets.length === 0) {
     return undefined;
   }
