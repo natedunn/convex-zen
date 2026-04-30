@@ -1,3 +1,10 @@
+# [1.18.0](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.17.2...convex-zen-v1.18.0) (2026-04-30)
+
+
+### Features
+
+* **auth:** add oauth proxy package metadata ([987ee57](https://github.com/natedunn/convex-zen/commit/987ee5758165399fb8bd0b687c92a46f39fa03fd))
+
 ## [1.17.2](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.17.1...convex-zen-v1.17.2) (2026-04-30)
 
 
