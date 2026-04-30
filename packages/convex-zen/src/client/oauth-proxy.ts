@@ -145,34 +145,33 @@ export function matchesOAuthProxyReturnTarget(
             return true;
           }
         } catch {
-          return false;
+          break;
         }
         break;
       }
       case "webUrlPattern": {
-        let target: URL;
         try {
-          target = parseAbsoluteUrl(returnTarget, "OAuth proxy return target");
+          const target = parseAbsoluteUrl(returnTarget, "OAuth proxy return target");
+          const pattern = normalizeWebUrlPattern(rule.pattern);
+          if (target.protocol !== pattern.protocol) {
+            break;
+          }
+          if (pattern.port !== target.port) {
+            break;
+          }
+          const hostname = target.hostname;
+          if (!hostname.endsWith(`.${pattern.hostnameSuffix}`)) {
+            break;
+          }
+          const prefix = hostname.slice(
+            0,
+            hostname.length - pattern.hostnameSuffix.length - 1
+          );
+          if (prefix.length > 0) {
+            return true;
+          }
         } catch {
-          return false;
-        }
-        const pattern = normalizeWebUrlPattern(rule.pattern);
-        if (target.protocol !== pattern.protocol) {
           break;
-        }
-        if (pattern.port !== target.port) {
-          break;
-        }
-        const hostname = target.hostname;
-        if (!hostname.endsWith(`.${pattern.hostnameSuffix}`)) {
-          break;
-        }
-        const prefix = hostname.slice(
-          0,
-          hostname.length - pattern.hostnameSuffix.length - 1
-        );
-        if (prefix.length > 0) {
-          return true;
         }
         break;
       }
