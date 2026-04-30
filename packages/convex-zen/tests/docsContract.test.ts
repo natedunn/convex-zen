@@ -85,9 +85,28 @@ describe("docs contract", () => {
     expect(readme).toContain("npx convex-zen doctor");
     expect(readme).toContain("oauth-proxy.md");
     expect(llms).toContain("npx convex-zen doctor");
+    expect(llms).toContain("oauthProxy.allowedReturnTargets");
+    expect(llms).toContain("CONVEX_ZEN_PROXY_BROKER");
+    expect(llms).toContain("completeOAuthProxy(...)");
     expect(oauth).toContain("oauth_proxy_code");
     expect(oauth).toContain("oauth-proxy.md");
     expect(oauthProxy).toContain("zen.config.ts");
     expect(expo).toContain("completeOAuthProxy");
+  });
+
+  it("scenario add guides include one-shot OAuth proxy guidance", async () => {
+    const nextAddGuide = await readRepoFile(
+      "apps/docs/external/install/next/add-to-existing-convex.md"
+    );
+    const tanstackAddGuide = await readRepoFile(
+      "apps/docs/external/install/tanstack-start/add-to-existing-convex.md"
+    );
+
+    expect(nextAddGuide).toContain("oauthProxy.allowedReturnTargets");
+    expect(nextAddGuide).toContain("CONVEX_ZEN_PROXY_BROKER");
+    expect(nextAddGuide).toContain("oauth-proxy.md");
+    expect(tanstackAddGuide).toContain("oauthProxy.allowedReturnTargets");
+    expect(tanstackAddGuide).toContain("CONVEX_ZEN_PROXY_BROKER");
+    expect(tanstackAddGuide).toContain("oauth-proxy.md");
   });
 });

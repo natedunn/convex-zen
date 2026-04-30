@@ -31,6 +31,12 @@ TanStack Start:
 - migrate from Convex Auth
 - migrate from Better Auth
 
+## Required shared auth docs
+
+- `apps/docs/external/oauth.md`
+- `apps/docs/external/oauth-proxy.md`
+- `apps/docs/external/expo-installation.md`
+
 ## Canonical example references
 
 Next.js:
@@ -53,3 +59,10 @@ TanStack Start:
 
 - doctor detection tests for supported project states
 - docs contract tests that ensure critical paths and references stay real
+
+## Required OAuth install behavior
+
+- one-shot installs may include OAuth immediately when the user asks for it
+- direct OAuth is the default when each app origin can be registered
+- proxy mode is required when the request implies one callback URL, preview URLs, or a brokered Expo/native return
+- proxy setup must cover `oauthProxy.allowedReturnTargets`, `oauthProxy: true`, `CONVEX_ZEN_PROXY_BROKER`, broker callback URLs, and `completeOAuthProxy(...)` for Expo
