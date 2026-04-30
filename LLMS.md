@@ -101,13 +101,13 @@ Use proxy mode when the request mentions any of these:
 - Expo/native callback handoff through a web broker
 - "oauth proxy", "broker mode", or similar wording
 
-Proxy mode requirements:
+Proxy mode role split:
 
-1. `convex/zen.config.ts` must include `oauthProxy.allowedReturnTargets`
-2. Next.js and TanStack Start server adapters must set `oauthProxy: true`
-3. consumer or hybrid web apps must set `CONVEX_ZEN_PROXY_BROKER`
-4. provider consoles must register the broker callback URL such as `https://auth.example.com/api/auth/callback/google`
-5. Expo must set `oauthProxy.brokerOrigin` and finish `oauth_proxy_code` with `completeOAuthProxy(...)`
+- Broker or hybrid apps must add `oauthProxy.allowedReturnTargets` to `convex/zen.config.ts`
+- Next.js and TanStack Start broker or hybrid server adapters must set `oauthProxy: true`
+- Consumer or hybrid web apps must set `CONVEX_ZEN_PROXY_BROKER`
+- Expo consumers must set `oauthProxy.brokerOrigin` and finish `oauth_proxy_code` with `completeOAuthProxy(...)`
+- Provider consoles must register the broker callback URL such as `https://auth.example.com/api/auth/callback/google`
 
 Direct mode callback URLs use the app origin:
 

@@ -118,8 +118,8 @@ Choose proxy mode when the provider only allows one redirect URI, the app needs 
 
 References:
 
-- `apps/docs/external/oauth.md`
-- `apps/docs/external/oauth-proxy.md`
+- [oauth.md](../../oauth.md)
+- [oauth-proxy.md](../../oauth-proxy.md)
 
 ## Done means
 

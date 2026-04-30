@@ -104,9 +104,9 @@ describe("docs contract", () => {
 
     expect(nextAddGuide).toContain("oauthProxy.allowedReturnTargets");
     expect(nextAddGuide).toContain("CONVEX_ZEN_PROXY_BROKER");
-    expect(nextAddGuide).toContain("apps/docs/external/oauth-proxy.md");
+    expect(nextAddGuide).toContain("oauth-proxy.md");
     expect(tanstackAddGuide).toContain("oauthProxy.allowedReturnTargets");
     expect(tanstackAddGuide).toContain("CONVEX_ZEN_PROXY_BROKER");
-    expect(tanstackAddGuide).toContain("apps/docs/external/oauth-proxy.md");
+    expect(tanstackAddGuide).toContain("oauth-proxy.md");
   });
 });
