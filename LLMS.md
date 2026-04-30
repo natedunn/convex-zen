@@ -62,7 +62,7 @@ TanStack Start:
 
 ## Minimal Successful Install
 
-The default one-shot target is email/password only:
+For a baseline install with no explicit OAuth request:
 
 1. create `convex/zen.config.ts`
 2. create `convex/auth.config.ts`
@@ -71,4 +71,46 @@ The default one-shot target is email/password only:
 5. mount provider and route handler
 6. run `pnpm exec convex dev`
 
-Add OAuth and plugins only after the baseline flow works.
+## OAuth One-Shot Rules
+
+If the user asks for OAuth during setup, include it in the same pass instead of deferring it.
+
+Required OAuth work:
+
+1. add provider config in `convex/zen.config.ts`
+2. set provider secrets in Convex env
+3. run `npx convex-zen generate`
+4. wire the framework auth server/client files
+5. include the correct callback URL registration instructions
+
+Use these shared docs as the source of truth:
+
+- `apps/docs/external/oauth.md`
+- `apps/docs/external/oauth-proxy.md`
+- `apps/docs/external/expo-installation.md`
+
+## Direct vs Proxy OAuth
+
+Use direct OAuth by default when every app origin can be registered in the provider console.
+
+Use proxy mode when the request mentions any of these:
+
+- one callback URL or one redirect URI
+- preview URLs
+- a stable auth host such as `auth.example.com`
+- Expo/native callback handoff through a web broker
+- "oauth proxy", "broker mode", or similar wording
+
+Proxy mode requirements:
+
+1. `convex/zen.config.ts` must include `oauthProxy.allowedReturnTargets`
+2. Next.js and TanStack Start server adapters must set `oauthProxy: true`
+3. consumer or hybrid web apps must set `CONVEX_ZEN_PROXY_BROKER`
+4. provider consoles must register the broker callback URL such as `https://auth.example.com/api/auth/callback/google`
+5. Expo must set `oauthProxy.brokerOrigin` and finish `oauth_proxy_code` with `completeOAuthProxy(...)`
+
+Direct mode callback URLs use the app origin:
+
+- `${APP_ORIGIN}/api/auth/callback/google`
+- `${APP_ORIGIN}/api/auth/callback/github`
+- `${APP_ORIGIN}/api/auth/callback/discord`

@@ -99,6 +99,28 @@ Set the same secret in Convex:
 pnpm exec convex env set CONVEX_ZEN_SECRET "<your-random-secret>"
 ```
 
+## Optional: one-shot OAuth setup
+
+If the user asks for Google, GitHub, Discord, or custom OAuth during install, do it in the same pass:
+
+- add providers to `convex/zen.config.ts`
+- set provider secrets in Convex with `pnpm exec convex env set ...`
+- keep the normal `authClient.signIn.oauth(...)` route-backed flow
+
+Choose direct OAuth when the provider can register each app origin directly. Register callback URLs like `${APP_ORIGIN}/api/auth/callback/google`.
+
+Choose proxy mode when the provider only allows one redirect URI, the app needs preview URLs, or the user wants a stable broker such as `https://auth.example.com`. In proxy mode:
+
+- add `oauthProxy.allowedReturnTargets` to `convex/zen.config.ts`
+- set `oauthProxy: true` in `createNextAuthServer(...)`
+- set `CONVEX_ZEN_PROXY_BROKER=https://auth.example.com` in the app environment
+- register the provider callback at `https://auth.example.com/api/auth/callback/<provider>`
+
+References:
+
+- `apps/docs/external/oauth.md`
+- `apps/docs/external/oauth-proxy.md`
+
 ## Done means
 
 - `npx convex-zen generate` succeeds
