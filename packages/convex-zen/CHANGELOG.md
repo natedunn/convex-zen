@@ -1,3 +1,13 @@
+## [1.17.2](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.17.1...convex-zen-v1.17.2) (2026-04-30)
+
+
+### Bug Fixes
+
+* **auth:** add oauth proxy broker flows ([23a3e7b](https://github.com/natedunn/convex-zen/commit/23a3e7bd088936c47b51e25fa3cf4c334365be0c))
+* **cli:** parse oauth proxy config without eval ([fc76a51](https://github.com/natedunn/convex-zen/commit/fc76a51ba0245ce8be474c693561f4020ee8df4c))
+* **oauth:** continue proxy rule matching after invalid rules ([a0e6af2](https://github.com/natedunn/convex-zen/commit/a0e6af2b311bfb5fe115b328c9a399f303441449))
+* **oauth:** keep redirectUrl callback result aligned ([c410262](https://github.com/natedunn/convex-zen/commit/c4102627b035a13690f829ee3699eb332550e58e))
+
 ## [1.17.1](https://github.com/natedunn/convex-zen/compare/convex-zen-v1.17.0...convex-zen-v1.17.1) (2026-04-26)
 
 
