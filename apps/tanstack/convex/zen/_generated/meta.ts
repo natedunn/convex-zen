@@ -65,6 +65,20 @@ export const authMeta = {
       "setRole": "mutation",
       "unbanUser": "mutation"
     }
+  },
+  "config": {
+    "oauthProxy": {
+      "allowedReturnTargets": [
+        {
+          "type": "webUrl",
+          "url": "http://tanstack.localhost:1355"
+        },
+        {
+          "type": "webUrlPattern",
+          "pattern": "http://*.tanstack.localhost:1355"
+        }
+      ]
+    }
   }
 } as const;
 
