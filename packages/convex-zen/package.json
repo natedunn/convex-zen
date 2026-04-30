@@ -2,6 +2,12 @@
   "name": "convex-zen",
   "version": "1.17.2",
   "description": "Production-grade auth component for Convex",
+  "keywords": [
+    "convex",
+    "auth",
+    "oauth",
+    "oauth-proxy"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/natedunn/convex-zen.git"
