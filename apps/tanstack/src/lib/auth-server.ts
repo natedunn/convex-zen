@@ -6,6 +6,7 @@ const authServer = createTanStackAuthServer({
 	convexUrl: import.meta.env["VITE_CONVEX_URL"] as string,
 	convexFunctions: api.zen,
 	meta: authMeta,
+	oauthProxy: true,
 });
 
 export const {

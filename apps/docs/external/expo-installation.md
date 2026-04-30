@@ -30,6 +30,10 @@ Minimum required refs:
 - `getOAuthUrl`
 - `handleOAuthCallback`
 
+If you use broker mode, also expose:
+
+- `exchangeOAuthProxyCode`
+
 If you want generated `authClient.core.*` methods such as `authClient.currentUser({})`, also pass `coreMeta` or `authMeta.core`.
 
 ## Create the Expo auth client
@@ -54,10 +58,15 @@ export const authClient = createExpoAuthClient({
       invalidateSession: api.zen.core.invalidateSession,
       getOAuthUrl: api.zen.core.getOAuthUrl,
       handleOAuthCallback: api.zen.core.handleOAuthCallback,
+      exchangeOAuthProxyCode: api.zen.core.exchangeOAuthProxyCode,
       currentUser: api.zen.core.currentUser,
     },
   },
   meta: authMeta,
+  // Optional: single-callback OAuth broker mode.
+  // oauthProxy: {
+  //   brokerOrigin: "https://auth.example.com",
+  // },
   runtime: {
     storage: createKeyValueStorageAuthStorage({
       getItem: (key) => SecureStore.getItemAsync(key),
@@ -115,3 +124,43 @@ See `apps/expo` for a runnable managed Expo example with:
 - Expo Router
 - manual OAuth callback completion
 - generated `currentUser` calls via `authClient.currentUser({})`
+
+## OAuth broker mode
+
+Use `oauthProxy` when a provider only allows one web callback URL.
+
+```ts
+const started = await authClient.signIn.oauth("google", {
+  callbackUrl: "myapp://oauth",
+  redirectTo: "/home",
+  errorRedirectTo: "/sign-in",
+});
+```
+
+With `oauthProxy` configured, `started.authorizationUrl` points at the broker route:
+
+- `https://auth.example.com/api/auth/proxy/sign-in/google`
+
+The provider callback still happens on the broker host. Your Expo app only receives the broker return target callback.
+
+Handle both direct and proxy callbacks like this:
+
+```ts
+const url = new URL(browserResult.url);
+const proxyCode = url.searchParams.get("oauth_proxy_code");
+
+if (proxyCode) {
+  await authClient.completeOAuthProxy({ code: proxyCode });
+} else {
+  const code = url.searchParams.get("code");
+  const state = url.searchParams.get("state");
+  if (!code || !state) throw new Error("Missing OAuth callback params");
+
+  await authClient.completeOAuth({
+    providerId: "google",
+    code,
+    state,
+    callbackUrl: "myapp://oauth",
+  });
+}
+```

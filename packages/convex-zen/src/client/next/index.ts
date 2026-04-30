@@ -4,6 +4,13 @@ import type {
   FunctionReference,
   FunctionReturnType,
 } from "convex/server";
+import {
+  assertValidOAuthProxyReturnTargetRules,
+  buildOAuthProxySignInUrl,
+  matchesOAuthProxyReturnTarget,
+  normalizeOAuthProxyBrokerOrigin,
+  resolveOAuthProxyOptionsFromEnv,
+} from "../oauth-proxy.js";
 import { createConvexFetchers } from "../convex-fetchers.js";
 import {
   createSessionPrimitives,
@@ -13,6 +20,7 @@ import {
   type SignInOutput,
 } from "../primitives.js";
 import type { OAuthProviderId } from "../../types.js";
+import type { OAuthProxyReturnTargetRule } from "../../types.js";
 import {
   createConvexZenIdentityJwt,
   type SessionTokenCodec,
@@ -181,6 +189,7 @@ export interface NextAuthApiHandlerOptions {
   convexFunctions?: Record<string, unknown>;
   coreMeta?: NextAuthCoreMeta;
   fetchers?: Pick<NextConvexFetchers, "fetchAction" | "fetchMutation">;
+  oauthProxy?: NextOAuthProxyOptions;
 }
 
 export interface NextAuthServerOptions
@@ -215,13 +224,73 @@ export interface NextConvexAuthServerOptions
   extends NextConvexAuthOptions,
     Omit<
       NextAuthApiHandlerOptions,
-      "nextAuth" | "plugins" | "convexFunctions" | "coreMeta" | "fetchers"
+      | "nextAuth"
+      | "plugins"
+      | "convexFunctions"
+      | "coreMeta"
+      | "fetchers"
+      | "oauthProxy"
     > {
   plugins?: NextAuthApiPluginSelection;
   pluginMeta?: NextAuthPluginMeta;
   coreMeta?: NextAuthCoreMeta;
   meta?: NextAuthMeta;
   trustedOriginsFromEnv?: false | NextTrustedOriginsFromEnvOptions;
+  oauthProxy?: boolean | NextOAuthProxyOptions;
+}
+
+export interface NextOAuthProxyOptions {
+  brokerOrigin?: string;
+  allowedReturnTargets?: readonly OAuthProxyReturnTargetRule[];
+  exchangePath?: string;
+}
+
+function resolveOAuthProxyMeta(
+  meta: NextAuthMeta | undefined
+): NextOAuthProxyOptions | undefined {
+  const allowedReturnTargets = meta?.config?.oauthProxy?.allowedReturnTargets;
+  if (!allowedReturnTargets || allowedReturnTargets.length === 0) {
+    return undefined;
+  }
+  return { allowedReturnTargets };
+}
+
+function assertValidOAuthProxyServerConfiguration(args: {
+  oauthProxy: boolean | NextOAuthProxyOptions | undefined;
+  resolvedOAuthProxy: NextOAuthProxyOptions | undefined;
+  meta: NextAuthMeta | undefined;
+}): void {
+  if (!args.oauthProxy) {
+    return;
+  }
+  if (!args.resolvedOAuthProxy?.brokerOrigin && !args.resolvedOAuthProxy?.allowedReturnTargets) {
+    throw new Error(
+      "oauthProxy is enabled, but no broker configuration was found.\n" +
+        "Set CONVEX_ZEN_PROXY_BROKER to send users through a broker, configure oauthProxy.allowedReturnTargets in convex/zen.config.ts to host broker routes, or remove oauthProxy to use direct OAuth only."
+    );
+  }
+}
+
+function resolveNextAuthServerOAuthProxyOptions(
+  oauthProxy: boolean | NextOAuthProxyOptions | undefined,
+  meta: NextAuthMeta | undefined
+): NextOAuthProxyOptions | undefined {
+  if (!oauthProxy) {
+    return undefined;
+  }
+  const fromEnv = resolveOAuthProxyOptionsFromEnv();
+  const fromMeta = resolveOAuthProxyMeta(meta);
+  if (oauthProxy === true) {
+    return {
+      ...(fromEnv ?? {}),
+      ...(fromMeta ?? {}),
+    };
+  }
+  return {
+    ...(fromEnv ?? {}),
+    ...(fromMeta ?? {}),
+    ...oauthProxy,
+  };
 }
 
 export interface NextConvexAuthServer extends NextAuthServer {
@@ -311,19 +380,35 @@ interface NextAuthErrorPayload {
 type NextOAuthActionRefs = {
   getOAuthUrl: FunctionReference<"mutation", "public">;
   handleOAuthCallback: FunctionReference<"action", "public">;
+  handleOAuthProxyCallback?: FunctionReference<"action", "public">;
+  exchangeOAuthProxyCode?: FunctionReference<"action", "public">;
 };
 
 type NextOAuthStateCookiePayload = {
+  mode?: "direct" | "proxy" | undefined;
   state: string;
   providerId: OAuthProviderId;
   redirectTo: string;
   errorRedirectTo: string;
+  returnTarget?: string | undefined;
 };
 
 type NextOAuthCallbackResult = {
   sessionToken?: unknown;
   redirectTo?: unknown;
   redirectUrl?: unknown;
+};
+
+type NextOAuthProxyCallbackResult = {
+  code?: unknown;
+  userId?: unknown;
+  redirectTo?: unknown;
+};
+
+type NextOAuthProxyExchangeResult = {
+  sessionToken?: unknown;
+  userId?: unknown;
+  redirectTo?: unknown;
 };
 
 const NEXT_OAUTH_STATE_COOKIE_NAME = "cz_oauth_state";
@@ -570,6 +655,20 @@ function resolveOAuthActionRefs(
       "core"
     )
   );
+  const handleOAuthProxyCallback = asPublicActionRef(
+    resolveNamedConvexFunctionRef(
+      convexFunctions as NextConvexActionRefs,
+      "handleOAuthProxyCallback",
+      "core"
+    )
+  );
+  const exchangeOAuthProxyCode = asPublicActionRef(
+    resolveNamedConvexFunctionRef(
+      convexFunctions as NextConvexActionRefs,
+      "exchangeOAuthProxyCode",
+      "core"
+    )
+  );
 
   if (!getOAuthUrl || !handleOAuthCallback) {
     return null;
@@ -578,6 +677,12 @@ function resolveOAuthActionRefs(
   return {
     getOAuthUrl,
     handleOAuthCallback,
+    ...(handleOAuthProxyCallback
+      ? { handleOAuthProxyCallback }
+      : {}),
+    ...(exchangeOAuthProxyCode
+      ? { exchangeOAuthProxyCode }
+      : {}),
   };
 }
 
@@ -600,26 +705,35 @@ function parseOAuthStateCookie(
 
   try {
     const parsed = JSON.parse(rawCookie) as {
+      mode?: unknown;
       state?: unknown;
       providerId?: unknown;
       redirectTo?: unknown;
       errorRedirectTo?: unknown;
+      returnTarget?: unknown;
     };
     if (
+      (parsed.mode !== undefined &&
+        parsed.mode !== "direct" &&
+        parsed.mode !== "proxy") ||
       typeof parsed.state !== "string" ||
       typeof parsed.providerId !== "string" ||
       !isOAuthProviderId(parsed.providerId) ||
       typeof parsed.redirectTo !== "string" ||
-      typeof parsed.errorRedirectTo !== "string"
+      typeof parsed.errorRedirectTo !== "string" ||
+      (parsed.returnTarget !== undefined &&
+        typeof parsed.returnTarget !== "string")
     ) {
       return null;
     }
 
     return {
+      mode: parsed.mode as "direct" | "proxy" | undefined,
       state: parsed.state,
       providerId: parsed.providerId,
       redirectTo: parsed.redirectTo,
       errorRedirectTo: parsed.errorRedirectTo,
+      returnTarget: parsed.returnTarget as string | undefined,
     };
   } catch {
     return null;
@@ -785,11 +899,61 @@ function createOAuthErrorRedirectResponse(args: {
   );
 }
 
+function createOAuthProxyReturnResponse(args: {
+  request: Request;
+  returnTarget: string;
+  code?: string | undefined;
+  error?: string | undefined;
+  providerId: OAuthProviderId;
+  description?: string | undefined;
+  errorRedirectTo?: string | undefined;
+  clearStateCookie?: boolean | undefined;
+  basePath: string;
+}): Response {
+  const redirectTarget = new URL(args.returnTarget);
+  if (args.code) {
+    redirectTarget.searchParams.set("oauth_proxy_code", args.code);
+  }
+  if (args.error) {
+    appendOAuthErrorParams(
+      redirectTarget,
+      args.error,
+      args.providerId,
+      args.description
+    );
+  }
+  if (args.errorRedirectTo) {
+    redirectTarget.searchParams.set("errorRedirectTo", args.errorRedirectTo);
+  }
+  const cookies = args.clearStateCookie
+    ? [clearOAuthStateCookie(args.basePath)]
+    : [];
+  return createRedirectResponse(args.request, redirectTarget.toString(), cookies);
+}
+
 function parseOAuthCallbackResult(value: unknown): NextOAuthCallbackResult | null {
   if (!isRecord(value)) {
     return null;
   }
   return value as NextOAuthCallbackResult;
+}
+
+function parseOAuthProxyCallbackResult(
+  value: unknown
+): NextOAuthProxyCallbackResult | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  return value as NextOAuthProxyCallbackResult;
+}
+
+function parseOAuthProxyExchangeResult(
+  value: unknown
+): NextOAuthProxyExchangeResult | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  return value as NextOAuthProxyExchangeResult;
 }
 
 function normalizeBasePath(path: string): string {
@@ -804,6 +968,45 @@ function normalizeBasePath(path: string): string {
     return withLeadingSlash.slice(0, -1);
   }
   return withLeadingSlash;
+}
+
+function normalizeOAuthProxyExchangePath(
+  basePath: string,
+  exchangePath: string | undefined
+): string {
+  const normalized = (exchangePath ?? `${basePath}/proxy/exchange`).trim();
+  if (normalized === "") {
+    return `${basePath}/proxy/exchange`;
+  }
+  const withLeadingSlash = normalized.startsWith("/")
+    ? normalized
+    : `/${normalized}`;
+  return withLeadingSlash.length > 1 && withLeadingSlash.endsWith("/")
+    ? withLeadingSlash.slice(0, -1)
+    : withLeadingSlash;
+}
+
+function resolveOAuthProxyConfig(
+  basePath: string,
+  oauthProxy: NextOAuthProxyOptions | undefined
+): {
+  brokerOrigin?: string;
+  allowedReturnTargets?: readonly OAuthProxyReturnTargetRule[];
+  exchangePath: string;
+} {
+  const brokerOrigin =
+    oauthProxy?.brokerOrigin !== undefined
+      ? normalizeOAuthProxyBrokerOrigin(oauthProxy.brokerOrigin)
+      : undefined;
+  const allowedReturnTargets = oauthProxy?.allowedReturnTargets;
+  if (allowedReturnTargets !== undefined) {
+    assertValidOAuthProxyReturnTargetRules(allowedReturnTargets);
+  }
+  return {
+    ...(brokerOrigin !== undefined ? { brokerOrigin } : {}),
+    ...(allowedReturnTargets !== undefined ? { allowedReturnTargets } : {}),
+    exchangePath: normalizeOAuthProxyExchangePath(basePath, oauthProxy?.exchangePath),
+  };
 }
 
 function resolveActionFromPath(pathname: string, basePath: string): string | null {
@@ -1306,6 +1509,7 @@ export function createNextAuthApiHandler(
   options: NextAuthApiHandlerOptions
 ): (request: Request) => Promise<Response> {
   const basePath = normalizeBasePath(options.basePath ?? "/api/auth");
+  const oauthProxy = resolveOAuthProxyConfig(basePath, options.oauthProxy);
   const plugins = options.plugins ?? [];
   const oauthActions = resolveOAuthActionRefs(options.convexFunctions);
   const fetchMutation = options.fetchers?.fetchMutation;
@@ -1330,19 +1534,117 @@ export function createNextAuthApiHandler(
       const actionSegments = action.split("/");
       const oauthAction = actionSegments[0];
       const providerSegment = actionSegments[1];
-      if (
+      if (request.method === "GET" && action === "proxy/exchange") {
+        const errorRedirectTo = requestUrl.searchParams.get("errorRedirectTo") ?? "/";
+        if (!isSafeRedirectTarget(errorRedirectTo)) {
+          return json(
+            { error: "OAuth redirect targets must be relative paths" },
+            400
+          );
+        }
+        const providerId = requestUrl.searchParams.get("provider");
+        if (providerId && isOAuthProviderId(providerId) && requestUrl.searchParams.get("error")) {
+          const redirectTarget = new URL(
+            normalizeRedirectTarget(request, errorRedirectTo),
+            request.url
+          );
+          appendOAuthErrorParams(
+            redirectTarget,
+            requestUrl.searchParams.get("error") ?? "oauth_callback_error",
+            providerId,
+            requestUrl.searchParams.get("error_description") ?? undefined
+          );
+          return createRedirectResponse(request, redirectTarget.toString());
+        }
+        if (!fetchAction || !oauthActions || !oauthActions.exchangeOAuthProxyCode) {
+          return createOAuthErrorRedirectResponse({
+            request,
+            providerId: "oauth" as OAuthProviderId,
+            error: "oauth_callback_error",
+            target: errorRedirectTo,
+            basePath,
+          });
+        }
+        const proxyCode = requestUrl.searchParams.get("oauth_proxy_code");
+        if (!proxyCode) {
+          return createOAuthErrorRedirectResponse({
+            request,
+            providerId: "oauth" as OAuthProviderId,
+            error: "oauth_callback_error",
+            description: "Missing OAuth proxy exchange code",
+            target: errorRedirectTo,
+            basePath,
+          });
+        }
+        try {
+          const requestIp = resolveClientIp(request, options);
+          const requestUserAgent = request.headers.get("user-agent") ?? undefined;
+          const exchangeResult = parseOAuthProxyExchangeResult(
+            await fetchAction(oauthActions.exchangeOAuthProxyCode, {
+              code: proxyCode,
+              ...(requestIp !== undefined ? { ipAddress: requestIp } : {}),
+              ...(requestUserAgent !== undefined
+                ? { userAgent: requestUserAgent }
+                : {}),
+            })
+          );
+          if (typeof exchangeResult?.sessionToken !== "string") {
+            throw new Error("Invalid OAuth proxy exchange response");
+          }
+          const established = await options.nextAuth.establishSession(
+            exchangeResult.sessionToken
+          );
+          return createRedirectResponse(
+            request,
+            normalizeRedirectTarget(
+              request,
+              typeof exchangeResult.redirectTo === "string"
+                ? exchangeResult.redirectTo
+                : "/"
+            ),
+            [established.setCookie]
+          );
+        } catch (error) {
+          return createOAuthErrorRedirectResponse({
+            request,
+            providerId: "oauth" as OAuthProviderId,
+            error: "oauth_callback_error",
+            description: isProductionRuntime() ? undefined : toErrorMessage(error),
+            target: errorRedirectTo,
+            basePath,
+          });
+        }
+      }
+
+      const isDirectOAuthRoute =
         request.method === "GET" &&
         actionSegments.length === 2 &&
         providerSegment &&
         isOAuthProviderId(providerSegment) &&
-        (oauthAction === "sign-in" || oauthAction === "callback")
-      ) {
-        if (!fetchMutation || !fetchAction || !oauthActions) {
-          if (oauthAction === "callback") {
+        (oauthAction === "sign-in" || oauthAction === "callback");
+      const isProxyOAuthSignInRoute =
+        request.method === "GET" &&
+        actionSegments.length === 3 &&
+        actionSegments[0] === "proxy" &&
+        actionSegments[1] === "sign-in" &&
+        actionSegments[2] &&
+        isOAuthProviderId(actionSegments[2]);
+
+      if (isDirectOAuthRoute || isProxyOAuthSignInRoute) {
+        const resolvedProviderId = (
+          isProxyOAuthSignInRoute ? actionSegments[2] : providerSegment
+        ) as OAuthProviderId;
+        if (
+          !fetchMutation ||
+          !fetchAction ||
+          !oauthActions ||
+          (isProxyOAuthSignInRoute && !oauthActions.handleOAuthProxyCallback)
+        ) {
+          if (!isProxyOAuthSignInRoute && oauthAction === "callback") {
             const stateCookie = parseOAuthStateCookie(request);
             return createOAuthErrorRedirectResponse({
               request,
-              providerId: providerSegment,
+              providerId: resolvedProviderId,
               error: "oauth_callback_error",
               target: stateCookie?.errorRedirectTo ?? stateCookie?.redirectTo,
               clearStateCookie: true,
@@ -1350,6 +1652,88 @@ export function createNextAuthApiHandler(
             });
           }
           return json({ error: "OAuth routes are not configured" }, 404);
+        }
+
+        if (isProxyOAuthSignInRoute) {
+          const returnTarget = requestUrl.searchParams.get("returnTarget");
+          const redirectTo = requestUrl.searchParams.get("redirectTo") ?? "/";
+          const errorRedirectTo =
+            requestUrl.searchParams.get("errorRedirectTo") ?? redirectTo;
+          if (!returnTarget) {
+            return json({ error: "Missing OAuth proxy return target" }, 400);
+          }
+          if (!oauthProxy.allowedReturnTargets) {
+            return json(
+              {
+                error:
+                  "OAuth proxy broker has no allowed return targets configured",
+              },
+              400
+            );
+          }
+          if (
+            !matchesOAuthProxyReturnTarget(
+              returnTarget,
+              oauthProxy.allowedReturnTargets
+            )
+          ) {
+            return json(
+              {
+                error: `OAuth proxy return target is not allowed: ${returnTarget}`,
+              },
+              400
+            );
+          }
+          if (
+            !isSafeRedirectTarget(redirectTo) ||
+            !isSafeRedirectTarget(errorRedirectTo)
+          ) {
+            return json(
+              { error: "OAuth redirect targets must be relative paths" },
+              400
+            );
+          }
+          const callbackUrl = buildNextOAuthCallbackUrl(
+            request,
+            basePath,
+            resolvedProviderId
+          );
+          const startResult = await fetchMutation(oauthActions.getOAuthUrl, {
+            providerId: resolvedProviderId,
+            callbackUrl,
+            returnTarget,
+            proxyMode: "broker",
+            redirectTo,
+            errorRedirectTo,
+          });
+          if (
+            !isRecord(startResult) ||
+            typeof startResult.authorizationUrl !== "string"
+          ) {
+            throw new Error("Invalid OAuth start response");
+          }
+          const state = parseAuthorizationUrlState(startResult.authorizationUrl);
+          if (!state) {
+            throw new Error("OAuth authorization URL is missing state");
+          }
+          const stateCookie = serializeOAuthStateCookie(basePath, {
+            mode: "proxy",
+            state,
+            providerId: resolvedProviderId,
+            redirectTo,
+            errorRedirectTo,
+            returnTarget,
+          });
+          if (requestUrl.searchParams.get("mode") === "json") {
+            return jsonNoStore(
+              { authorizationUrl: startResult.authorizationUrl },
+              200,
+              { "set-cookie": stateCookie }
+            );
+          }
+          return createRedirectResponse(request, startResult.authorizationUrl, [
+            stateCookie,
+          ]);
         }
 
         if (oauthAction === "sign-in") {
@@ -1361,19 +1745,33 @@ export function createNextAuthApiHandler(
             !isSafeRedirectTarget(errorRedirectTo)
           ) {
             return json(
-              {
-                error: "OAuth redirect targets must be relative paths",
-              },
+              { error: "OAuth redirect targets must be relative paths" },
               400
             );
           }
+          if (oauthProxy.brokerOrigin) {
+            const returnTarget = new URL(oauthProxy.exchangePath, request.url).toString();
+            const authorizationUrl = buildOAuthProxySignInUrl({
+              brokerOrigin: oauthProxy.brokerOrigin,
+              basePath,
+              providerId: resolvedProviderId,
+              returnTarget,
+              ...(redirectTo !== undefined ? { redirectTo } : {}),
+              ...(errorRedirectTo !== undefined ? { errorRedirectTo } : {}),
+            });
+            if (requestUrl.searchParams.get("mode") === "json") {
+              return jsonNoStore({ authorizationUrl });
+            }
+            return createRedirectResponse(request, authorizationUrl);
+          }
+
           const callbackUrl = buildNextOAuthCallbackUrl(
             request,
             basePath,
-            providerSegment
+            resolvedProviderId
           );
           const startResult = await fetchMutation(oauthActions.getOAuthUrl, {
-            providerId: providerSegment,
+            providerId: resolvedProviderId,
             callbackUrl,
             redirectTo,
             errorRedirectTo,
@@ -1391,8 +1789,9 @@ export function createNextAuthApiHandler(
           }
 
           const stateCookie = serializeOAuthStateCookie(basePath, {
+            mode: "direct",
             state,
-            providerId: providerSegment,
+            providerId: resolvedProviderId,
             redirectTo,
             errorRedirectTo,
           });
@@ -1417,9 +1816,25 @@ export function createNextAuthApiHandler(
           stateCookie?.errorRedirectTo ?? stateCookie?.redirectTo;
         const providerError = requestUrl.searchParams.get("error");
         if (providerError) {
+          if (stateCookie?.mode === "proxy" && stateCookie.returnTarget) {
+            return createOAuthProxyReturnResponse({
+              request,
+              returnTarget: stateCookie.returnTarget,
+              providerId: resolvedProviderId,
+              error:
+                providerError === "access_denied"
+                  ? "oauth_access_denied"
+                  : "oauth_callback_error",
+              description:
+                requestUrl.searchParams.get("error_description") ?? providerError,
+              errorRedirectTo: stateCookie.errorRedirectTo,
+              clearStateCookie: true,
+              basePath,
+            });
+          }
           return createOAuthErrorRedirectResponse({
             request,
-            providerId: providerSegment,
+            providerId: resolvedProviderId,
             error:
               providerError === "access_denied"
                 ? "oauth_access_denied"
@@ -1435,13 +1850,24 @@ export function createNextAuthApiHandler(
         const state = requestUrl.searchParams.get("state");
         if (
           !stateCookie ||
-          stateCookie.providerId !== providerSegment ||
+          stateCookie.providerId !== resolvedProviderId ||
           typeof state !== "string" ||
           state !== stateCookie.state
         ) {
+          if (stateCookie?.mode === "proxy" && stateCookie.returnTarget) {
+            return createOAuthProxyReturnResponse({
+              request,
+              returnTarget: stateCookie.returnTarget,
+              providerId: resolvedProviderId,
+              error: "oauth_invalid_state",
+              errorRedirectTo: stateCookie.errorRedirectTo,
+              clearStateCookie: true,
+              basePath,
+            });
+          }
           return createOAuthErrorRedirectResponse({
             request,
-            providerId: providerSegment,
+            providerId: resolvedProviderId,
             error: "oauth_invalid_state",
             target: errorRedirectTarget,
             clearStateCookie: true,
@@ -1451,9 +1877,21 @@ export function createNextAuthApiHandler(
 
         const code = requestUrl.searchParams.get("code");
         if (!code) {
+          if (stateCookie.mode === "proxy" && stateCookie.returnTarget) {
+            return createOAuthProxyReturnResponse({
+              request,
+              returnTarget: stateCookie.returnTarget,
+              providerId: resolvedProviderId,
+              error: "oauth_callback_error",
+              description: "Missing OAuth authorization code",
+              errorRedirectTo: stateCookie.errorRedirectTo,
+              clearStateCookie: true,
+              basePath,
+            });
+          }
           return createOAuthErrorRedirectResponse({
             request,
-            providerId: providerSegment,
+            providerId: resolvedProviderId,
             error: "oauth_callback_error",
             description: "Missing OAuth authorization code",
             target: errorRedirectTarget,
@@ -1465,15 +1903,44 @@ export function createNextAuthApiHandler(
         try {
           const requestIp = resolveClientIp(request, options);
           const requestUserAgent = request.headers.get("user-agent") ?? undefined;
+          if (stateCookie.mode === "proxy" && stateCookie.returnTarget) {
+            if (!oauthActions.handleOAuthProxyCallback) {
+              throw new Error("OAuth proxy callback is not configured");
+            }
+            const callbackResult = parseOAuthProxyCallbackResult(
+              await fetchAction(oauthActions.handleOAuthProxyCallback!, {
+                providerId: resolvedProviderId,
+                code,
+                state,
+                callbackUrl: buildNextOAuthCallbackUrl(
+                  request,
+                  basePath,
+                  resolvedProviderId
+                ),
+              })
+            );
+            if (typeof callbackResult?.code !== "string") {
+              throw new Error("Invalid OAuth proxy callback response");
+            }
+            return createOAuthProxyReturnResponse({
+              request,
+              returnTarget: stateCookie.returnTarget,
+              providerId: resolvedProviderId,
+              code: callbackResult.code,
+              clearStateCookie: true,
+              basePath,
+            });
+          }
+
           const callbackResult = parseOAuthCallbackResult(
             await fetchAction(oauthActions.handleOAuthCallback, {
-              providerId: providerSegment,
+              providerId: resolvedProviderId,
               code,
               state,
               callbackUrl: buildNextOAuthCallbackUrl(
                 request,
                 basePath,
-                providerSegment
+                resolvedProviderId
               ),
               ...(requestIp !== undefined ? { ipAddress: requestIp } : {}),
               ...(requestUserAgent !== undefined
@@ -1500,15 +1967,24 @@ export function createNextAuthApiHandler(
           return createRedirectResponse(
             request,
             normalizeRedirectTarget(request, redirectTarget),
-            [
-              established.setCookie,
-              clearOAuthStateCookie(basePath),
-            ]
+            [established.setCookie, clearOAuthStateCookie(basePath)]
           );
         } catch (error) {
+          if (stateCookie.mode === "proxy" && stateCookie.returnTarget) {
+            return createOAuthProxyReturnResponse({
+              request,
+              returnTarget: stateCookie.returnTarget,
+              providerId: resolvedProviderId,
+              error: mapOAuthErrorCode(error),
+              description: isProductionRuntime() ? undefined : toErrorMessage(error),
+              errorRedirectTo: stateCookie.errorRedirectTo,
+              clearStateCookie: true,
+              basePath,
+            });
+          }
           return createOAuthErrorRedirectResponse({
             request,
-            providerId: providerSegment,
+            providerId: resolvedProviderId,
             error: mapOAuthErrorCode(error),
             description: isProductionRuntime() ? undefined : toErrorMessage(error),
             target: errorRedirectTarget,
@@ -1654,6 +2130,7 @@ export function createNextServerAuthWithHandler(
       : {}),
     ...(options.coreMeta !== undefined ? { coreMeta: options.coreMeta } : {}),
     ...(options.fetchers !== undefined ? { fetchers: options.fetchers } : {}),
+    ...(options.oauthProxy !== undefined ? { oauthProxy: options.oauthProxy } : {}),
   });
 
   return {
@@ -1996,6 +2473,15 @@ export function createNextAuthServer(
     fetchers.fetchAuthAction
   );
   const coreMeta = resolveCoreMeta(options);
+  const resolvedOAuthProxy = resolveNextAuthServerOAuthProxyOptions(
+    options.oauthProxy,
+    options.meta
+  );
+  assertValidOAuthProxyServerConfiguration({
+    oauthProxy: options.oauthProxy,
+    resolvedOAuthProxy,
+    meta: options.meta,
+  });
   const autoPluginFactories: NextAuthApiPluginFactory[] = [];
   autoPluginFactories.push(
     coreApiPlugin(coreMeta !== undefined ? { coreMeta } : {})
@@ -2033,6 +2519,7 @@ export function createNextAuthServer(
     ...(options.getClientIp !== undefined
       ? { getClientIp: options.getClientIp }
       : {}),
+    ...(resolvedOAuthProxy !== undefined ? { oauthProxy: resolvedOAuthProxy } : {}),
   });
 
   return {

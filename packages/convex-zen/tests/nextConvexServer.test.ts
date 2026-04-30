@@ -103,6 +103,48 @@ describe("createNextConvexFetchers", () => {
 });
 
 describe("createNextAuthServer", () => {
+  it("throws when oauthProxy is enabled but no broker configuration is present", () => {
+    expect(() =>
+      createNextAuthServer({
+        convexUrl: "https://example.convex.cloud",
+        convexFunctions: {
+          signInWithEmail: mutationRef("auth.core.signInWithEmail"),
+          validateSession: mutationRef("auth.core.validateSession"),
+          invalidateSession: mutationRef("auth.core.invalidateSession"),
+        },
+        sessionTokenCodec: passthroughCodec,
+        oauthProxy: true,
+      })
+    ).toThrow(
+      "oauthProxy is enabled, but no broker configuration was found."
+    );
+  });
+
+  it("allows proxy metadata in meta without enabling oauthProxy", () => {
+    expect(() =>
+      createNextAuthServer({
+        convexUrl: "https://example.convex.cloud",
+        convexFunctions: {
+          signInWithEmail: mutationRef("auth.core.signInWithEmail"),
+          validateSession: mutationRef("auth.core.validateSession"),
+          invalidateSession: mutationRef("auth.core.invalidateSession"),
+        },
+        sessionTokenCodec: passthroughCodec,
+        meta: {
+          core: {},
+          plugin: {},
+          config: {
+            oauthProxy: {
+              allowedReturnTargets: [
+                { type: "webUrl", url: "https://app.example.com" },
+              ],
+            },
+          },
+        },
+      })
+    ).not.toThrow();
+  });
+
   it("supports getToken() without passing a Request", async () => {
     convexClientInstances.length = 0;
     mutationHandler.mockReset();

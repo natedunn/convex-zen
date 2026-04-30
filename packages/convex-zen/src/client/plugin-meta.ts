@@ -1,3 +1,5 @@
+import type { OAuthProxyReturnTargetRule } from "../types.js";
+
 export type AuthPluginFunctionKind = "query" | "mutation" | "action";
 
 export type AuthCoreMeta = Record<string, AuthPluginFunctionKind>;
@@ -7,9 +9,16 @@ export type AuthPluginMeta = Record<
   Record<string, AuthPluginFunctionKind>
 >;
 
+export interface AuthConfigMeta {
+  oauthProxy?: {
+    allowedReturnTargets?: readonly OAuthProxyReturnTargetRule[];
+  };
+}
+
 export interface AuthMeta {
   core: AuthCoreMeta;
   plugin: AuthPluginMeta;
+  config?: AuthConfigMeta;
 }
 
 export function toKebabCase(value: string): string {

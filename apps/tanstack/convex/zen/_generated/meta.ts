@@ -2,8 +2,10 @@
 export const authMeta = {
   "core": {
     "currentUser": "query",
+    "exchangeOAuthProxyCode": "action",
     "getOAuthUrl": "mutation",
     "handleOAuthCallback": "action",
+    "handleOAuthProxyCallback": "action",
     "invalidateSession": "mutation",
     "requestPasswordReset": "mutation",
     "resetPassword": "mutation",

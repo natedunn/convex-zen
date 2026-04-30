@@ -69,6 +69,7 @@ No magic. Every public method has a JSDoc comment. Every security decision has a
 
 - **Email/password auth** — sign up, email verification, sign in, password reset
 - **OAuth** — Google and GitHub with PKCE
+- **OAuth broker mode** — stable single-callback proxy flow for preview deployments and native handoff
 - **Session management** — sliding window sessions with absolute timeout
 - **System Admin plugin** — list users, ban/unban, assign roles, delete
 - **Organization plugin** — orgs, memberships, invites, roles, and verified domains
@@ -169,7 +170,7 @@ convex-zen/convex.config → src/component/convex.config.ts
 
 ---
 
-## Database schema (7 tables)
+## Database schema (8 tables)
 
 All tables live inside the component's own namespace.
 
@@ -211,9 +212,16 @@ Index: `by_identifier_type`
 ### `oauthStates`
 PKCE + state for OAuth flows. Short-lived (10-min TTL).
 ```
-stateHash (SHA-256 of state), codeVerifier, provider, redirectUrl?, expiresAt, createdAt
+stateHash (SHA-256 of state), codeVerifier, provider, redirectUrl?, redirectTo?, errorRedirectTo?, returnTarget?, proxyMode?, expiresAt, createdAt
 ```
 Index: `by_stateHash`
+
+### `oauthProxyHandoffs`
+Single-use broker handoff codes for proxy OAuth mode.
+```
+codeHash, userId, provider, redirectTo?, errorRedirectTo?, expiresAt, createdAt
+```
+Indexes: `by_codeHash`, `by_expiresAt`
 
 ### `rateLimits`
 Sliding window counters per key.

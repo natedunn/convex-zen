@@ -90,6 +90,8 @@ export const getOAuthUrl = mutation({
   args: {
     providerId: v.string(),
     callbackUrl: v.optional(v.string()),
+    returnTarget: v.optional(v.string()),
+    proxyMode: v.optional(v.union(v.literal("direct"), v.literal("broker"))),
     redirectTo: v.optional(v.string()),
     errorRedirectTo: v.optional(v.string()),
     redirectUrl: v.optional(v.string()),
@@ -97,6 +99,8 @@ export const getOAuthUrl = mutation({
   handler: async (ctx, args) => {
     return auth.getOAuthUrl(ctx, args.providerId, {
       callbackUrl: args.callbackUrl,
+      returnTarget: args.returnTarget,
+      proxyMode: args.proxyMode,
       redirectTo: args.redirectTo,
       errorRedirectTo: args.errorRedirectTo,
       redirectUrl: args.redirectUrl,
@@ -118,5 +122,31 @@ export const handleOAuthCallback = action({
   },
   handler: async (ctx, args) => {
     return auth.handleCallback(ctx, args);
+  },
+});
+
+export const handleOAuthProxyCallback = action({
+  args: {
+    providerId: v.string(),
+    code: v.string(),
+    state: v.string(),
+    callbackUrl: v.optional(v.string()),
+    redirectTo: v.optional(v.string()),
+    errorRedirectTo: v.optional(v.string()),
+    redirectUrl: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    return auth.handleProxyCallback(ctx, args);
+  },
+});
+
+export const exchangeOAuthProxyCode = action({
+  args: {
+    code: v.string(),
+    ipAddress: v.optional(v.string()),
+    userAgent: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    return auth.exchangeOAuthProxyCode(ctx, args);
   },
 });

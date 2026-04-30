@@ -7,6 +7,12 @@ const githubClientId = process.env.GITHUB_CLIENT_ID;
 const githubClientSecret = process.env.GITHUB_CLIENT_SECRET;
 
 export default defineConvexZen({
+	// oauthProxy: {
+	// 	allowedReturnTargets: [
+	// 		{ type: "webUrl", url: "http://tanstack.localhost:1355" },
+	// 		{ type: "webUrlPattern", pattern: "http://*.tanstack.localhost:1355" },
+	// 	],
+	// },
 	providers:
 		githubClientId && githubClientSecret
 			? [

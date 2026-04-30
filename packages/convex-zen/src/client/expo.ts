@@ -40,7 +40,15 @@ import {
   type SignInOutput,
 } from "./primitives.js";
 import type { ReactAuthClient } from "./react.js";
-import type { OAuthProviderId, OAuthStartResult } from "../types.js";
+import {
+  buildOAuthProxySignInUrl,
+  normalizeOAuthProxyBrokerOrigin,
+} from "./oauth-proxy.js";
+import type {
+  OAuthProviderId,
+  OAuthProxyExchangeInput,
+  OAuthStartResult,
+} from "../types.js";
 
 type PublicMutationRef = FunctionReference<"mutation", "public">;
 type PublicActionRef = FunctionReference<"action", "public">;
@@ -54,6 +62,7 @@ type ReservedExpoAuthClientRootName =
   | "signOut"
   | "signIn"
   | "completeOAuth"
+  | "completeOAuthProxy"
   | "plugin"
   | "core";
 
@@ -66,6 +75,7 @@ const EXPO_RESERVED_CORE_ROOT_METHOD_NAMES = new Set<ReservedExpoAuthClientRootN
   "signOut",
   "signIn",
   "completeOAuth",
+  "completeOAuthProxy",
   "plugin",
   "core",
 ]);
@@ -88,6 +98,8 @@ export const DEFAULT_EXPO_CORE_META = {
   currentUser: "query",
   getOAuthUrl: "mutation",
   handleOAuthCallback: "action",
+  handleOAuthProxyCallback: "action",
+  exchangeOAuthProxyCode: "action",
 } as const satisfies ExpoAuthCoreMeta;
 
 function resolveNamedConvexFunctionRef(
@@ -111,10 +123,10 @@ function resolveNamedConvexFunctionRef(
 function asMutationRef(
   value: unknown,
   functionName:
-    | "signInWithEmail"
-    | "validateSession"
-    | "invalidateSession"
-    | "getOAuthUrl"
+  | "signInWithEmail"
+  | "validateSession"
+  | "invalidateSession"
+  | "getOAuthUrl"
 ): PublicMutationRef {
   if (!hasFunctionRefCandidate(value)) {
     throw new Error(
@@ -127,7 +139,7 @@ function asMutationRef(
 
 function asActionRef(
   value: unknown,
-  functionName: "handleOAuthCallback"
+  functionName: "handleOAuthCallback" | "exchangeOAuthProxyCode"
 ): PublicActionRef {
   if (!hasFunctionRefCandidate(value)) {
     throw new Error(
@@ -160,15 +172,28 @@ function resolveCoreActions(
 function resolveOAuthActions(
   convexFunctions: Record<string, unknown>
 ): ExpoOAuthActions {
+  const getOAuthUrl = asMutationRef(
+    resolveNamedConvexFunctionRef(convexFunctions, "getOAuthUrl", "core"),
+    "getOAuthUrl"
+  );
+  const handleOAuthCallback = resolveNamedConvexFunctionRef(
+    convexFunctions,
+    "handleOAuthCallback",
+    "core"
+  );
+  const exchangeOAuthProxyCode = resolveNamedConvexFunctionRef(
+    convexFunctions,
+    "exchangeOAuthProxyCode",
+    "core"
+  );
   return {
-    getOAuthUrl: asMutationRef(
-      resolveNamedConvexFunctionRef(convexFunctions, "getOAuthUrl", "core"),
-      "getOAuthUrl"
-    ),
-    handleOAuthCallback: asActionRef(
-      resolveNamedConvexFunctionRef(convexFunctions, "handleOAuthCallback", "core"),
-      "handleOAuthCallback"
-    ),
+    getOAuthUrl,
+    ...(hasFunctionRefCandidate(handleOAuthCallback)
+      ? { handleOAuthCallback: handleOAuthCallback as PublicActionRef }
+      : {}),
+    ...(hasFunctionRefCandidate(exchangeOAuthProxyCode)
+      ? { exchangeOAuthProxyCode: exchangeOAuthProxyCode as PublicActionRef }
+      : {}),
   };
 }
 
@@ -202,6 +227,11 @@ export interface ExpoOAuthResult {
   redirectTo?: string;
 }
 
+export interface ExpoOAuthProxyOptions {
+  brokerOrigin: string;
+  basePath?: string;
+}
+
 export interface ExpoAuthClientBase extends ReactAuthClient {
   getToken: (options?: { forceRefresh?: boolean }) => Promise<string | null>;
   clearToken: () => void;
@@ -216,6 +246,7 @@ export interface ExpoAuthClientBase extends ReactAuthClient {
     ) => Promise<OAuthStartResult>;
   };
   completeOAuth: (input: ExpoOAuthCallbackInput) => Promise<ExpoOAuthResult>;
+  completeOAuthProxy: (input: OAuthProxyExchangeInput) => Promise<ExpoOAuthResult>;
 }
 
 export type ExpoAuthClient<
@@ -239,7 +270,8 @@ export interface ExpoConvexActions {
 
 export interface ExpoOAuthActions {
   getOAuthUrl: PublicMutationRef;
-  handleOAuthCallback: PublicActionRef;
+  handleOAuthCallback?: PublicActionRef;
+  exchangeOAuthProxyCode?: PublicActionRef;
 }
 
 export interface ExpoConvexFunctionRefs extends Record<string, unknown> {
@@ -248,12 +280,14 @@ export interface ExpoConvexFunctionRefs extends Record<string, unknown> {
   invalidateSession?: PublicMutationRef;
   getOAuthUrl?: PublicMutationRef;
   handleOAuthCallback?: PublicActionRef;
+  exchangeOAuthProxyCode?: PublicActionRef;
   core?: Record<string, unknown> & {
     signInWithEmail?: PublicMutationRef;
     validateSession?: PublicMutationRef;
     invalidateSession?: PublicMutationRef;
     getOAuthUrl?: PublicMutationRef;
     handleOAuthCallback?: PublicActionRef;
+    exchangeOAuthProxyCode?: PublicActionRef;
   };
   plugin?: Record<string, Record<string, unknown> | undefined>;
 }
@@ -266,12 +300,26 @@ export interface ExpoAuthClientOptions<
   convexUrl: string;
   convexFunctions: TConvexFunctions;
   runtime?: ExpoAuthRuntimeClientOptions;
+  oauthProxy?: ExpoOAuthProxyOptions;
   meta?: {
     plugin?: TPluginMeta;
     core?: TCoreMeta;
   };
   pluginMeta?: TPluginMeta;
   coreMeta?: TCoreMeta;
+}
+
+function normalizeExpoOAuthProxyBasePath(basePath: string | undefined): string {
+  const normalized = (basePath ?? "/api/auth").trim();
+  if (normalized === "") {
+    return "/api/auth";
+  }
+  const withLeadingSlash = normalized.startsWith("/")
+    ? normalized
+    : `/${normalized}`;
+  return withLeadingSlash.length > 1 && withLeadingSlash.endsWith("/")
+    ? withLeadingSlash.slice(0, -1)
+    : withLeadingSlash;
 }
 
 /**
@@ -292,6 +340,15 @@ export function createExpoAuthClient<
   const coreActions = resolveCoreActions(convexFunctions);
   const convex = new ConvexHttpClient(options.convexUrl);
   const storage = options.runtime?.storage;
+  const oauthProxy =
+    options.oauthProxy !== undefined
+      ? {
+          brokerOrigin: normalizeOAuthProxyBrokerOrigin(
+            options.oauthProxy.brokerOrigin
+          ),
+          basePath: normalizeExpoOAuthProxyBasePath(options.oauthProxy.basePath),
+        }
+      : undefined;
   let currentTokenPayload: AuthTokenPayload | null = null;
 
   const primitives = createSessionPrimitives({
@@ -394,6 +451,22 @@ export function createExpoAuthClient<
     providerId: OAuthProviderId,
     oauthOptions: ExpoOAuthSignInOptions
   ): Promise<OAuthStartResult> => {
+    if (oauthProxy) {
+      return {
+        authorizationUrl: buildOAuthProxySignInUrl({
+          brokerOrigin: oauthProxy.brokerOrigin,
+          basePath: oauthProxy.basePath,
+          providerId,
+          returnTarget: oauthOptions.callbackUrl,
+          ...(oauthOptions.redirectTo !== undefined
+            ? { redirectTo: oauthOptions.redirectTo }
+            : {}),
+          ...(oauthOptions.errorRedirectTo !== undefined
+            ? { errorRedirectTo: oauthOptions.errorRedirectTo }
+            : {}),
+        }),
+      };
+    }
     const oauthActions = resolveOAuthActions(convexFunctions);
     return (await convex.mutation(oauthActions.getOAuthUrl, {
       providerId,
@@ -407,6 +480,12 @@ export function createExpoAuthClient<
     input: ExpoOAuthCallbackInput
   ): Promise<ExpoOAuthResult> => {
     const oauthActions = resolveOAuthActions(convexFunctions);
+    if (!oauthActions.handleOAuthCallback) {
+      throw new Error(
+        'createExpoAuthClient could not resolve "handleOAuthCallback" function. ' +
+          "Pass flat convexFunctions ({ handleOAuthCallback, ... }) or nested convexFunctions ({ core: { handleOAuthCallback, ... } })."
+      );
+    }
     const result = (await convex.action(oauthActions.handleOAuthCallback, {
       providerId: input.providerId,
       code: input.code,
@@ -433,6 +512,35 @@ export function createExpoAuthClient<
     return {
       session,
       ...(redirectTo !== undefined ? { redirectTo } : {}),
+    };
+  };
+
+  const completeOAuthProxy = async (
+    input: OAuthProxyExchangeInput
+  ): Promise<ExpoOAuthResult> => {
+    const oauthActions = resolveOAuthActions(convexFunctions);
+    if (!oauthActions.exchangeOAuthProxyCode) {
+      throw new Error(
+        'createExpoAuthClient could not resolve "exchangeOAuthProxyCode" function. ' +
+          "Pass flat convexFunctions ({ exchangeOAuthProxyCode, ... }) or nested convexFunctions ({ core: { exchangeOAuthProxyCode, ... } })."
+      );
+    }
+    const result = (await convex.action(oauthActions.exchangeOAuthProxyCode, {
+      code: input.code,
+      ipAddress: input.ipAddress,
+      userAgent: input.userAgent,
+    })) as { sessionToken?: unknown; redirectTo?: unknown };
+
+    if (typeof result.sessionToken !== "string") {
+      throw new Error("OAuth proxy exchange did not return a session token");
+    }
+
+    const session = await establishSession(result.sessionToken);
+    return {
+      session,
+      ...(typeof result.redirectTo === "string"
+        ? { redirectTo: result.redirectTo }
+        : {}),
     };
   };
 
@@ -481,6 +589,7 @@ export function createExpoAuthClient<
       oauth: signInWithOAuth,
     },
     completeOAuth,
+    completeOAuthProxy,
   };
 
   const directExtensions = buildDirectConvexClientExtensions({

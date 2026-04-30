@@ -139,6 +139,7 @@ This generates the wrappers the Next adapter uses, including `convex/zen/core.ts
 
 For provider callback URLs, Convex env setup, and the shared browser flow, see:
 - [oauth.md](./oauth.md)
+- [oauth-proxy.md](./oauth-proxy.md)
 - [organizations.md](./organizations.md)
 
 ## 7. Wire Next server + client auth
@@ -154,6 +155,7 @@ const authServer = createNextAuthServer({
   convexUrl: process.env.NEXT_PUBLIC_CONVEX_URL as string,
   convexFunctions: api.zen,
   meta: authMeta,
+  oauthProxy: true,
 });
 
 export const {
@@ -187,6 +189,8 @@ await authClient.signIn.oauth("google", {
   errorRedirectTo: "/signin",
 });
 ```
+
+If you enable `oauthProxy`, the same `authClient.signIn.oauth(...)` call still works, but the request first redirects to `{brokerOrigin}/api/auth/proxy/sign-in/:provider` and returns through `/api/auth/proxy/exchange`.
 
 For custom providers, shared runtime helpers, `runtimeConfig`, and `trustVerifiedEmail`, see:
 - [custom-oauth-providers.md](./custom-oauth-providers.md)
@@ -256,6 +260,45 @@ Start Convex and Next:
 pnpm exec convex dev
 pnpm dev
 ```
+
+## OAuth broker mode (optional)
+
+Use this when a provider only supports one redirect URI and you still need previews.
+
+Consumer-only app:
+
+```ts
+import { createNextAuthServer } from "convex-zen/next";
+
+const authServer = createNextAuthServer({
+  convexUrl: process.env.NEXT_PUBLIC_CONVEX_URL as string,
+  convexFunctions: api.zen,
+  meta: authMeta,
+  oauthProxy: true,
+});
+```
+
+Hybrid broker + consumer app:
+
+```ts
+import { createNextAuthServer } from "convex-zen/next";
+
+const authServer = createNextAuthServer({
+  convexUrl: process.env.NEXT_PUBLIC_CONVEX_URL as string,
+  convexFunctions: api.zen,
+  meta: authMeta,
+  oauthProxy: true,
+});
+```
+
+Notes:
+
+- default exchange route: `/api/auth/proxy/exchange`
+- broker start route: `/api/auth/proxy/sign-in/:provider`
+- provider consoles should point at the broker callback URL such as `https://auth.example.com/api/auth/callback/google`
+- set `CONVEX_ZEN_PROXY_BROKER` in the app environment for consumer or hybrid mode
+- keep `allowedReturnTargets` in `convex/zen.config.ts`
+- use `webUrl` for one exact app host, `webUrlPattern` for preview hosts, and `nativeCallback` only for Expo/native flows
 
 ## 11. Portless / custom local origins (optional)
 

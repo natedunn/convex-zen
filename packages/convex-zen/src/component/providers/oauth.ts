@@ -12,6 +12,7 @@ import {
   encryptString,
   generateCodeChallenge,
   generateCodeVerifier,
+  generateToken,
   generateState,
   hashToken,
 } from "../lib/crypto.js";
@@ -24,6 +25,9 @@ import {
 } from "../../oauth/providers.js";
 import type {
   OAuthCallbackResult,
+  OAuthProxyCallbackResult,
+  OAuthProxyExchangeInput,
+  OAuthProxyExchangeResult,
   OAuthProviderConfig,
   OAuthStartOptions,
   OAuthStartResult,
@@ -40,29 +44,56 @@ import {
   patchUser,
   upsertAdminStateForUser,
 } from "../core/users.js";
-import { createSession } from "../core/sessions.js";
 
 /** OAuth state TTL: 10 minutes. */
 const STATE_TTL_MS = 10 * 60 * 1000;
+/** OAuth proxy handoff TTL: 60 seconds. */
+const PROXY_HANDOFF_TTL_MS = 60 * 1000;
 const cleanupExpiredOAuthStatesRef = makeFunctionReference<"mutation">(
   "core/gateway:cleanupExpiredOAuthStates"
+);
+const cleanupExpiredOAuthProxyHandoffsRef = makeFunctionReference<"mutation">(
+  "core/gateway:cleanupExpiredOAuthProxyHandoffs"
 );
 const consumeOAuthStateRef = makeFunctionReference<"mutation">(
   "core/gateway:consumeOAuthState"
 );
+const consumeOAuthProxyHandoffRef = makeFunctionReference<"mutation">(
+  "core/gateway:consumeOAuthProxyHandoff"
+);
+const storeOAuthProxyHandoffRef = makeFunctionReference<"mutation">(
+  "core/gateway:storeOAuthProxyHandoff"
+);
+const createSessionRef = makeFunctionReference<"mutation">(
+  "core/gateway:createSessionForOAuth"
+);
+const assertUserNotBannedRef = makeFunctionReference<"mutation">(
+  "core/gateway:assertUserNotBanned"
+);
 const getLinkedAccountRef = makeFunctionReference<"query">(
   "core/gateway:getLinkedAccount"
 );
-const finalizeOAuthCallbackRef = makeFunctionReference<"mutation">(
-  "core/gateway:finalizeOAuthCallback"
+const finalizeOAuthIdentityRef = makeFunctionReference<"mutation">(
+  "core/gateway:finalizeOAuthIdentity"
 );
 
 type StoredOAuthStateRecord = {
   _id: GenericId<"oauthStates">;
   provider: string;
   codeVerifier: string;
+  returnTarget?: string;
+  proxyMode?: "direct" | "broker";
   redirectUrl?: string;
   callbackUrl?: string;
+  redirectTo?: string;
+  errorRedirectTo?: string;
+  expiresAt: number;
+};
+
+type StoredOAuthProxyHandoffRecord = {
+  _id: GenericId<"oauthProxyHandoffs">;
+  userId: GenericId<"users">;
+  provider: string;
   redirectTo?: string;
   errorRedirectTo?: string;
   expiresAt: number;
@@ -129,6 +160,8 @@ export async function storeOAuthStateRecord(
     stateHash: string;
     codeVerifier: string;
     provider: string;
+    returnTarget?: string;
+    proxyMode?: "direct" | "broker";
     redirectUrl?: string;
     callbackUrl?: string;
     redirectTo?: string;
@@ -143,6 +176,8 @@ export async function storeOAuthStateRecord(
     provider: string;
     expiresAt: number;
     createdAt: number;
+    returnTarget?: string;
+    proxyMode?: "direct" | "broker";
     redirectUrl?: string;
     callbackUrl?: string;
     redirectTo?: string;
@@ -154,6 +189,12 @@ export async function storeOAuthStateRecord(
     expiresAt: args.expiresAt,
     createdAt: now,
   };
+  if (args.returnTarget !== undefined) {
+    oauthStateDoc.returnTarget = args.returnTarget;
+  }
+  if (args.proxyMode !== undefined) {
+    oauthStateDoc.proxyMode = args.proxyMode;
+  }
   if (args.redirectUrl !== undefined) {
     oauthStateDoc.redirectUrl = args.redirectUrl;
   }
@@ -191,6 +232,64 @@ export async function consumeOAuthStateRecord(
   return record;
 }
 
+export async function storeOAuthProxyHandoffRecord(
+  db: DatabaseWriter,
+  args: {
+    codeHash: string;
+    userId: GenericId<"users">;
+    provider: string;
+    redirectTo?: string;
+    errorRedirectTo?: string;
+    expiresAt: number;
+  }
+): Promise<void> {
+  const now = Date.now();
+  const oauthProxyHandoffDoc: {
+    codeHash: string;
+    userId: GenericId<"users">;
+    provider: string;
+    redirectTo?: string;
+    errorRedirectTo?: string;
+    expiresAt: number;
+    createdAt: number;
+  } = {
+    codeHash: args.codeHash,
+    userId: args.userId,
+    provider: args.provider,
+    expiresAt: args.expiresAt,
+    createdAt: now,
+  };
+  if (args.redirectTo !== undefined) {
+    oauthProxyHandoffDoc.redirectTo = args.redirectTo;
+  }
+  if (args.errorRedirectTo !== undefined) {
+    oauthProxyHandoffDoc.errorRedirectTo = args.errorRedirectTo;
+  }
+  await db.insert("oauthProxyHandoffs", oauthProxyHandoffDoc);
+}
+
+export async function consumeOAuthProxyHandoffRecord(
+  db: DatabaseWriter,
+  codeHash: string
+): Promise<StoredOAuthProxyHandoffRecord | null> {
+  const record = await db
+    .query("oauthProxyHandoffs")
+    .withIndex("by_codeHash", (q) => q.eq("codeHash", codeHash))
+    .unique();
+
+  if (!record) {
+    return null;
+  }
+
+  await db.delete(record._id);
+
+  if (record.expiresAt < Date.now()) {
+    return null;
+  }
+
+  return record;
+}
+
 export async function cleanupExpiredOAuthStates(
   db: DatabaseWriter
 ): Promise<void> {
@@ -200,6 +299,19 @@ export async function cleanupExpiredOAuthStates(
     if (state.expiresAt < now) {
       await db.delete(state._id);
     }
+  }
+}
+
+export async function cleanupExpiredOAuthProxyHandoffs(
+  db: DatabaseWriter
+): Promise<void> {
+  const now = Date.now();
+  const expired = await db
+    .query("oauthProxyHandoffs")
+    .withIndex("by_expiresAt", (q) => q.lt("expiresAt", now))
+    .take(100);
+  for (const handoff of expired) {
+    await db.delete(handoff._id);
   }
 }
 
@@ -230,6 +342,8 @@ export async function getAuthorizationUrlForProvider(
     codeVerifier,
     provider: provider.id,
     ...omitUndefined({
+      returnTarget: args.options?.returnTarget,
+      proxyMode: args.options?.proxyMode,
       redirectUrl: args.options?.redirectUrl,
       callbackUrl,
       redirectTo: args.options?.redirectTo,
@@ -255,7 +369,7 @@ export async function getAuthorizationUrlForProvider(
   };
 }
 
-export async function handleOAuthCallbackForProvider(
+async function resolveOAuthCallbackIdentity(
   ctx: ActionCtx,
   args: {
     provider: OAuthProviderConfig;
@@ -265,12 +379,12 @@ export async function handleOAuthCallbackForProvider(
     redirectTo?: string;
     errorRedirectTo?: string;
     redirectUrl?: string;
-    ipAddress?: string;
-    userAgent?: string;
     defaultRole?: string;
-    checkBanned?: boolean;
   }
-): Promise<OAuthCallbackResult> {
+): Promise<{
+  stateRecord: StoredOAuthStateRecord;
+  userId: GenericId<"users">;
+}> {
   const provider = args.provider;
   const runtime = resolveOAuthProviderRuntime(provider);
 
@@ -331,7 +445,7 @@ export async function handleOAuthCallbackForProvider(
     ? Date.now() + tokens.expiresIn * 1000
     : undefined;
 
-  const result = await ctx.runMutation(finalizeOAuthCallbackRef, {
+  const result = await ctx.runMutation(finalizeOAuthIdentityRef, {
     providerId: provider.id,
     accountId: profile.accountId,
     email,
@@ -341,19 +455,140 @@ export async function handleOAuthCallbackForProvider(
     ...omitUndefined({
       encryptedRefreshToken,
       accessTokenExpiresAt,
-      ipAddress: args.ipAddress,
-      userAgent: args.userAgent,
       defaultRole: args.defaultRole,
-      checkBanned: args.checkBanned,
     }),
   });
 
   return {
-    ...result,
+    stateRecord,
+    userId: result.userId,
+  };
+}
+
+export async function assertUserNotBanned(
+  db: DatabaseWriter,
+  userId: GenericId<"users">
+): Promise<void> {
+  const user = await findUserById(db, userId);
+  const adminState = user ? await getAdminStateForUser(db, user._id) : null;
+  if (adminState && isAdminStateCurrentlyBanned(adminState, Date.now())) {
+    throw new Error(
+      `Account banned${adminState.banReason ? ": " + adminState.banReason : ""}`
+    );
+  }
+}
+
+export async function handleOAuthCallbackForProvider(
+  ctx: ActionCtx,
+  args: {
+    provider: OAuthProviderConfig;
+    code: string;
+    state: string;
+    callbackUrl?: string;
+    redirectTo?: string;
+    errorRedirectTo?: string;
+    redirectUrl?: string;
+    ipAddress?: string;
+    userAgent?: string;
+    defaultRole?: string;
+    checkBanned?: boolean;
+  }
+): Promise<OAuthCallbackResult> {
+  const { stateRecord, userId } = await resolveOAuthCallbackIdentity(ctx, args);
+
+  if (args.checkBanned) {
+    await ctx.runMutation(assertUserNotBannedRef, { userId });
+  }
+
+  const sessionToken = (await ctx.runMutation(createSessionRef, {
+    userId,
+    ...omitUndefined({
+      ipAddress: args.ipAddress,
+      userAgent: args.userAgent,
+    }),
+  })) as string;
+
+  return omitUndefined({
+    sessionToken,
+    userId,
     redirectTo: args.redirectTo ?? stateRecord.redirectTo,
     redirectUrl:
       args.redirectTo ?? args.redirectUrl ?? stateRecord.redirectTo,
-  };
+  }) as OAuthCallbackResult;
+}
+
+export async function handleOAuthProxyCallbackForProvider(
+  ctx: ActionCtx,
+  args: {
+    provider: OAuthProviderConfig;
+    code: string;
+    state: string;
+    callbackUrl?: string;
+    redirectTo?: string;
+    errorRedirectTo?: string;
+    redirectUrl?: string;
+    defaultRole?: string;
+  }
+): Promise<OAuthProxyCallbackResult> {
+  const { stateRecord, userId } = await resolveOAuthCallbackIdentity(ctx, args);
+  const handoffCode = generateToken();
+  const handoffCodeHash = await hashToken(handoffCode);
+  const expiresAt = Date.now() + PROXY_HANDOFF_TTL_MS;
+
+  await ctx.runMutation(storeOAuthProxyHandoffRef, {
+    codeHash: handoffCodeHash,
+    userId,
+    provider: args.provider.id,
+    ...omitUndefined({
+      redirectTo: args.redirectTo ?? stateRecord.redirectTo,
+      errorRedirectTo: args.errorRedirectTo ?? stateRecord.errorRedirectTo,
+    }),
+    expiresAt,
+  });
+  await scheduleCleanupAt(
+    ctx.scheduler,
+    expiresAt,
+    cleanupExpiredOAuthProxyHandoffsRef
+  );
+
+  return omitUndefined({
+    code: handoffCode,
+    userId,
+    redirectTo: args.redirectTo ?? stateRecord.redirectTo,
+  }) as OAuthProxyCallbackResult;
+}
+
+export async function exchangeOAuthProxyCodeForSession(
+  ctx: ActionCtx,
+  args: OAuthProxyExchangeInput & {
+    checkBanned?: boolean;
+  }
+): Promise<OAuthProxyExchangeResult> {
+  const codeHash = await hashToken(args.code);
+  const handoff = await ctx.runMutation(consumeOAuthProxyHandoffRef, {
+    codeHash,
+  });
+  if (!handoff) {
+    throw new Error("Invalid or expired OAuth proxy code");
+  }
+
+  if (args.checkBanned) {
+    await ctx.runMutation(assertUserNotBannedRef, { userId: handoff.userId });
+  }
+
+  const sessionToken = (await ctx.runMutation(createSessionRef, {
+    userId: handoff.userId,
+    ...omitUndefined({
+      ipAddress: args.ipAddress,
+      userAgent: args.userAgent,
+    }),
+  })) as string;
+
+  return omitUndefined({
+    sessionToken,
+    userId: handoff.userId,
+    redirectTo: handoff.redirectTo,
+  }) as OAuthProxyExchangeResult;
 }
 
 /** Retrieve and delete an OAuth state record by state hash (single-use). */
@@ -362,6 +597,24 @@ export const consumeOAuthState = internalMutation({
   handler: async (ctx, { stateHash }) => {
     return await consumeOAuthStateRecord(ctx.db, stateHash);
   },
+});
+
+export const consumeOAuthProxyHandoff = internalMutation({
+  args: { codeHash: v.string() },
+  handler: async (ctx, { codeHash }) =>
+    await consumeOAuthProxyHandoffRecord(ctx.db, codeHash),
+});
+
+export const storeOAuthProxyHandoff = internalMutation({
+  args: {
+    codeHash: v.string(),
+    userId: v.id("users"),
+    provider: v.string(),
+    redirectTo: v.optional(v.string()),
+    errorRedirectTo: v.optional(v.string()),
+    expiresAt: v.number(),
+  },
+  handler: async (ctx, args) => await storeOAuthProxyHandoffRecord(ctx.db, args),
 });
 
 /** Resolve an existing OAuth-linked account through the root component API. */
@@ -380,6 +633,11 @@ export const cleanup = internalMutation({
   handler: async (ctx) => await cleanupExpiredOAuthStates(ctx.db),
 });
 
+export const cleanupProxyHandoffs = internalMutation({
+  args: {},
+  handler: async (ctx) => await cleanupExpiredOAuthProxyHandoffs(ctx.db),
+});
+
 /**
  * Initiate an OAuth authorization flow.
  * Returns the authorization URL with PKCE + state parameters.
@@ -388,6 +646,8 @@ export const getAuthorizationUrl = internalMutation({
   args: {
     provider: oauthProviderConfigValidator,
     callbackUrl: v.optional(v.string()),
+    returnTarget: v.optional(v.string()),
+    proxyMode: v.optional(v.union(v.literal("direct"), v.literal("broker"))),
     redirectTo: v.optional(v.string()),
     errorRedirectTo: v.optional(v.string()),
     redirectUrl: v.optional(v.string()),
@@ -397,6 +657,8 @@ export const getAuthorizationUrl = internalMutation({
       provider: args.provider as OAuthProviderConfig,
       options: omitUndefined({
         callbackUrl: args.callbackUrl,
+        returnTarget: args.returnTarget,
+        proxyMode: args.proxyMode,
         redirectTo: args.redirectTo,
         errorRedirectTo: args.errorRedirectTo,
         redirectUrl: args.redirectUrl,
@@ -404,7 +666,7 @@ export const getAuthorizationUrl = internalMutation({
     }),
 });
 
-export async function finalizeOAuthCallbackForProvider(
+export async function finalizeOAuthIdentityForProvider(
   ctx: Pick<MutationCtx, "db">,
   args: {
     providerId: string;
@@ -415,10 +677,7 @@ export async function finalizeOAuthCallbackForProvider(
     encryptedAccessToken: string;
     encryptedRefreshToken?: string;
     accessTokenExpiresAt?: number;
-    ipAddress?: string;
-    userAgent?: string;
     defaultRole?: string;
-    checkBanned?: boolean;
   }
 ) {
   const existingAccount = await findAccount(
@@ -481,28 +740,7 @@ export async function finalizeOAuthCallbackForProvider(
     });
   }
 
-  if (args.checkBanned) {
-    const user = await findUserById(ctx.db, userId);
-    const adminState = user
-      ? await getAdminStateForUser(ctx.db, user._id)
-      : null;
-    if (adminState && isAdminStateCurrentlyBanned(adminState, Date.now())) {
-        throw new Error(
-          `Account banned${adminState.banReason ? ": " + adminState.banReason : ""}`
-        );
-    }
-  }
-
-  const sessionToken = await createSession(ctx.db, {
-    userId,
-    ...omitUndefined({
-      ipAddress: args.ipAddress,
-      userAgent: args.userAgent,
-    }),
-  });
-
   return {
-    sessionToken,
     userId,
   };
 }
@@ -517,6 +755,8 @@ export const handleCallback = internalAction({
     code: v.string(),
     state: v.string(),
     callbackUrl: v.optional(v.string()),
+    redirectTo: v.optional(v.string()),
+    errorRedirectTo: v.optional(v.string()),
     redirectUrl: v.optional(v.string()),
     ipAddress: v.optional(v.string()),
     userAgent: v.optional(v.string()),
@@ -530,6 +770,8 @@ export const handleCallback = internalAction({
       state: args.state,
       ...omitUndefined({
         callbackUrl: args.callbackUrl,
+        redirectTo: args.redirectTo,
+        errorRedirectTo: args.errorRedirectTo,
         redirectUrl: args.redirectUrl,
         ipAddress: args.ipAddress,
         userAgent: args.userAgent,
@@ -537,4 +779,41 @@ export const handleCallback = internalAction({
         checkBanned: args.checkBanned,
       }),
     }),
+});
+
+export const handleProxyCallback = internalAction({
+  args: {
+    provider: oauthProviderConfigValidator,
+    code: v.string(),
+    state: v.string(),
+    callbackUrl: v.optional(v.string()),
+    redirectTo: v.optional(v.string()),
+    errorRedirectTo: v.optional(v.string()),
+    redirectUrl: v.optional(v.string()),
+    defaultRole: v.optional(v.string()),
+  },
+  handler: async (ctx, args) =>
+    await handleOAuthProxyCallbackForProvider(ctx, {
+      provider: args.provider as OAuthProviderConfig,
+      code: args.code,
+      state: args.state,
+      ...omitUndefined({
+        callbackUrl: args.callbackUrl,
+        redirectTo: args.redirectTo,
+        errorRedirectTo: args.errorRedirectTo,
+        redirectUrl: args.redirectUrl,
+        defaultRole: args.defaultRole,
+      }),
+    }),
+});
+
+export const exchangeProxyCode = internalAction({
+  args: {
+    code: v.string(),
+    ipAddress: v.optional(v.string()),
+    userAgent: v.optional(v.string()),
+    checkBanned: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) =>
+    await exchangeOAuthProxyCodeForSession(ctx, args),
 });

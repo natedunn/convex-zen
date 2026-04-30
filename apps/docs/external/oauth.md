@@ -6,6 +6,8 @@ This page covers the shared OAuth flow in `convex-zen` across:
 - TanStack Start
 - Expo
 
+If your provider only allows a single redirect URI, see [oauth-proxy.md](./oauth-proxy.md).
+
 ## Supported built-in providers
 
 Built-in helpers are available for:
@@ -75,6 +77,8 @@ Examples:
 - Portless/custom dev host: `http://your-app.localhost:1355/api/auth/callback/google`
 - Expo deep link: `convexzenexpo://oauth`
 
+If you need one stable callback host for many preview URLs, use proxy mode instead of registering each app origin separately. In proxy mode, the provider callback points at the broker host and the app receives a one-time `oauth_proxy_code` handoff. See [oauth-proxy.md](./oauth-proxy.md).
+
 ## Route-backed browser flow
 
 Next.js and TanStack Start support the route-backed flow:
@@ -95,6 +99,21 @@ What happens:
 - redirects to `redirectTo` on success
 - redirects to `errorRedirectTo` with error params on failure
 
+## Proxy / broker mode
+
+Proxy mode is for providers that only allow one redirect URI.
+
+What changes:
+
+- the provider callback is registered on a stable broker origin such as `https://auth.example.com`
+- Next.js and TanStack Start redirect to the broker from the normal `/api/auth/sign-in/:provider` route
+- the broker returns `oauth_proxy_code` to the final app
+- the final app exchanges that one-time code and establishes its own session
+
+Expo uses the same brokered model, but the final return target is your Expo callback URL.
+
+See [oauth-proxy.md](./oauth-proxy.md) for full setup.
+
 ## Expo deep-link flow
 
 Expo uses the lower-level Convex OAuth primitives directly instead of `/api/auth/*` routes.
@@ -106,6 +125,12 @@ Typical flow:
 3. Parse `code` and `state` from the Expo callback URL.
 4. Finish auth with `authClient.completeOAuth(...)`.
 5. Restore the authenticated session locally with the returned session token.
+
+If you configure Expo with `oauthProxy`, the browser callback changes:
+
+1. `signIn.oauth(...)` returns a broker URL instead of a provider URL from Convex.
+2. The broker redirects back with `oauth_proxy_code`.
+3. Finish auth with `authClient.completeOAuthProxy(...)`.
 
 Example:
 
@@ -131,18 +156,23 @@ const browserResult = await WebBrowser.openAuthSessionAsync(
 
 if (browserResult.type === "success" && browserResult.url) {
   const url = new URL(browserResult.url);
+  const proxyCode = url.searchParams.get("oauth_proxy_code");
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
-  if (!code || !state) throw new Error("Missing OAuth callback params");
+  if (proxyCode) {
+    await authClient.completeOAuthProxy({ code: proxyCode });
+  } else {
+    if (!code || !state) throw new Error("Missing OAuth callback params");
 
-  await authClient.completeOAuth({
-    providerId: "google",
-    code,
-    state,
-    callbackUrl,
-    redirectTo: "/home",
-    errorRedirectTo: "/sign-in",
-  });
+    await authClient.completeOAuth({
+      providerId: "google",
+      code,
+      state,
+      callbackUrl,
+      redirectTo: "/home",
+      errorRedirectTo: "/sign-in",
+    });
+  }
 }
 ```
 
@@ -168,6 +198,7 @@ These lower-level functions are available for Expo and for custom web flows such
 
 - `getOAuthUrl`
 - `handleOAuthCallback`
+- `exchangeOAuthProxyCode`
 
 Use the framework routes on the web unless you specifically need lower-level control. Use the direct Convex flow on Expo.
 

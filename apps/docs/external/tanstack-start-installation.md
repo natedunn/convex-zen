@@ -140,6 +140,7 @@ This generates the wrappers the TanStack adapter uses, including `convex/zen/cor
 
 For provider callback URLs, Convex env setup, and the shared browser flow, see:
 - [oauth.md](./oauth.md)
+- [oauth-proxy.md](./oauth-proxy.md)
 - [organizations.md](./organizations.md)
 
 ## 7. Wire TanStack Start server + client auth
@@ -155,6 +156,7 @@ const authServer = createTanStackAuthServer({
 	convexUrl: import.meta.env["VITE_CONVEX_URL"] as string,
 	convexFunctions: api.zen,
 	meta: authMeta,
+	oauthProxy: true,
 });
 
 export const { handler, getSession } = authServer;
@@ -181,6 +183,8 @@ await authClient.signIn.oauth("google", {
 	errorRedirectTo: "/signin",
 });
 ```
+
+If you enable `oauthProxy`, the same call still works, but TanStack Start redirects through the broker and finishes locally at `/api/auth/proxy/exchange`.
 
 For custom providers, shared runtime helpers, `runtimeConfig`, and `trustVerifiedEmail`, see:
 - [custom-oauth-providers.md](./custom-oauth-providers.md)
@@ -257,6 +261,45 @@ function RootComponent() {
 ## 9. Set environment variables and run
 
 Create `.env.local`:
+
+## OAuth broker mode (optional)
+
+Use this when a provider only supports one redirect URI and you still need previews.
+
+Consumer-only app:
+
+```ts
+import { createTanStackAuthServer } from "convex-zen/tanstack-start";
+
+const authServer = createTanStackAuthServer({
+	convexUrl: import.meta.env["VITE_CONVEX_URL"] as string,
+	convexFunctions: api.zen,
+	meta: authMeta,
+	oauthProxy: true,
+});
+```
+
+Hybrid broker + consumer app:
+
+```ts
+import { createTanStackAuthServer } from "convex-zen/tanstack-start";
+
+const authServer = createTanStackAuthServer({
+	convexUrl: import.meta.env["VITE_CONVEX_URL"] as string,
+	convexFunctions: api.zen,
+	meta: authMeta,
+	oauthProxy: true,
+});
+```
+
+Notes:
+
+- default exchange route: `/api/auth/proxy/exchange`
+- broker start route: `/api/auth/proxy/sign-in/:provider`
+- provider consoles should point at the broker callback URL such as `https://auth.example.com/api/auth/callback/google`
+- set `CONVEX_ZEN_PROXY_BROKER` in the app environment for consumer or hybrid mode
+- keep `allowedReturnTargets` in `convex/zen.config.ts`
+- use `webUrl` for one exact app host, `webUrlPattern` for preview hosts, and `nativeCallback` only for Expo/native flows
 
 ```bash
 VITE_CONVEX_URL=https://<your-deployment>.convex.cloud

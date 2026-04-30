@@ -154,6 +154,8 @@ export interface OAuthProviderDefinition<
 
 export interface OAuthStartOptions {
   callbackUrl?: string;
+  returnTarget?: string;
+  proxyMode?: "direct" | "broker";
   redirectTo?: string;
   errorRedirectTo?: string;
   /**
@@ -190,6 +192,41 @@ export interface OAuthCallbackInput {
    * @deprecated Use callbackUrl instead.
    */
   redirectUrl?: string;
+}
+
+export type OAuthProxyWebOriginRule =
+  | { type: "webUrl"; url: string }
+  | { type: "webUrlPattern"; pattern: string };
+
+export type OAuthProxyNativeCallbackRule = {
+  type: "nativeCallback";
+  callbackUrl: string;
+};
+
+export type OAuthProxyReturnTargetRule =
+  | OAuthProxyWebOriginRule
+  | OAuthProxyNativeCallbackRule;
+
+export interface OAuthProxyConfig {
+  allowedReturnTargets?: readonly OAuthProxyReturnTargetRule[];
+}
+
+export interface OAuthProxyExchangeInput {
+  code: string;
+  ipAddress?: string;
+  userAgent?: string;
+}
+
+export interface OAuthProxyCallbackResult {
+  code: string;
+  userId: string;
+  redirectTo?: string;
+}
+
+export interface OAuthProxyExchangeResult {
+  sessionToken: string;
+  userId: string;
+  redirectTo?: string;
 }
 
 export type AuthPluginFunctionKind = "query" | "mutation" | "action";
