@@ -24,6 +24,7 @@ import {
   verifyEmailCode,
 } from "./providers/emailPassword.js";
 import {
+  createSession,
   invalidateAllUserSessions,
   invalidateSessionByRawToken,
   validateSessionToken,
@@ -37,10 +38,16 @@ import {
 } from "./core/users.js";
 import {
   cleanupExpiredOAuthStates as cleanupExpiredOAuthStateRecords,
+  cleanupExpiredOAuthProxyHandoffs as cleanupExpiredOAuthProxyHandoffRecords,
   consumeOAuthStateRecord,
-  finalizeOAuthCallbackForProvider,
+  consumeOAuthProxyHandoffRecord,
+  storeOAuthProxyHandoffRecord,
+  exchangeOAuthProxyCodeForSession,
+  assertUserNotBanned as assertUserNotBannedForOAuth,
+  finalizeOAuthIdentityForProvider,
   getAuthorizationUrlForProvider,
   handleOAuthCallbackForProvider,
+  handleOAuthProxyCallbackForProvider,
 } from "./providers/oauth.js";
 
 async function normalizeUserForAuthRead<T extends { _id: Id<"users"> }>(
@@ -174,6 +181,8 @@ export const getAuthorizationUrl = mutation({
   args: {
     provider: oauthProviderConfigValidator,
     callbackUrl: v.optional(v.string()),
+    returnTarget: v.optional(v.string()),
+    proxyMode: v.optional(v.union(v.literal("direct"), v.literal("broker"))),
     redirectTo: v.optional(v.string()),
     errorRedirectTo: v.optional(v.string()),
     redirectUrl: v.optional(v.string()),
@@ -183,6 +192,8 @@ export const getAuthorizationUrl = mutation({
       provider: args.provider,
       options: omitUndefined({
         callbackUrl: args.callbackUrl,
+        returnTarget: args.returnTarget,
+        proxyMode: args.proxyMode,
         redirectTo: args.redirectTo,
         errorRedirectTo: args.errorRedirectTo,
         redirectUrl: args.redirectUrl,
@@ -222,6 +233,43 @@ export const handleCallback = action({
     }),
 });
 
+export const handleProxyCallback = action({
+  args: {
+    provider: oauthProviderConfigValidator,
+    code: v.string(),
+    state: v.string(),
+    callbackUrl: v.optional(v.string()),
+    redirectTo: v.optional(v.string()),
+    errorRedirectTo: v.optional(v.string()),
+    redirectUrl: v.optional(v.string()),
+    defaultRole: v.optional(v.string()),
+  },
+  handler: async (ctx, args) =>
+    await handleOAuthProxyCallbackForProvider(ctx, {
+      provider: args.provider,
+      code: args.code,
+      state: args.state,
+      ...omitUndefined({
+        callbackUrl: args.callbackUrl,
+        redirectTo: args.redirectTo,
+        errorRedirectTo: args.errorRedirectTo,
+        redirectUrl: args.redirectUrl,
+        defaultRole: args.defaultRole,
+      }),
+    }),
+});
+
+export const exchangeProxyCode = action({
+  args: {
+    code: v.string(),
+    ipAddress: v.optional(v.string()),
+    userAgent: v.optional(v.string()),
+    checkBanned: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) =>
+    await exchangeOAuthProxyCodeForSession(ctx, args),
+});
+
 export const cleanupExpiredVerifications = internalMutation({
   args: {},
   handler: async (ctx) => await cleanupExpiredVerificationRecords(ctx.db),
@@ -232,10 +280,33 @@ export const cleanupExpiredOAuthStates = internalMutation({
   handler: async (ctx) => await cleanupExpiredOAuthStateRecords(ctx.db),
 });
 
+export const cleanupExpiredOAuthProxyHandoffs = internalMutation({
+  args: {},
+  handler: async (ctx) => await cleanupExpiredOAuthProxyHandoffRecords(ctx.db),
+});
+
 export const consumeOAuthState = internalMutation({
   args: { stateHash: v.string() },
   handler: async (ctx, { stateHash }) =>
     await consumeOAuthStateRecord(ctx.db, stateHash),
+});
+
+export const consumeOAuthProxyHandoff = internalMutation({
+  args: { codeHash: v.string() },
+  handler: async (ctx, { codeHash }) =>
+    await consumeOAuthProxyHandoffRecord(ctx.db, codeHash),
+});
+
+export const storeOAuthProxyHandoff = internalMutation({
+  args: {
+    codeHash: v.string(),
+    userId: v.id("users"),
+    provider: v.string(),
+    redirectTo: v.optional(v.string()),
+    errorRedirectTo: v.optional(v.string()),
+    expiresAt: v.number(),
+  },
+  handler: async (ctx, args) => await storeOAuthProxyHandoffRecord(ctx.db, args),
 });
 
 export const getLinkedAccount = internalQuery({
@@ -247,7 +318,7 @@ export const getLinkedAccount = internalQuery({
     await findAccount(ctx.db, providerId, accountId),
 });
 
-export const finalizeOAuthCallback = internalMutation({
+export const finalizeOAuthIdentity = internalMutation({
   args: {
     providerId: v.string(),
     accountId: v.string(),
@@ -257,11 +328,23 @@ export const finalizeOAuthCallback = internalMutation({
     encryptedAccessToken: v.string(),
     encryptedRefreshToken: v.optional(v.string()),
     accessTokenExpiresAt: v.optional(v.number()),
-    ipAddress: v.optional(v.string()),
-    userAgent: v.optional(v.string()),
     defaultRole: v.optional(v.string()),
-    checkBanned: v.optional(v.boolean()),
   },
   handler: async (ctx, args) =>
-    await finalizeOAuthCallbackForProvider(ctx, args),
+    await finalizeOAuthIdentityForProvider(ctx, args),
+});
+
+export const assertUserNotBanned = internalMutation({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) =>
+    await assertUserNotBannedForOAuth(ctx.db, userId),
+});
+
+export const createSessionForOAuth = internalMutation({
+  args: {
+    userId: v.id("users"),
+    ipAddress: v.optional(v.string()),
+    userAgent: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => await createSession(ctx.db, args),
 });

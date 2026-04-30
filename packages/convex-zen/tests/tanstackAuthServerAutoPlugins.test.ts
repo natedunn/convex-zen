@@ -30,6 +30,18 @@ const authMetaWithCore = {
   plugin: systemAdminPluginMeta,
 } as const;
 
+const authMetaWithProxyConfig = {
+  core: {},
+  plugin: systemAdminPluginMeta,
+  config: {
+    oauthProxy: {
+      allowedReturnTargets: [
+        { type: "webUrl", url: "https://app.example.com" },
+      ],
+    },
+  },
+} as const;
+
 function mutationRef(name: string): FunctionReference<"mutation", "public"> {
   return { name } as unknown as FunctionReference<"mutation", "public">;
 }
@@ -101,6 +113,51 @@ function createNonEnumerableConvexFunctionsProxy() {
 }
 
 describe("createTanStackAuthServer auto plugins", () => {
+  it("throws when oauthProxy is enabled but no broker configuration is present", () => {
+    expect(() =>
+      createTanStackAuthServer({
+        convexUrl: "https://example.convex.cloud",
+        convexFunctions: {
+          core: {
+            signInWithEmail: mutationRef("signInWithEmail"),
+            validateSession: mutationRef("validateSession"),
+            invalidateSession: mutationRef("invalidateSession"),
+          },
+        },
+        sessionTokenCodec: passthroughSessionTokenCodec,
+        oauthProxy: true,
+      })
+    ).toThrow(
+      "oauthProxy is enabled, but no broker configuration was found."
+    );
+  });
+
+  it("allows proxy metadata in meta without enabling oauthProxy", () => {
+    expect(() =>
+      createTanStackAuthServer({
+        convexUrl: "https://example.convex.cloud",
+        convexFunctions: {
+          core: {
+            signInWithEmail: mutationRef("signInWithEmail"),
+            validateSession: mutationRef("validateSession"),
+            invalidateSession: mutationRef("invalidateSession"),
+          },
+          plugin: {
+            systemAdmin: {
+              listUsers: queryRef("listUsers"),
+              banUser: mutationRef("banUser"),
+              setRole: mutationRef("setRole"),
+              unbanUser: mutationRef("unbanUser"),
+              deleteUser: mutationRef("deleteUser"),
+            },
+          },
+        },
+        meta: authMetaWithProxyConfig,
+        sessionTokenCodec: passthroughSessionTokenCodec,
+      })
+    ).not.toThrow();
+  });
+
   it("enables plugin routes by default when pluginMeta is provided", async () => {
     const authServer = createTanStackAuthServer({
       convexUrl: "https://example.convex.cloud",

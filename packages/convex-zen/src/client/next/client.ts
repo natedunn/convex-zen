@@ -145,6 +145,8 @@ const NEXT_DEFAULT_GENERATED_CORE_META = {
   currentUser: "query",
   getOAuthUrl: "mutation",
   handleOAuthCallback: "action",
+  handleOAuthProxyCallback: "action",
+  exchangeOAuthProxyCode: "action",
 } as const satisfies AuthCoreMeta;
 
 function normalizeClientBasePath(path: string): string {

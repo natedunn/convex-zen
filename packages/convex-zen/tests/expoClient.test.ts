@@ -398,6 +398,84 @@ describe("createExpoAuthClient", () => {
     await expect(client.getToken()).resolves.toBe("oauth_token_1");
   });
 
+  it("supports brokered OAuth for Expo clients", async () => {
+    resetHandlers();
+
+    const signInWithEmail = mutationRef("auth.core.signInWithEmail");
+    const validateSession = mutationRef("auth.core.validateSession");
+    const invalidateSession = mutationRef("auth.core.invalidateSession");
+    const getOAuthUrl = mutationRef("auth.core.getOAuthUrl");
+    const exchangeOAuthProxyCode = actionRef("auth.core.exchangeOAuthProxyCode");
+
+    mutationHandler.mockImplementation(async (fn: unknown, args: unknown) => {
+      if (fn === validateSession) {
+        expect(args).toEqual({ token: "oauth_proxy_token_1" });
+        return { userId: "u1", sessionId: "s_proxy_1" };
+      }
+      if (fn === invalidateSession || fn === signInWithEmail) {
+        return null;
+      }
+      return { ok: true };
+    });
+
+    actionHandler.mockImplementation(async (fn: unknown, args: unknown) => {
+      if (fn === exchangeOAuthProxyCode) {
+        expect(args).toEqual({
+          code: "proxy_exchange_123",
+          ipAddress: "127.0.0.1",
+          userAgent: "expo-test",
+        });
+        return {
+          sessionToken: "oauth_proxy_token_1",
+          userId: "u1",
+          redirectTo: "/dashboard",
+        };
+      }
+      return { ok: true };
+    });
+
+    const client = createExpoAuthClient({
+      convexUrl: "https://example.convex.cloud",
+      convexFunctions: {
+        signInWithEmail,
+        validateSession,
+        invalidateSession,
+        getOAuthUrl,
+        exchangeOAuthProxyCode,
+      },
+      oauthProxy: {
+        brokerOrigin: "https://auth.example.com",
+      },
+    });
+
+    await expect(
+      client.signIn.oauth("google", {
+        callbackUrl: "myapp://oauth",
+        redirectTo: "/dashboard",
+        errorRedirectTo: "/signin",
+      })
+    ).resolves.toEqual({
+      authorizationUrl:
+        "https://auth.example.com/api/auth/proxy/sign-in/google?returnTarget=myapp%3A%2F%2Foauth&redirectTo=%2Fdashboard&errorRedirectTo=%2Fsignin",
+    });
+
+    await expect(
+      client.completeOAuthProxy({
+        code: "proxy_exchange_123",
+        ipAddress: "127.0.0.1",
+        userAgent: "expo-test",
+      })
+    ).resolves.toEqual({
+      session: {
+        userId: "u1",
+        sessionId: "s_proxy_1",
+      },
+      redirectTo: "/dashboard",
+    });
+
+    await expect(client.getToken()).resolves.toBe("oauth_proxy_token_1");
+  });
+
   it("generates core methods, plugin methods, and root aliases from metadata", async () => {
     resetHandlers();
 

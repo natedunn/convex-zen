@@ -25,6 +25,18 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
   {
     core: {
       gateway: {
+        exchangeProxyCode: FunctionReference<
+          "action",
+          "internal",
+          {
+            checkBanned?: boolean;
+            code: string;
+            ipAddress?: string;
+            userAgent?: string;
+          },
+          any,
+          Name
+        >;
         getAuthorizationUrl: FunctionReference<
           "mutation",
           "internal",
@@ -46,8 +58,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
               trustVerifiedEmail?: boolean;
               userInfoUrl: string;
             };
+            proxyMode?: "direct" | "broker";
             redirectTo?: string;
             redirectUrl?: string;
+            returnTarget?: string;
           },
           any,
           Name
@@ -95,6 +109,36 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             redirectUrl?: string;
             state: string;
             userAgent?: string;
+          },
+          any,
+          Name
+        >;
+        handleProxyCallback: FunctionReference<
+          "action",
+          "internal",
+          {
+            callbackUrl?: string;
+            code: string;
+            defaultRole?: string;
+            errorRedirectTo?: string;
+            provider: {
+              accessType?: "offline" | "online";
+              authorizationUrl: string;
+              clientId: string;
+              clientSecret: string;
+              hostedDomain?: string;
+              id: string;
+              prompt?: "none" | "consent" | "select_account";
+              runtimeConfig?: any;
+              scopes: Array<string>;
+              tokenEncryptionSecret?: string;
+              tokenUrl: string;
+              trustVerifiedEmail?: boolean;
+              userInfoUrl: string;
+            };
+            redirectTo?: string;
+            redirectUrl?: string;
+            state: string;
           },
           any,
           Name

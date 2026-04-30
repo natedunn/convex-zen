@@ -22,6 +22,7 @@ describe("docs contract", () => {
   it("includes the required scenario docs", async () => {
     const docs = [
       "apps/docs/external/install/README.md",
+      "apps/docs/external/oauth-proxy.md",
       "apps/docs/external/install/next/from-scratch.md",
       "apps/docs/external/install/next/add-to-existing-convex.md",
       "apps/docs/external/install/next/migrate-from-convex-auth.md",
@@ -76,9 +77,17 @@ describe("docs contract", () => {
   it("root docs point agents at LLMS.md and doctor", async () => {
     const readme = await readRepoFile("README.md");
     const llms = await readRepoFile("LLMS.md");
+    const oauth = await readRepoFile("apps/docs/external/oauth.md");
+    const oauthProxy = await readRepoFile("apps/docs/external/oauth-proxy.md");
+    const expo = await readRepoFile("apps/docs/external/expo-installation.md");
 
     expect(readme).toContain("LLMS.md");
     expect(readme).toContain("npx convex-zen doctor");
+    expect(readme).toContain("oauth-proxy.md");
     expect(llms).toContain("npx convex-zen doctor");
+    expect(oauth).toContain("oauth_proxy_code");
+    expect(oauth).toContain("oauth-proxy.md");
+    expect(oauthProxy).toContain("zen.config.ts");
+    expect(expo).toContain("completeOAuthProxy");
   });
 });

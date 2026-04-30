@@ -276,6 +276,30 @@ describe("oauth", () => {
       expect(states[0]!.codeVerifier).toBeTruthy();
     });
 
+    it("stores proxy-mode oauth state metadata", async () => {
+      const t = convexTest(schema, modules);
+
+      await t.mutation(internal.providers.oauth.getAuthorizationUrl, {
+        provider: googleConfig,
+        redirectUrl: "https://auth.example.com/api/auth/callback/google",
+        returnTarget: "https://preview-123.example.app/api/auth/proxy/exchange",
+        proxyMode: "broker",
+        redirectTo: "/dashboard",
+        errorRedirectTo: "/signin",
+      });
+
+      const states = await t.run(async (ctx) => ctx.db.query("oauthStates").collect());
+
+      expect(states).toHaveLength(1);
+      expect(states[0]).toMatchObject({
+        provider: "google",
+        proxyMode: "broker",
+        returnTarget: "https://preview-123.example.app/api/auth/proxy/exchange",
+        redirectTo: "/dashboard",
+        errorRedirectTo: "/signin",
+      });
+    });
+
     it("generates unique state per request", async () => {
       const t = convexTest(schema, modules);
 
@@ -563,6 +587,140 @@ describe("oauth", () => {
       ).rejects.toThrow("Invalid or expired OAuth state");
     });
 
+    it("does not treat deprecated redirectUrl callback input as a redirect target", async () => {
+      const t = convexTest(schema, modules);
+
+      const { state } = await initiateOAuth(t);
+      mockFetch({ sub: "uid-redirect-alias", email: "alias@example.com" });
+
+      const result = (await t.action(internal.providers.oauth.handleCallback, {
+        provider: googleConfig,
+        code: "code",
+        state,
+        redirectUrl: "https://app.example.com/api/auth/callback/google",
+      })) as { sessionToken: string; redirectTo?: string; redirectUrl?: string };
+
+      expect(result.sessionToken).toBeTruthy();
+      expect(result.redirectTo).toBeUndefined();
+      expect(result.redirectUrl).toBeUndefined();
+    });
+
+    it("creates a one-time proxy handoff and exchanges it for a session", async () => {
+      const t = convexTest(schema, modules);
+
+      const start = (await t.mutation(internal.providers.oauth.getAuthorizationUrl, {
+        provider: googleConfig,
+        returnTarget: "https://preview-456.example.app/api/auth/proxy/exchange",
+        proxyMode: "broker",
+        redirectTo: "/dashboard",
+        errorRedirectTo: "/signin",
+      })) as { authorizationUrl: string };
+
+      const state = new URL(start.authorizationUrl).searchParams.get("state");
+      expect(state).toBeTruthy();
+
+      mockFetch({
+        sub: "google-proxy-123",
+        email: "proxy@example.com",
+        name: "Proxy User",
+      });
+
+      const callbackResult = (await t.action(
+        internal.providers.oauth.handleProxyCallback,
+        {
+          provider: googleConfig,
+          code: "proxy-code",
+          state: state!,
+        }
+      )) as { code: string; userId: string; redirectTo?: string };
+
+      expect(callbackResult.code).toBeTruthy();
+      expect(callbackResult.userId).toBeTruthy();
+      expect(callbackResult.redirectTo).toBe("/dashboard");
+
+      const handoffs = await t.run(async (ctx) =>
+        ctx.db.query("oauthProxyHandoffs").collect()
+      );
+      expect(handoffs).toHaveLength(1);
+
+      const exchangeResult = (await t.action(
+        internal.providers.oauth.exchangeProxyCode,
+        {
+          code: callbackResult.code,
+          ipAddress: "203.0.113.25",
+          userAgent: "proxy-test-agent",
+        }
+      )) as { sessionToken: string; userId: string; redirectTo?: string };
+
+      expect(exchangeResult.sessionToken).toBeTruthy();
+      expect(exchangeResult.userId).toBe(callbackResult.userId);
+      expect(exchangeResult.redirectTo).toBe("/dashboard");
+
+      const sessions = await t.run(async (ctx) => ctx.db.query("sessions").collect());
+      expect(sessions).toHaveLength(1);
+
+      const remainingHandoffs = await t.run(async (ctx) =>
+        ctx.db.query("oauthProxyHandoffs").collect()
+      );
+      expect(remainingHandoffs).toHaveLength(0);
+    });
+
+    it("rejects reused OAuth proxy handoff codes", async () => {
+      const t = convexTest(schema, modules);
+      const { state } = await initiateOAuth(t);
+
+      mockFetch({
+        sub: "google-proxy-reuse",
+        email: "reuse@example.com",
+      });
+
+      const callbackResult = (await t.action(
+        internal.providers.oauth.handleProxyCallback,
+        {
+          provider: googleConfig,
+          code: "proxy-code-reuse",
+          state,
+        }
+      )) as { code: string };
+
+      await t.action(internal.providers.oauth.exchangeProxyCode, {
+        code: callbackResult.code,
+      });
+
+      await expect(
+        t.action(internal.providers.oauth.exchangeProxyCode, {
+          code: callbackResult.code,
+        })
+      ).rejects.toThrow("Invalid or expired OAuth proxy code");
+    });
+
+    it("rejects expired OAuth proxy handoff codes", async () => {
+      const t = convexTest(schema, modules);
+      const { state } = await initiateOAuth(t);
+
+      mockFetch({
+        sub: "google-proxy-expired",
+        email: "expired@example.com",
+      });
+
+      const callbackResult = (await t.action(
+        internal.providers.oauth.handleProxyCallback,
+        {
+          provider: googleConfig,
+          code: "proxy-code-expired",
+          state,
+        }
+      )) as { code: string };
+
+      vi.advanceTimersByTime(61 * 1000);
+
+      await expect(
+        t.action(internal.providers.oauth.exchangeProxyCode, {
+          code: callbackResult.code,
+        })
+      ).rejects.toThrow("Invalid or expired OAuth proxy code");
+    });
+
     it("rejects banned user OAuth login", async () => {
       const t = convexTest(schema, modules);
 
@@ -591,6 +749,49 @@ describe("oauth", () => {
           provider: googleConfig,
           code: "code",
           state,
+          checkBanned: true,
+        })
+      ).rejects.toThrow("Account banned");
+    });
+
+    it("rejects banned users during OAuth proxy exchange", async () => {
+      const t = convexTest(schema, modules);
+
+      await t.run(async (ctx) => {
+        const userId = await ctx.db.insert("users", {
+          email: "proxy-banned@example.com",
+          emailVerified: true,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        });
+        await ctx.db.insert("systemAdmin__users", {
+          userId,
+          role: "user",
+          banned: true,
+          banReason: "Abuse",
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        });
+      });
+
+      const { state } = await initiateOAuth(t);
+      mockFetch({
+        sub: "google-proxy-banned",
+        email: "proxy-banned@example.com",
+      });
+
+      const callbackResult = (await t.action(
+        internal.providers.oauth.handleProxyCallback,
+        {
+          provider: googleConfig,
+          code: "proxy-code-banned",
+          state,
+        }
+      )) as { code: string };
+
+      await expect(
+        t.action(internal.providers.oauth.exchangeProxyCode, {
+          code: callbackResult.code,
           checkBanned: true,
         })
       ).rejects.toThrow("Account banned");

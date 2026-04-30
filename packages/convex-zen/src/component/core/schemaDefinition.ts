@@ -52,6 +52,8 @@ export const coreSchemaTables = {
     stateHash: v.string(),
     codeVerifier: v.string(),
     provider: v.string(),
+    returnTarget: v.optional(v.string()),
+    proxyMode: v.optional(v.union(v.literal("direct"), v.literal("broker"))),
     redirectUrl: v.optional(v.string()),
     callbackUrl: v.optional(v.string()),
     redirectTo: v.optional(v.string()),
@@ -59,6 +61,18 @@ export const coreSchemaTables = {
     expiresAt: v.number(),
     createdAt: v.number(),
   }).index("by_stateHash", ["stateHash"]),
+
+  oauthProxyHandoffs: defineTable({
+    codeHash: v.string(),
+    userId: v.id("users"),
+    provider: v.string(),
+    redirectTo: v.optional(v.string()),
+    errorRedirectTo: v.optional(v.string()),
+    expiresAt: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_codeHash", ["codeHash"])
+    .index("by_expiresAt", ["expiresAt"]),
 
   rateLimits: defineTable({
     key: v.string(),

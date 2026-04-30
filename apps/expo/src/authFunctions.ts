@@ -23,6 +23,7 @@ export const authFunctions = {
     invalidateSession: mutationRef("zen/core:invalidateSession"),
     getOAuthUrl: mutationRef("zen/core:getOAuthUrl"),
     handleOAuthCallback: actionRef("zen/core:handleOAuthCallback"),
+    exchangeOAuthProxyCode: actionRef("zen/core:exchangeOAuthProxyCode"),
     currentUser: queryRef("zen/core:currentUser"),
   },
   plugin: {

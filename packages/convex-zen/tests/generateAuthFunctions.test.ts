@@ -387,6 +387,12 @@ const providers = [
 ];
 
 export default defineConvexZen({
+  oauthProxy: {
+    allowedReturnTargets: [
+      { type: "webUrl", url: "https://app.example.com" },
+      { type: "webUrlPattern", pattern: "https://*.vercel.app" },
+    ],
+  },
   providers,
 });
 `
@@ -404,6 +410,11 @@ export default defineConvexZen({
     );
     expect(metaSource).toContain('"getOAuthUrl": "mutation"');
     expect(metaSource).toContain('"handleOAuthCallback": "action"');
+    expect(metaSource).toContain('"handleOAuthProxyCallback": "action"');
+    expect(metaSource).toContain('"exchangeOAuthProxyCode": "action"');
+    expect(metaSource).toContain('"config"');
+    expect(metaSource).toContain('"allowedReturnTargets"');
+    expect(metaSource).toContain('"https://app.example.com"');
 
     const runtimeSource = await readFile(
       path.join(cwd, "convex", "zen", "component", "_runtime.ts"),
@@ -420,6 +431,8 @@ export default defineConvexZen({
       path.join(cwd, "convex", "zen", "core.ts"),
       "utf8"
     );
+    expect(coreSource).toContain("export const handleOAuthProxyCallback = action({");
+    expect(coreSource).toContain("export const exchangeOAuthProxyCode = action({");
     expect(coreSource).not.toContain("export const getUserById = query({");
     expect(coreSource).not.toContain(
       "export const invalidateAllSessions = mutation({"

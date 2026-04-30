@@ -467,6 +467,114 @@ describe("next server auth helpers", () => {
     expect(response.headers.get("set-cookie")).toContain("cz_oauth_state=");
   });
 
+  it("redirects OAuth sign-in to the configured broker origin", async () => {
+    const handler = createNextAuthApiHandler({
+      nextAuth: {
+        getSession: vi.fn(async () => null),
+        getToken: vi.fn(async () => null),
+        signIn: vi.fn(),
+        establishSession: vi.fn(),
+        signOut: vi.fn(),
+      },
+      oauthProxy: {
+        brokerOrigin: "https://auth.example.com",
+      },
+      convexFunctions: {
+        core: {
+          getOAuthUrl: {} as FunctionReference<"mutation", "public">,
+          handleOAuthCallback: {} as FunctionReference<"action", "public">,
+          handleOAuthProxyCallback: {} as FunctionReference<"action", "public">,
+          exchangeOAuthProxyCode: {} as FunctionReference<"action", "public">,
+        },
+      },
+      fetchers: { fetchAction: vi.fn(), fetchMutation: vi.fn() },
+    });
+
+    const response = await handler(
+      new Request(
+        "http://localhost/api/auth/sign-in/google?mode=json&redirectTo=%2Fdashboard&errorRedirectTo=%2Fsignin",
+        { method: "GET" }
+      )
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      authorizationUrl:
+        "https://auth.example.com/api/auth/proxy/sign-in/google?returnTarget=http%3A%2F%2Flocalhost%2Fapi%2Fauth%2Fproxy%2Fexchange&redirectTo=%2Fdashboard&errorRedirectTo=%2Fsignin",
+    });
+  });
+
+  it("rejects disallowed OAuth proxy return targets on the broker route", async () => {
+    const handler = createNextAuthApiHandler({
+      nextAuth: {
+        getSession: vi.fn(async () => null),
+        getToken: vi.fn(async () => null),
+        signIn: vi.fn(),
+        establishSession: vi.fn(),
+        signOut: vi.fn(),
+      },
+      oauthProxy: {
+        allowedReturnTargets: [{ type: "webUrl", url: "https://app.example.com" }],
+      },
+      convexFunctions: {
+        core: {
+          getOAuthUrl: {} as FunctionReference<"mutation", "public">,
+          handleOAuthCallback: {} as FunctionReference<"action", "public">,
+          handleOAuthProxyCallback: {} as FunctionReference<"action", "public">,
+          exchangeOAuthProxyCode: {} as FunctionReference<"action", "public">,
+        },
+      },
+      fetchers: { fetchAction: vi.fn(), fetchMutation: vi.fn() },
+    });
+
+    const response = await handler(
+      new Request(
+        "https://auth.example.com/api/auth/proxy/sign-in/google?returnTarget=https%3A%2F%2Fevil.example.com%2Fapi%2Fauth%2Fproxy%2Fexchange",
+        { method: "GET" }
+      )
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error:
+        "OAuth proxy return target is not allowed: https://evil.example.com/api/auth/proxy/exchange",
+    });
+  });
+
+  it("rejects broker proxy sign-in when no allowed return targets are configured", async () => {
+    const handler = createNextAuthApiHandler({
+      nextAuth: {
+        getSession: vi.fn(async () => null),
+        getToken: vi.fn(async () => null),
+        signIn: vi.fn(),
+        establishSession: vi.fn(),
+        signOut: vi.fn(),
+      },
+      oauthProxy: {},
+      convexFunctions: {
+        core: {
+          getOAuthUrl: {} as FunctionReference<"mutation", "public">,
+          handleOAuthCallback: {} as FunctionReference<"action", "public">,
+          handleOAuthProxyCallback: {} as FunctionReference<"action", "public">,
+          exchangeOAuthProxyCode: {} as FunctionReference<"action", "public">,
+        },
+      },
+      fetchers: { fetchAction: vi.fn(), fetchMutation: vi.fn() },
+    });
+
+    const response = await handler(
+      new Request(
+        "https://auth.example.com/api/auth/proxy/sign-in/google?returnTarget=https%3A%2F%2Fapp.example.com%2Fapi%2Fauth%2Fproxy%2Fexchange",
+        { method: "GET" }
+      )
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "OAuth proxy broker has no allowed return targets configured",
+    });
+  });
+
   it("rejects unsafe OAuth redirect targets", async () => {
     const handler = createNextAuthApiHandler({
       nextAuth: {
@@ -577,6 +685,128 @@ describe("next server auth helpers", () => {
     expect(setCookieHeader).toContain("cz_session=encoded-session-token");
     expect(setCookieHeader).toContain("cz_oauth_state=");
     expect(setCookieHeader).toContain("Max-Age=0");
+  });
+
+  it("completes brokered OAuth callbacks without establishing a broker session", async () => {
+    const fetchAction = vi.fn(async () => ({
+      code: "proxy_exchange_123",
+      userId: "u_demo",
+      redirectTo: "/dashboard",
+    }));
+    const auth = {
+      getSession: vi.fn(async () => null),
+      getToken: vi.fn(async () => null),
+      signIn: vi.fn(),
+      establishSession: vi.fn(),
+      signOut: vi.fn(),
+    };
+    const handler = createNextAuthApiHandler({
+      nextAuth: auth,
+      convexFunctions: {
+        core: {
+          getOAuthUrl: {} as FunctionReference<"mutation", "public">,
+          handleOAuthCallback: {} as FunctionReference<"action", "public">,
+          handleOAuthProxyCallback: {} as FunctionReference<"action", "public">,
+          exchangeOAuthProxyCode: {} as FunctionReference<"action", "public">,
+        },
+      },
+      fetchers: { fetchAction, fetchMutation: vi.fn() },
+    });
+
+    const stateCookie = encodeURIComponent(
+      JSON.stringify({
+        mode: "proxy",
+        state: "oauth-state-123",
+        providerId: "google",
+        redirectTo: "/dashboard",
+        errorRedirectTo: "/signin",
+        returnTarget: "https://preview-123.example.app/api/auth/proxy/exchange",
+      })
+    );
+
+    const response = await handler(
+      new Request(
+        "https://auth.example.com/api/auth/callback/google?code=oauth-code&state=oauth-state-123",
+        {
+          method: "GET",
+          headers: {
+            cookie: `cz_oauth_state=${stateCookie}`,
+          },
+        }
+      )
+    );
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe(
+      "https://preview-123.example.app/api/auth/proxy/exchange?oauth_proxy_code=proxy_exchange_123"
+    );
+    expect(fetchAction).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        providerId: "google",
+        code: "oauth-code",
+        state: "oauth-state-123",
+        callbackUrl: "https://auth.example.com/api/auth/callback/google",
+      })
+    );
+    expect(auth.establishSession).not.toHaveBeenCalled();
+  });
+
+  it("exchanges OAuth proxy codes and establishes the consumer session", async () => {
+    const fetchAction = vi.fn(async () => ({
+      sessionToken: "raw-session-token",
+      userId: "u_demo",
+      redirectTo: "/dashboard",
+    }));
+    const auth = {
+      getSession: vi.fn(async () => null),
+      getToken: vi.fn(async () => null),
+      signIn: vi.fn(),
+      establishSession: vi.fn(async () => ({
+        session: { userId: "u_demo", sessionId: "s_proxy" },
+        token: "encoded-session-token",
+        setCookie: "cz_session=encoded-session-token; Path=/; HttpOnly; SameSite=lax",
+      })),
+      signOut: vi.fn(),
+    };
+    const exchangeOAuthProxyCodeRef = {} as FunctionReference<"action", "public">;
+    const handler = createNextAuthApiHandler({
+      nextAuth: auth,
+      convexFunctions: {
+        core: {
+          getOAuthUrl: {} as FunctionReference<"mutation", "public">,
+          handleOAuthCallback: {} as FunctionReference<"action", "public">,
+          handleOAuthProxyCallback: {} as FunctionReference<"action", "public">,
+          exchangeOAuthProxyCode: exchangeOAuthProxyCodeRef,
+        },
+      },
+      fetchers: { fetchAction, fetchMutation: vi.fn() },
+    });
+
+    const response = await handler(
+      new Request(
+        "https://preview-123.example.app/api/auth/proxy/exchange?oauth_proxy_code=proxy_exchange_123&errorRedirectTo=%2Fsignin",
+        {
+          method: "GET",
+          headers: {
+            "user-agent": "oauth-proxy-agent",
+          },
+        }
+      )
+    );
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe(
+      "https://preview-123.example.app/dashboard"
+    );
+    expect(fetchAction).toHaveBeenCalledWith(exchangeOAuthProxyCodeRef, {
+      code: "proxy_exchange_123",
+      userAgent: "oauth-proxy-agent",
+    });
+    expect(auth.establishSession).toHaveBeenCalledWith("raw-session-token");
+    expect(response.headers.get("set-cookie")).toContain(
+      "cz_session=encoded-session-token"
+    );
   });
 
   it("createNextServerAuthWithHandler wires a ready-to-use handler", async () => {

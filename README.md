@@ -11,6 +11,7 @@ Production-grade authentication for Convex, built as a reusable component packag
 
 - Next.js App Router
 - TanStack Start
+- Expo
 
 The canonical framework examples live in:
 
@@ -26,6 +27,11 @@ For agents and one-shot installs, start with:
 3. the scenario doc returned by `doctor`
 
 Public install docs live under `apps/docs/external/install`.
+
+Shared auth docs:
+
+- `apps/docs/external/oauth.md`
+- `apps/docs/external/oauth-proxy.md`
 
 ## Choose Your Starting Point
 
@@ -47,6 +53,11 @@ The canonical setup model is:
 3. run `npx convex-zen generate`
 4. wire the framework adapter to `convex/zen/_generated/meta.ts`
 5. mount the framework auth provider and auth route
+
+OAuth note:
+
+- direct OAuth is the default
+- single-callback provider support is available through the opt-in broker mode documented in `apps/docs/external/oauth-proxy.md`
 
 Generated files in `convex/zen/*` are not hand-edited.
 

@@ -9,6 +9,10 @@ import type {
 	PluginSchemaDefinition,
 	OAuthCallbackInput,
 	OAuthCallbackResult,
+	OAuthProxyCallbackResult,
+	OAuthProxyConfig,
+	OAuthProxyExchangeInput,
+	OAuthProxyExchangeResult,
 	OAuthProviderConfig,
 	OAuthStartOptions,
 	OAuthStartResult,
@@ -46,7 +50,7 @@ interface RunsActions {
 	runAction(fn: unknown, args: Record<string, unknown>): Promise<unknown>;
 }
 type ConvexCtx = RunsQueries & RunsMutations;
-type PluginList = readonly ConvexAuthPlugin[];
+type PluginList = readonly ConvexAuthPlugin<any>[];
 type PluginRuntimeMap<TPlugins extends PluginList> = {
 	[TPlugin in TPlugins[number] as TPlugin["id"]]: TPlugin["definition"] extends PluginDefinition<
 		any,
@@ -161,6 +165,7 @@ export interface AuthUser {
 /** ConvexZen constructor options. */
 export interface ConvexZenOptions<TPlugins extends PluginList = PluginList> {
 	providers?: OAuthProviderConfig[];
+	oauthProxy?: OAuthProxyConfig;
 	emailPassword?: EmailPasswordConfig;
 	runtime?: RuntimeConfig;
 	plugins?: TPlugins;
@@ -435,7 +440,10 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 				userId,
 				options: plugin.options,
 				runtime,
-				callPluginMutation: async (functionName, args) => {
+					callPluginMutation: async (
+						functionName: string,
+						args: Record<string, unknown>,
+					) => {
 					if (this.runtimeKind === "component") {
 						return await this.runComponentPluginFunction(
 							plugin.id,
@@ -739,6 +747,8 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 		return ctx.runMutation(this.fn("core/gateway:getAuthorizationUrl"), {
 			provider,
 			callbackUrl: resolvedOptions?.callbackUrl,
+			returnTarget: resolvedOptions?.returnTarget,
+			proxyMode: resolvedOptions?.proxyMode,
 			redirectTo: resolvedOptions?.redirectTo,
 			errorRedirectTo: resolvedOptions?.errorRedirectTo,
 			redirectUrl: resolvedOptions?.redirectUrl,
@@ -770,6 +780,45 @@ export class ConvexZen<TPlugins extends PluginList = PluginList> {
 			defaultRole: this.resolveDefaultRole(),
 			checkBanned: this.shouldCheckCreateSession(),
 		}) as Promise<OAuthCallbackResult>;
+	}
+
+	/**
+	 * Handle an OAuth callback by issuing a one-time proxy handoff code instead
+	 * of creating a session immediately.
+	 */
+	async handleProxyCallback(
+		ctx: RunsActions,
+		args: OAuthCallbackInput,
+	): Promise<OAuthProxyCallbackResult> {
+		const provider = this.providerMap.get(args.providerId);
+		if (!provider) {
+			throw new Error(`OAuth provider "${args.providerId}" not configured`);
+		}
+		return ctx.runAction(this.fn("core/gateway:handleProxyCallback"), {
+			provider,
+			code: args.code,
+			state: args.state,
+			callbackUrl: args.callbackUrl,
+			redirectTo: args.redirectTo,
+			errorRedirectTo: args.errorRedirectTo,
+			redirectUrl: args.redirectUrl,
+			defaultRole: this.resolveDefaultRole(),
+		}) as Promise<OAuthProxyCallbackResult>;
+	}
+
+	/**
+	 * Exchange a one-time OAuth proxy handoff code for a new session token.
+	 */
+	async exchangeOAuthProxyCode(
+		ctx: RunsActions,
+		args: OAuthProxyExchangeInput,
+	): Promise<OAuthProxyExchangeResult> {
+		return ctx.runAction(this.fn("core/gateway:exchangeProxyCode"), {
+			code: args.code,
+			ipAddress: args.ipAddress,
+			userAgent: args.userAgent,
+			checkBanned: this.shouldCheckCreateSession(),
+		}) as Promise<OAuthProxyExchangeResult>;
 	}
 
 	/**
@@ -1154,9 +1203,16 @@ export type {
 	OAuthProviderDefinition,
 	OAuthCallbackInput,
 	OAuthCallbackResult,
+	OAuthProxyCallbackResult,
+	OAuthProxyConfig,
+	OAuthProxyExchangeInput,
+	OAuthProxyExchangeResult,
+	OAuthProxyNativeCallbackRule,
 	OAuthProviderConfig,
 	OAuthProviderId,
 	OAuthProviderRuntime,
+	OAuthProxyReturnTargetRule,
+	OAuthProxyWebOriginRule,
 	OAuthStartOptions,
 	OAuthStartResult,
 	OAuthTokenResponse,
@@ -1222,6 +1278,7 @@ export type {
 	ExpoConvexFunctionRefs,
 	ExpoOAuthActions,
 	ExpoOAuthCallbackInput,
+	ExpoOAuthProxyOptions,
 	ExpoOAuthResult,
 	ExpoOAuthSignInOptions,
 	KeyValueAuthStorageOptions,
@@ -1254,6 +1311,7 @@ export type {
 	NextConvexAuthServerOptions,
 	NextCookieOptions,
 	NextCookieSameSite,
+	NextOAuthProxyOptions,
 	NextRequestFromHeadersOptions,
 	NextResolveClientIpContext,
 	NextServerAuth,
