@@ -1,0 +1,17 @@
+name: convex-zen
+icon: null
+processes:
+  tanstack dev:
+    command: cd apps/tanstack && pnpm run dev
+    working_dir: null
+    auto_start: false
+    auto_restart: false
+    restart_when_changed: []
+    env: {}
+  tanstack generate:
+    command: CONVEX_ZEN_DEV=1 pnpm --dir apps/tanstack auth:generate
+    working_dir: null
+    auto_start: false
+    auto_restart: false
+    restart_when_changed: []
+    env: {}
